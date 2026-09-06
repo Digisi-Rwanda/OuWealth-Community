@@ -13,6 +13,8 @@ class FileCategoriesAndValidationTest {
         assertTrue(FileCategories.isKnown(FileCategories.INVESTMENT_DOCUMENT));
         assertTrue(FileCategories.isKnown(FileCategories.INCOME_EXPENSE_DOCUMENT));
         assertTrue(FileCategories.isKnown(FileCategories.SOCIAL_EVIDENCE));
+        assertTrue(FileCategories.isKnown(FileCategories.SHARE_PURCHASE_EVIDENCE));
+        assertTrue(FileCategories.isKnown(FileCategories.CONTRIBUTION_EVIDENCE));
         assertFalse(FileCategories.isKnown("EXECUTABLE"));
     }
 

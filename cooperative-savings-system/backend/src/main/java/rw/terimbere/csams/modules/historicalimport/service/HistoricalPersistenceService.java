@@ -402,7 +402,7 @@ class HistoricalPersistenceService {
                         .membershipStatus(draft.membershipStatus())
                         .membershipDate(requireHistoricalDate(draft.membershipDate(), "Membership Date"))
                         .roleInCooperative(draft.role())
-                        .shareCount(draft.shareCount())
+                        .shareCount(draft.shareCount()) // opening/historical balance, not a purchase
                         .build()));
         return persistedUser.getId();
     }

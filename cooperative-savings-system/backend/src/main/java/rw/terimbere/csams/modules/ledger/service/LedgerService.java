@@ -31,6 +31,7 @@ public class LedgerService {
     public static final String SOURCE_INVESTMENT_RETURN = "INVESTMENT_RETURN";
     public static final String SOURCE_INCOME_EXPENSE = "INCOME_EXPENSE";
     public static final String SOURCE_MEMBER_PAYOUT = "MEMBER_PAYOUT";
+    public static final String SOURCE_SHARE_PURCHASE = "SHARE_PURCHASE";
 
     private final LedgerEntryRepository ledgerEntryRepository;
 
@@ -180,6 +181,10 @@ public class LedgerService {
 
     public static String memberPayoutKey(UUID payoutLineId) {
         return SOURCE_MEMBER_PAYOUT + ":" + payoutLineId + ":MEMBER_PAYOUT:v1";
+    }
+
+    public static String sharePurchaseKey(UUID sharePurchaseId) {
+        return SOURCE_SHARE_PURCHASE + ":" + sharePurchaseId + ":SHARE_PURCHASE:v1";
     }
 
     @Value

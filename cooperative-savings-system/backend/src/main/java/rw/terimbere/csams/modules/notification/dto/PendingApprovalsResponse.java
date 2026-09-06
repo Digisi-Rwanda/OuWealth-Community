@@ -19,4 +19,7 @@ public class PendingApprovalsResponse {
 
     @Builder.Default
     private long loanSecondApprovalCount = 0;
+
+    @Builder.Default
+    private long sharePurchasePendingCount = 0;
 }

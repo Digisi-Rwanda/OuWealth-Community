@@ -60,6 +60,9 @@ class LedgerFinancialCalculationServiceTest {
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.INVESTMENT_CAPITAL_RETURN))))
                 .thenReturn(new BigDecimal("500.0000"));
         when(ledgerEntryRepository.sumApprovedCredits(
+                        eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.SHARE_PURCHASE))))
+                .thenReturn(new BigDecimal("250.0000"));
+        when(ledgerEntryRepository.sumApprovedCredits(
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.LOAN_INTEREST_PAYMENT))))
                 .thenReturn(new BigDecimal("100.0000"));
         when(ledgerEntryRepository.sumApprovedCredits(
@@ -81,12 +84,12 @@ class LedgerFinancialCalculationServiceTest {
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.MEMBER_PAYOUT))))
                 .thenReturn(new BigDecimal("400.0000"));
 
-        // contrib 10000 + fine 300 + other 200 + capitalReturn 500
+        // contrib 10000 + fine 300 + other 200 + capitalReturn 500 + sharePurchases 250
         // + availableInterest (100+50-20=130)
         // − outstanding 2000 − outflow 1000 − expense 150 − payouts 400
-        // = 7580
+        // = 7830
         BigDecimal available = service.calculateAvailableGroupFund(cooperativeId);
-        assertThat(available).isEqualByComparingTo("7580.00");
+        assertThat(available).isEqualByComparingTo("7830.00");
         assertThat(service.calculateAvailableInterest(cooperativeId)).isEqualByComparingTo("130.00");
     }
 

@@ -199,6 +199,9 @@
       "outstandingFines": "Outstanding fines",
       "socialContributions": "Social contributions",
       "contributionPercentage": "Contribution share",
+      "sharesHeld": "Shares held",
+      "currentShareValue": "Current share value",
+      "totalShareValue": "Current ownership value",
       "quickLinksTitle": "Quick links",
       "links": {
         "contributions": "My contributions",
@@ -400,7 +403,10 @@
       "unpaidFines": "Unpaid fines",
       "approvedFinePayments": "Approved fine payments",
       "socialContributions": "Social fund contributions",
-      "payoutTotal": "Payout total"
+      "payoutTotal": "Payout total",
+      "sharesHeld": "Shares held",
+      "currentShareValue": "Current share value",
+      "totalShareValue": "Current ownership value"
     },
     "updateSuccess": "Member updated",
     "statusUpdated": "Membership status updated",
@@ -444,7 +450,9 @@
       "membershipStatus": "Membership status",
       "accountStatus": "Account status",
       "shareCount": "Shares (imigabane)",
-      "shareCountHint": "Number of shares owned by this member."
+      "shareCountHint": "Approved shares owned (0–1000). New members start at 0 and buy their first share.",
+      "shareCountCreateHint": "New members start with 0 shares. They buy shares through Buy Shares; approval posts payment to the ledger.",
+      "shareCountReadOnlyHint": "Owned shares change only after an approved share purchase. Historical import can set an opening balance."
     },
     "roleAssignHint": "Pick the office this person holds. Duties appear under each role.",
     "roleAssignLocked": "Only the President or Vice President can change office roles.",
@@ -1420,6 +1428,7 @@
       "GENERAL_EXPENSE": "General expense",
       "INTEREST_EXPENSE": "Interest expense",
       "MEMBER_PAYOUT": "Member payout",
+      "SHARE_PURCHASE": "Share purchase",
       "ADJUSTMENT": "Adjustment",
       "REVERSAL": "Reversal"
     }
@@ -1443,7 +1452,9 @@
       "contributions": "{{count}} contribution request pending approval",
       "contributions_plural": "{{count}} contribution requests pending approval",
       "loans": "{{count}} loan request pending approval",
-      "loans_plural": "{{count}} loan requests pending approval"
+      "loans_plural": "{{count}} loan requests pending approval",
+      "shares": "{{count}} share purchase pending approval",
+      "shares_plural": "{{count}} share purchases pending approval"
     },
     "fields": {
       "title": "Title",
@@ -1486,6 +1497,54 @@
       "Cooperative": "Saving Scheme"
     }
   },
+  "shares": {
+    "buy": {
+      "action": "Buy Shares",
+      "title": "Buy Shares",
+      "currentPrice": "Current Share Value",
+      "numberOfShares": "Number of Shares to Buy",
+      "totalAmount": "Amount to Pay",
+      "submit": "Submit Purchase",
+      "submitSuccess": "Share purchase submitted ({{status}})",
+      "pendingNotice": "Request status: {{status}}. Owned shares will change only after Accountant, President, or Vice President approval.",
+      "cannotPurchase": "Shares cannot be purchased until a current share value is available.",
+      "uploadFailed": "Could not upload payment proof.",
+      "proofRequired": "Payment proof / receipt is required.",
+      "quantityRequired": "Enter the number of shares",
+      "quantityInvalid": "Enter a whole number between 1 and 1000"
+    },
+    "history": {
+      "title": "Share purchases",
+      "emptyTitle": "No share purchases",
+      "emptyDescription": "Purchase requests and their approval status will appear here."
+    },
+    "approvals": {
+      "title": "Share purchase approvals",
+      "emptyTitle": "No pending share purchases",
+      "emptyDescription": "Member share purchase requests waiting for Accountant, President, or Vice President review appear here.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveSuccess": "Share purchase approved",
+      "rejectSuccess": "Share purchase rejected",
+      "confirmApproveTitle": "Approve share purchase",
+      "confirmApproveMessage": "Approve this purchase? The member's owned shares and the group ledger will update once.",
+      "confirmRejectTitle": "Reject share purchase",
+      "rejectionReason": "Rejection reason"
+    },
+    "fields": {
+      "member": "Member",
+      "numberOfShares": "Shares requested",
+      "pricePerShare": "Share value at purchase",
+      "totalAmount": "Total amount",
+      "requestedAt": "Request date",
+      "status": "Status"
+    },
+    "status": {
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    }
+  },
   "settings": {
     "selectCooperativeTitle": "Select a Saving Scheme",
     "selectCooperativeDescription": "Choose a Saving Scheme in the top bar to manage its settings.",
@@ -1499,7 +1558,9 @@
       "notifyContributions": "Notify on contributions",
       "notifyLoans": "Notify on loans",
       "notifyFines": "Notify on fines",
-      "notifyPayouts": "Notify on payouts"
+      "notifyPayouts": "Notify on payouts",
+      "baseSharePrice": "Base share price (RWF)",
+      "baseSharePriceHint": "Optional. Used only when the group has no issued shares yet. Clear the field and save to remove a configured price."
     },
     "locales": {
       "en": "English",

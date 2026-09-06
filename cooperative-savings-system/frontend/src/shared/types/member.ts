@@ -131,6 +131,9 @@ export interface MemberFinancialSummary {
   socialContributions?: string | number
   contributionPercentage?: string | number | null
   recentPayoutTotal?: string | number
+  sharesHeld?: number | null
+  currentShareValue?: string | number | null
+  totalShareValue?: string | number | null
 }
 
 export function memberDisplayName(member: Pick<Member, 'firstName' | 'lastName' | 'fullName'>): string {

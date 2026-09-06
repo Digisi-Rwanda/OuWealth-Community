@@ -20,7 +20,8 @@ import { loanStatusColor } from '@/features/loans'
 import { formatPayoutPercentage, payoutStatusColor } from '@/features/payouts'
 import { socialStatusColor } from '@/features/socialFund'
 import { MemberFormDialog } from '@/features/members/MemberFormDialog'
-import { selectIsLeadership } from '@/app/store/authSlice'
+import { BuySharesDialog, SharePurchaseHistoryPanel } from '@/features/shares'
+import { selectCanRecordContributions, selectIsLeadership } from '@/app/store/authSlice'
 import { useAppSelector } from '@/app/store/hooks'
 import { fetchContributions } from '@/shared/api/contributions'
 import { fetchFines } from '@/shared/api/fines'
@@ -161,6 +162,18 @@ function MemberFinancialSummaryPanel({
         <InfoRow
           label={t('members.financialSummary.payoutTotal')}
           value={money(s.recentPayoutTotal)}
+        />
+        <InfoRow
+          label={t('members.financialSummary.sharesHeld')}
+          value={s.sharesHeld != null ? String(s.sharesHeld) : '—'}
+        />
+        <InfoRow
+          label={t('members.financialSummary.currentShareValue')}
+          value={money(s.currentShareValue)}
+        />
+        <InfoRow
+          label={t('members.financialSummary.totalShareValue')}
+          value={money(s.totalShareValue)}
         />
       </Box>
     </Paper>
@@ -628,8 +641,11 @@ export function MemberDetailPage() {
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
+  const currentUser = useAppSelector((s) => s.auth.user)
   const canChangeStatus = useAppSelector(selectIsLeadership)
+  const canRecord = useAppSelector(selectCanRecordContributions)
   const [editOpen, setEditOpen] = useState(false)
+  const [buySharesOpen, setBuySharesOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState<MembershipStatus | null>(null)
   const locationPassword = (location.state as { temporaryPassword?: string } | null)
     ?.temporaryPassword
@@ -711,9 +727,16 @@ export function MemberDetailPage() {
         hideBack
         actions={
           member ? (
-            <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-              {t('common.edit')}
-            </Button>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+              {currentUser?.id === member.userId || canRecord ? (
+                <Button variant="outlined" onClick={() => setBuySharesOpen(true)}>
+                  {t('shares.buy.action')}
+                </Button>
+              ) : null}
+              <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
+                {t('common.edit')}
+              </Button>
+            </Stack>
           ) : null
         }
       />
@@ -770,6 +793,10 @@ export function MemberDetailPage() {
               <InfoRow
                 label={t('members.fields.membershipDate')}
                 value={member.membershipDate ?? ''}
+              />
+              <InfoRow
+                label={t('members.fields.shareCount')}
+                value={member.shareCount != null ? String(member.shareCount) : '0'}
               />
             </Stack>
 
@@ -834,6 +861,7 @@ export function MemberDetailPage() {
           </Paper>
           ) : null}
 
+          <SharePurchaseHistoryPanel cooperativeId={cooperativeId} memberUserId={userId} />
           <MemberContributionsSection cooperativeId={cooperativeId} memberUserId={userId} />
           <MemberLoansSection
             cooperativeId={cooperativeId}
@@ -858,6 +886,17 @@ export function MemberDetailPage() {
             embeddedPayouts={member.payouts}
           />
         </Stack>
+      ) : null}
+
+      {cooperativeId ? (
+        <BuySharesDialog
+          open={buySharesOpen}
+          cooperativeId={cooperativeId}
+          memberUserId={
+            currentUser?.id === userId || canRecord ? userId : undefined
+          }
+          onClose={() => setBuySharesOpen(false)}
+        />
       ) : null}
 
       <MemberFormDialog

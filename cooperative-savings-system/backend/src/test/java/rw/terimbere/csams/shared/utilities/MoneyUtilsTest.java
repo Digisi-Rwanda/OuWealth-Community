@@ -34,6 +34,12 @@ class MoneyUtilsTest {
     }
 
     @Test
+    void divideScalesHalfUpAndRejectsZero() {
+        assertEquals(new BigDecimal("50.00"), MoneyUtils.divide(new BigDecimal("100.00"), new BigDecimal("2")));
+        assertThrows(IllegalArgumentException.class, () -> MoneyUtils.divide(BigDecimal.ONE, BigDecimal.ZERO));
+    }
+
+    @Test
     void assertNonNegativeAndPositive() {
         MoneyUtils.assertNonNegative(BigDecimal.ZERO);
         MoneyUtils.assertPositive(new BigDecimal("0.01"));

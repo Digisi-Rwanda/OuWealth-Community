@@ -21,6 +21,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.shared.financial.LedgerTransactionType;
 
 @SpringBootTest
@@ -36,6 +38,9 @@ class InvestmentIncomeExpenseLedgerIntegrationTest {
 
     @Autowired
     private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -58,7 +63,8 @@ class InvestmentIncomeExpenseLedgerIntegrationTest {
                                   "lastName":"Member",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(memberUsername, memberUsername)))
                 .andExpect(status().isOk())
@@ -68,6 +74,7 @@ class InvestmentIncomeExpenseLedgerIntegrationTest {
                 .path("data")
                 .path("userId")
                 .asText());
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 1);
     }
 
     @Test

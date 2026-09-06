@@ -23,6 +23,7 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
  *   + approvedFineIncome (FINE_PAYMENT)
  *   + otherApprovedIncome (OTHER_INCOME)
  *   + returnedInvestmentCapital (INVESTMENT_CAPITAL_RETURN)
+ *   + approved SHARE_PURCHASE credits (cash in; part of availableFunds / total Ikimina value)
  *   + availableInterest
  *   − outstandingLoanPrincipal (ACTIVE/OVERDUE)
  *   − investmentOutflows (INVESTMENT_OUTFLOW debits)
@@ -57,13 +58,14 @@ public class LedgerFinancialCalculationService implements FinancialCalculationSe
         BigDecimal otherIncome = sumApprovedCreditsByType(cooperativeId, LedgerTransactionType.OTHER_INCOME);
         BigDecimal returnedCapital =
                 sumApprovedCreditsByType(cooperativeId, LedgerTransactionType.INVESTMENT_CAPITAL_RETURN);
+        BigDecimal sharePurchases = sumApprovedCreditsByType(cooperativeId, LedgerTransactionType.SHARE_PURCHASE);
         BigDecimal availableInterest = calculateAvailableInterest(cooperativeId);
 
         BigDecimal credits = MoneyUtils.add(
                 MoneyUtils.add(
                         MoneyUtils.add(contributionCredits, fineIncome),
                         MoneyUtils.add(otherIncome, returnedCapital)),
-                availableInterest);
+                MoneyUtils.add(sharePurchases, availableInterest));
 
         BigDecimal outstandingPrincipal = loanRepository.sumOutstandingPrincipalByStatuses(
                 cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE));

@@ -48,9 +48,9 @@ const shareCountSchema = yup
   .string()
   .trim()
   .required()
-  .test('shares', 'Share count must be between 1 and 1000', (value) => {
+  .test('shares', 'Share count must be between 0 and 1000', (value) => {
     const n = Number(value)
-    return Number.isInteger(n) && n >= 1 && n <= 1000
+    return Number.isInteger(n) && n >= 0 && n <= 1000
   })
 
 export const memberFormDefaults: MemberFormValues = {
@@ -64,7 +64,7 @@ export const memberFormDefaults: MemberFormValues = {
   membershipDate: '',
   temporaryPassword: '',
   roleInCooperative: 'MEMBER',
-  shareCount: '1',
+  shareCount: '0',
 }
 
 export const memberCreateSchema: yup.ObjectSchema<MemberFormValues> = yup.object({
@@ -115,7 +115,7 @@ export const memberUpdateSchema = yup.object({
   shareCount: shareCountSchema,
 })
 
-export type MemberUpdateFormValues = Omit<MemberFormValues, 'temporaryPassword'>
+export type MemberUpdateFormValues = Omit<MemberFormValues, 'temporaryPassword' | 'shareCount'>
 
 export function toMemberCreatePayload(values: MemberFormValues): MemberCreateRequest {
   return {
@@ -129,7 +129,6 @@ export function toMemberCreatePayload(values: MemberFormValues): MemberCreateReq
     membershipDate: values.membershipDate.trim() || undefined,
     temporaryPassword: values.temporaryPassword.trim() || undefined,
     roleInCooperative: values.roleInCooperative,
-    shareCount: Number(values.shareCount.trim() || '1'),
   }
 }
 
@@ -144,6 +143,5 @@ export function toMemberUpdatePayload(values: MemberUpdateFormValues): MemberUpd
     address: values.address.trim() || undefined,
     membershipDate: values.membershipDate.trim() || undefined,
     roleInCooperative: values.roleInCooperative,
-    shareCount: Number(values.shareCount.trim() || '1'),
   }
 }

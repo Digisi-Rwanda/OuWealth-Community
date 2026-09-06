@@ -5,7 +5,7 @@ import GavelIcon from '@mui/icons-material/Gavel'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import PercentIcon from '@mui/icons-material/Percent'
 import SavingsIcon from '@mui/icons-material/Savings'
-import { Box, Grid, Paper, Stack, Typography } from '@mui/material'
+import { Box, Button, Grid, Paper, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +15,9 @@ import { fetchMemberFinancialSummary } from '@/shared/api/members'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { MetricCard } from '@/shared/components/MetricCard'
 import { ROUTES } from '@/shared/constants/routes'
+import { BuySharesDialog } from '@/features/shares'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { useState } from 'react'
 
 const METRIC_COLS = { xs: 12, sm: 6, md: 4, lg: 2.4 }
 
@@ -76,6 +78,7 @@ export function MyMemberStatusSection({
 }: MyMemberStatusSectionProps) {
   const { t } = useTranslation()
   const user = useAppSelector((s) => s.auth.user)
+  const [buySharesOpen, setBuySharesOpen] = useState(false)
 
   const summaryQuery = useQuery({
     queryKey: ['members', 'financial-summary', cooperativeId, user?.id],
@@ -161,6 +164,33 @@ export function MyMemberStatusSection({
             loading={loading}
           />
         </Grid>
+        <Grid size={METRIC_COLS}>
+          <MetricCard
+            label={t('dashboard.member.sharesHeld')}
+            value={summary?.sharesHeld != null ? String(summary.sharesHeld) : '—'}
+            icon={<PaymentsIcon fontSize="small" />}
+            accent="blue"
+            loading={loading}
+          />
+        </Grid>
+        <Grid size={METRIC_COLS}>
+          <MetricCard
+            label={t('dashboard.member.currentShareValue')}
+            value={money(summary?.currentShareValue)}
+            icon={<PaymentsIcon fontSize="small" />}
+            accent="green"
+            loading={loading}
+          />
+        </Grid>
+        <Grid size={METRIC_COLS}>
+          <MetricCard
+            label={t('dashboard.member.totalShareValue')}
+            value={money(summary?.totalShareValue)}
+            icon={<PaymentsIcon fontSize="small" />}
+            accent="purple"
+            loading={loading}
+          />
+        </Grid>
       </Grid>
 
       {showQuickLinks ? (
@@ -172,6 +202,9 @@ export function MyMemberStatusSection({
             {t('dashboard.member.actionsTitle')}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }} useFlexGap>
+            <Button variant="outlined" onClick={() => setBuySharesOpen(true)} sx={{ minHeight: 44 }}>
+              {t('shares.buy.action')}
+            </Button>
             {QUICK_LINKS.map((link) => {
               const Icon = link.icon
               return (
@@ -206,6 +239,12 @@ export function MyMemberStatusSection({
           </Stack>
         </Paper>
       ) : null}
+
+      <BuySharesDialog
+        open={buySharesOpen}
+        cooperativeId={cooperativeId}
+        onClose={() => setBuySharesOpen(false)}
+      />
     </Box>
   )
 }

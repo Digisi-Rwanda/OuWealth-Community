@@ -21,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntryStatus;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
 import rw.terimbere.csams.modules.payout.entity.PayoutLine;
@@ -41,6 +43,9 @@ class PayoutControllerIntegrationTest {
 
     @Autowired
     private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     @Autowired
     private PayoutLineRepository payoutLineRepository;
@@ -405,7 +410,7 @@ class PayoutControllerIntegrationTest {
     }
 
     private MvcResult registerMember(String username, String lastName) throws Exception {
-        return mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+        MvcResult result = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
                         .header("Authorization", "Bearer " + superAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -419,6 +424,13 @@ class PayoutControllerIntegrationTest {
                                 """.formatted(lastName, username, username)))
                 .andExpect(status().isOk())
                 .andReturn();
+        UUID userId = UUID.fromString(objectMapper
+                .readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("userId")
+                .asText());
+        OpeningShareBalances.set(membershipRepository, cooperativeId, userId, 1);
+        return result;
     }
 
     private void fundMembers(double amount1, double amount2) throws Exception {

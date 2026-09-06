@@ -37,6 +37,8 @@ import rw.terimbere.csams.modules.loan.service.LoanService;
 import rw.terimbere.csams.modules.payout.entity.PayoutLineStatus;
 import rw.terimbere.csams.modules.payout.repository.PayoutLineRepository;
 import rw.terimbere.csams.modules.payout.service.PayoutService;
+import rw.terimbere.csams.modules.share.dto.ShareValuationResponse;
+import rw.terimbere.csams.modules.share.service.ShareValuationService;
 import rw.terimbere.csams.modules.socialfund.repository.SocialContributionRepository;
 import rw.terimbere.csams.modules.socialfund.service.SocialFundService;
 import rw.terimbere.csams.modules.specialcontribution.repository.SpecialContributionRepository;
@@ -96,6 +98,7 @@ public class MemberService {
     private final SocialContributionRepository socialContributionRepository;
     private final PayoutService payoutService;
     private final PayoutLineRepository payoutLineRepository;
+    private final ShareValuationService shareValuationService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -154,7 +157,7 @@ public class MemberService {
                 .membershipStatus("ACTIVE")
                 .membershipDate(request.getMembershipDate() != null ? request.getMembershipDate() : LocalDate.now())
                 .roleInCooperative(roleInCoop)
-                .shareCount(ShareAmountCalculator.normalizeShareCount(request.getShareCount()))
+                .shareCount(0)
                 .build();
         membership = membershipRepository.save(membership);
 
@@ -289,6 +292,11 @@ public class MemberService {
                 memberUserId,
                 EnumSet.of(PayoutLineStatus.CONFIRMED, PayoutLineStatus.PAID)));
 
+        int sharesHeld = ShareAmountCalculator.ownedShareCount(membership.getShareCount());
+        ShareValuationResponse valuation = shareValuationService.calculate(cooperativeId);
+        BigDecimal currentShareValue = valuation.getCurrentShareValue();
+        BigDecimal totalShareValue = MoneyUtils.multiply(currentShareValue, BigDecimal.valueOf(sharesHeld));
+
         return MemberFinancialSummaryResponse.builder()
                 .cooperativeId(cooperativeId)
                 .memberUserId(memberUserId)
@@ -311,6 +319,9 @@ public class MemberService {
                 .socialContributions(socialContributions)
                 .contributionPercentage(contributionPercentage)
                 .recentPayoutTotal(recentPayoutTotal)
+                .sharesHeld(sharesHeld)
+                .currentShareValue(currentShareValue)
+                .totalShareValue(totalShareValue)
                 .build();
     }
 
@@ -391,9 +402,6 @@ public class MemberService {
             membership.setRoleInCooperative(roleInCoop);
             ensureSystemRoles(user, roleInCoop);
             userRepository.save(user);
-        }
-        if (request.getShareCount() != null) {
-            membership.setShareCount(ShareAmountCalculator.normalizeShareCount(request.getShareCount()));
         }
         membershipRepository.save(membership);
 

@@ -58,6 +58,16 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     @Query(
             """
+            SELECT COALESCE(SUM(l.outstandingInterest), 0)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.status IN :statuses
+            """)
+    BigDecimal sumOutstandingInterestByStatuses(
+            @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<LoanStatus> statuses);
+
+    @Query(
+            """
             SELECT COALESCE(SUM(l.principalAmount), 0)
             FROM Loan l
             WHERE l.cooperativeId = :cooperativeId

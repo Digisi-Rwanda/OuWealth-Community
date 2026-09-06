@@ -53,7 +53,11 @@ public class MemberUpdateRequest {
     @Size(max = 64)
     private String roleInCooperative;
 
-    @Min(1)
+    /**
+     * Ignored on ordinary member update. Owned shares change only through approved SharePurchase
+     * (or historical-import opening balances).
+     */
+    @Min(0)
     @Max(1000)
     private Integer shareCount;
 

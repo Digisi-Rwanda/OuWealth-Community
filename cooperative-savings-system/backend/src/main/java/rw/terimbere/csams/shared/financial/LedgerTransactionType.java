@@ -16,6 +16,7 @@ public enum LedgerTransactionType {
     GENERAL_EXPENSE,
     INTEREST_EXPENSE,
     MEMBER_PAYOUT,
+    SHARE_PURCHASE,
     ADJUSTMENT,
     REVERSAL
 }

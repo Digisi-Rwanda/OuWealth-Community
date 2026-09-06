@@ -89,4 +89,14 @@ public interface FineRepository extends JpaRepository<Fine, UUID> {
             @Param("cooperativeId") UUID cooperativeId,
             @Param("memberUserId") UUID memberUserId,
             @Param("statuses") Collection<FineStatus> statuses);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(f.outstandingAmount), 0)
+            FROM Fine f
+            WHERE f.cooperativeId = :cooperativeId
+              AND f.status IN :statuses
+            """)
+    BigDecimal sumOutstandingByStatuses(
+            @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<FineStatus> statuses);
 }

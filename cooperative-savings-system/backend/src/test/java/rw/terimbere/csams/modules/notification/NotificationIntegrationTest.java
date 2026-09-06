@@ -21,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.repository.NotificationRepository;
 import rw.terimbere.csams.modules.notification.service.NotificationFacade;
@@ -41,6 +43,9 @@ class NotificationIntegrationTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID superAdminUserId;
@@ -265,6 +270,14 @@ class NotificationIntegrationTest {
                                 """.formatted(role, username, username, role)))
                 .andExpect(status().isOk())
                 .andReturn();
+        UUID userId = UUID.fromString(objectMapper
+                .readTree(register.getResponse().getContentAsString())
+                .path("data")
+                .path("userId")
+                .asText());
+        if ("MEMBER".equals(role)) {
+            OpeningShareBalances.set(membershipRepository, cooperativeId, userId, 1);
+        }
         String password = objectMapper
                 .readTree(register.getResponse().getContentAsString())
                 .path("data")

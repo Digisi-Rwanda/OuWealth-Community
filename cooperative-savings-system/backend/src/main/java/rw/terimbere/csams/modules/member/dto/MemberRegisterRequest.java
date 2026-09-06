@@ -55,7 +55,11 @@ public class MemberRegisterRequest {
     @Size(max = 64)
     private String roleInCooperative;
 
-    @Min(1)
+    /**
+     * Ignored on ordinary registration. New members always start at 0 shares and buy through
+     * SharePurchase. Historical import remains the opening-balance path.
+     */
+    @Min(0)
     @Max(1000)
     private Integer shareCount;
 

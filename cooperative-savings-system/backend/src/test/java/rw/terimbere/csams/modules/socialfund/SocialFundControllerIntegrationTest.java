@@ -21,6 +21,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import rw.terimbere.csams.modules.cooperative.CooperativeTestFixtures;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntryStatus;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
 import rw.terimbere.csams.modules.socialfund.repository.SocialContributionRepository;
@@ -46,6 +48,9 @@ class SocialFundControllerIntegrationTest {
 
     @Autowired
     private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -80,7 +85,8 @@ class SocialFundControllerIntegrationTest {
                                   "lastName":"Member",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(memberUsername, memberUsername)))
                 .andExpect(status().isOk())
@@ -89,6 +95,7 @@ class SocialFundControllerIntegrationTest {
                 objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
         memberUserId = UUID.fromString(memberData.path("userId").asText());
         memberPassword = memberData.path("temporaryPassword").asText();
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 1);
     }
 
     @Test

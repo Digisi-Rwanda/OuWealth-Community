@@ -25,6 +25,8 @@ import rw.terimbere.csams.modules.contribution.entity.Contribution;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
 import rw.terimbere.csams.modules.cooperative.CooperativeTestFixtures;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.fine.entity.Fine;
 import rw.terimbere.csams.modules.fine.entity.FineStatus;
 import rw.terimbere.csams.modules.fine.entity.FinePaymentStatus;
@@ -56,6 +58,9 @@ class FineControllerIntegrationTest {
 
     @Autowired
     private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -90,7 +95,8 @@ class FineControllerIntegrationTest {
                                   "lastName":"Member",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(memberUsername, memberUsername)))
                 .andExpect(status().isOk())
@@ -99,6 +105,7 @@ class FineControllerIntegrationTest {
                 objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
         memberUserId = UUID.fromString(memberData.path("userId").asText());
         memberPassword = memberData.path("temporaryPassword").asText();
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 1);
 
         mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/fine-settings")
                         .header("Authorization", "Bearer " + superAdminToken)

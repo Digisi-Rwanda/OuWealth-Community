@@ -23,6 +23,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.loan.entity.Loan;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
@@ -44,6 +46,9 @@ class LoanControllerIntegrationTest {
 
     @Autowired
     private LoanService loanService;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -83,7 +88,8 @@ class LoanControllerIntegrationTest {
                                   "lastName":"Member",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(memberUsername, memberUsername)))
                 .andExpect(status().isOk())
@@ -92,6 +98,7 @@ class LoanControllerIntegrationTest {
                 objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
         memberUserId = UUID.fromString(memberData.path("userId").asText());
         memberPassword = memberData.path("temporaryPassword").asText();
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 1);
 
         guarantorUsername = "gmember_" + UUID.randomUUID().toString().substring(0, 8);
         MvcResult guarantor = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
@@ -103,7 +110,8 @@ class LoanControllerIntegrationTest {
                                   "lastName":"Rantor",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(guarantorUsername, guarantorUsername)))
                 .andExpect(status().isOk())
@@ -112,6 +120,7 @@ class LoanControllerIntegrationTest {
                 objectMapper.readTree(guarantor.getResponse().getContentAsString()).path("data");
         guarantorUserId = UUID.fromString(guarantorData.path("userId").asText());
         guarantorPassword = guarantorData.path("temporaryPassword").asText();
+        OpeningShareBalances.set(membershipRepository, cooperativeId, guarantorUserId, 1);
 
         String officerUsername = "loofficer_" + UUID.randomUUID().toString().substring(0, 8);
         MvcResult officer = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
@@ -531,45 +540,9 @@ class LoanControllerIntegrationTest {
 
     @Test
     void sharePercentTiersCapLoanAmount() throws Exception {
-        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + memberUserId)
-                        .header("Authorization", "Bearer " + superAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "firstName":"Loan",
-                                  "lastName":"Member",
-                                  "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER",
-                                  "shareCount": 4
-                                }
-                                """.formatted(memberUsername)))
-                .andExpect(status().isOk());
-        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + guarantorUserId)
-                        .header("Authorization", "Bearer " + superAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "firstName":"Gua",
-                                  "lastName":"Rantor",
-                                  "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER",
-                                  "shareCount": 2
-                                }
-                                """.formatted(guarantorUsername)))
-                .andExpect(status().isOk());
-        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + officerUserId)
-                        .header("Authorization", "Bearer " + superAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "firstName":"Loan",
-                                  "lastName":"Officer",
-                                  "email":"officer-shares@test.local",
-                                  "roleInCooperative":"LOAN_OFFICER",
-                                  "shareCount": 94
-                                }
-                                """))
-                .andExpect(status().isOk());
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 4);
+        OpeningShareBalances.set(membershipRepository, cooperativeId, guarantorUserId, 2);
+        OpeningShareBalances.set(membershipRepository, cooperativeId, officerUserId, 94);
 
         mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/loan-settings")
                         .header("Authorization", "Bearer " + superAdminToken)

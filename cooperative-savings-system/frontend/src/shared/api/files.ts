@@ -5,6 +5,7 @@ import { parseContentDispositionFilename, throwIfBlobError } from '@/shared/util
 export type FileUploadCategory =
   | 'FINE_PAYMENT_EVIDENCE'
   | 'CONTRIBUTION_EVIDENCE'
+  | 'SHARE_PURCHASE_EVIDENCE'
   | 'SOCIAL_EVIDENCE'
   | 'INVESTMENT_DOCUMENT'
   | 'INCOME_EXPENSE_DOCUMENT'

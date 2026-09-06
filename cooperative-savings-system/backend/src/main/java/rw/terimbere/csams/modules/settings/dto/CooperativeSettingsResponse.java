@@ -1,5 +1,6 @@
 package rw.terimbere.csams.modules.settings.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,7 @@ public class CooperativeSettingsResponse {
     private boolean notifyLoans;
     private boolean notifyFines;
     private boolean notifyPayouts;
+    private BigDecimal baseSharePrice;
     private Instant createdAt;
     private Instant updatedAt;
     private Long version;

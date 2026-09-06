@@ -51,7 +51,7 @@ public class CooperativeMembership {
 
     @Builder.Default
     @Column(name = "share_count", nullable = false)
-    private Integer shareCount = 1;
+    private Integer shareCount = 0;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -78,8 +78,8 @@ public class CooperativeMembership {
         if (membershipDate == null) {
             membershipDate = LocalDate.now();
         }
-        if (shareCount == null || shareCount < 1) {
-            shareCount = 1;
+        if (shareCount == null || shareCount < 0) {
+            shareCount = 0;
         }
     }
 

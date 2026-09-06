@@ -70,6 +70,15 @@ describe('notificationHelpers', () => {
     expect(notificationTargetPath({ entityType: 'Loan', entityId: null })).toBeNull()
   })
 
+  it('routes SharePurchase notifications to contribution approvals', () => {
+    expect(
+      notificationTargetPath({
+        entityType: 'SharePurchase',
+        entityId: 'sp-1',
+      }),
+    ).toBe(`${ROUTES.contributions}?tab=approvals`)
+  })
+
   it('builds pending approval copy items only for counts greater than zero', () => {
     const none: PendingApprovals = {
       contributionPendingCount: 0,
@@ -83,6 +92,7 @@ describe('notificationHelpers', () => {
       contributionPendingCount: 3,
       loanPendingCount: 1,
       loanSecondApprovalCount: 1,
+      sharePurchasePendingCount: 2,
     }
     expect(pendingApprovalItems(pending)).toEqual([
       {
@@ -95,11 +105,17 @@ describe('notificationHelpers', () => {
         count: 2,
         path: `${ROUTES.loans}?tab=approvals`,
       },
+      {
+        kind: 'shares',
+        count: 2,
+        path: `${ROUTES.contributions}?tab=approvals`,
+      },
     ])
     expect(pendingApprovalLabelKey('contributions', 3)).toBe(
       'notifications.pending.contributions_plural',
     )
     expect(pendingApprovalLabelKey('loans', 1)).toBe('notifications.pending.loans')
-    expect(notificationBadgeCount(4, pending)).toBe(9)
+    expect(pendingApprovalLabelKey('shares', 2)).toBe('notifications.pending.shares_plural')
+    expect(notificationBadgeCount(4, pending)).toBe(11)
   })
 })

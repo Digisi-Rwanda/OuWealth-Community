@@ -57,6 +57,11 @@ public class CooperativeSettingsService {
         if (request.getNotifyPayouts() != null) {
             settings.setNotifyPayouts(request.getNotifyPayouts());
         }
+        if (Boolean.TRUE.equals(request.getClearBaseSharePrice())) {
+            settings.setBaseSharePrice(null);
+        } else if (request.getBaseSharePrice() != null) {
+            settings.setBaseSharePrice(request.getBaseSharePrice());
+        }
         return toResponse(settingsRepository.save(settings));
     }
 
@@ -90,6 +95,7 @@ public class CooperativeSettingsService {
                 .notifyLoans(s.isNotifyLoans())
                 .notifyFines(s.isNotifyFines())
                 .notifyPayouts(s.isNotifyPayouts())
+                .baseSharePrice(s.getBaseSharePrice())
                 .createdAt(s.getCreatedAt())
                 .updatedAt(s.getUpdatedAt())
                 .version(s.getVersion())

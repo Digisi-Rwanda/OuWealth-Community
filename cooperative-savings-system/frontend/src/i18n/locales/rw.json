@@ -199,6 +199,9 @@
       "outstandingFines": "Amahane asigaye",
       "socialContributions": "Amafaranga y'ikigega cy'imibereho",
       "contributionPercentage": "Igice cy'amafaranga",
+      "sharesHeld": "Imigabane ifitwe",
+      "currentShareValue": "Agaciro k'umugabane ubu",
+      "totalShareValue": "Agaciro k'ubwite",
       "quickLinksTitle": "Aho kujya vuba",
       "links": {
         "contributions": "Amafaranga yanjye",
@@ -396,7 +399,10 @@
       "unpaidFines": "Amahane atishyuwe",
       "approvedFinePayments": "Kwishyura amahane byemejwe",
       "socialContributions": "Amafaranga y'ikigega cy'imibereho",
-      "payoutTotal": "Amafaranga yatanzwe"
+      "payoutTotal": "Amafaranga yatanzwe",
+      "sharesHeld": "Imigabane ifitwe",
+      "currentShareValue": "Agaciro k'umugabane ubu",
+      "totalShareValue": "Agaciro k'ubwite"
     },
     "updateSuccess": "Umunyamuryango yahinduwe",
     "statusUpdated": "Imiterere y'ubwiyungiro yahinduwe",
@@ -440,7 +446,9 @@
       "membershipStatus": "Imiterere y'ubwiyungiro",
       "accountStatus": "Imiterere ya konti",
       "shareCount": "Imigabane",
-      "shareCountHint": "Umubare w'imigabane uyu munyamuryango afite."
+      "shareCountHint": "Imigabane yemewe (0–1000). Abanyamuryango bashya batangira kuri 0 maze bagura umugabane wa mbere.",
+      "shareCountCreateHint": "Abanyamuryango bashya batangira kuri 0. Bagura imigabane binyuze muri Gura imigabane; kwemeza bishyira kwishyura mu nyandiko.",
+      "shareCountReadOnlyHint": "Imigabane ifitwe ihinduka gusa nyuma y'uko kugura byemejwe. Kuzana amateka gushobora gushyiraho umubare w'ibanze."
     },
     "roleAssignHint": "Hitamo inshingano y'uyu muntu. Icyo akora kigaragara munsi y'inshingano.",
     "roleAssignLocked": "Perezida cyangwa Visi Perezida ni bo bahindura inshingano.",
@@ -1405,6 +1413,7 @@
       "GENERAL_EXPENSE": "Amafaranga asohoka rusange",
       "INTEREST_EXPENSE": "Amafaranga y'inyungu",
       "MEMBER_PAYOUT": "Kwishyura umunyamuryango",
+      "SHARE_PURCHASE": "Kugura imigabane",
       "ADJUSTMENT": "Impinduka",
       "REVERSAL": "Gusubiza inyuma"
     }
@@ -1428,7 +1437,9 @@
       "contributions": "Ubusabe {{count}} bw'amafaranga butegereje kwemezwa",
       "contributions_plural": "Ubusabe {{count}} bw'amafaranga butegereje kwemezwa",
       "loans": "Ubusabe {{count}} bw'inguzanyo butegereje kwemezwa",
-      "loans_plural": "Ubusabe {{count}} bw'inguzanyo butegereje kwemezwa"
+      "loans_plural": "Ubusabe {{count}} bw'inguzanyo butegereje kwemezwa",
+      "shares": "Ubusabe {{count}} bwo kugura imigabane butegereje kwemezwa",
+      "shares_plural": "Ubusabe {{count}} bwo kugura imigabane butegereje kwemezwa"
     },
     "fields": {
       "title": "Umutwe",
@@ -1471,6 +1482,54 @@
       "Cooperative": "Ikimina"
     }
   },
+  "shares": {
+    "buy": {
+      "action": "Gura imigabane",
+      "title": "Gura imigabane",
+      "currentPrice": "Agaciro k'umugabane ubu",
+      "numberOfShares": "Umubare w'imigabane ugura",
+      "totalAmount": "Amafaranga yo kwishyura",
+      "submit": "Ohereza kugura",
+      "submitSuccess": "Ubusabe bwo kugura imigabane bwoherejwe ({{status}})",
+      "pendingNotice": "Imiterere: {{status}}. Imigabane ifitwe izahinduka gusa nyuma y'uko Umucungamari, Perezida, cyangwa Visi Perezida byemeza.",
+      "cannotPurchase": "Ntushobora kugura imigabane kugeza agaciro k'umugabane kabonetse.",
+      "uploadFailed": "Ntibyashoboye kohereza icyemezo cyo kwishyura.",
+      "proofRequired": "Icyemezo cyo kwishyura kirakenewe.",
+      "quantityRequired": "Andika umubare w'imigabane",
+      "quantityInvalid": "Andika umubare wuzuye uri hagati ya 1 na 1000"
+    },
+    "history": {
+      "title": "Kugura imigabane",
+      "emptyTitle": "Nta kugura imigabane",
+      "emptyDescription": "Ubusabe n'imiterere yabyo bizagaragara hano."
+    },
+    "approvals": {
+      "title": "Kwemeza kugura imigabane",
+      "emptyTitle": "Nta busabe butegereje",
+      "emptyDescription": "Ubusabe bw'abanyamuryango butegereje Umucungamari, Perezida, cyangwa Visi Perezida bugaragara hano.",
+      "approve": "Emeza",
+      "reject": "Anga",
+      "approveSuccess": "Kugura imigabane byemejwe",
+      "rejectSuccess": "Kugura imigabane byanzwe",
+      "confirmApproveTitle": "Emeza kugura imigabane",
+      "confirmApproveMessage": "Emeza ubu busabe? Imigabane y'umunyamuryango n'inyandiko z'imari zizahinduka rimwe.",
+      "confirmRejectTitle": "Anga kugura imigabane",
+      "rejectionReason": "Impamvu yo kwanga"
+    },
+    "fields": {
+      "member": "Umunyamuryango",
+      "numberOfShares": "Imigabane yasabwe",
+      "pricePerShare": "Agaciro k'umugabane igihe yagurwaga",
+      "totalAmount": "Igiteranyo",
+      "requestedAt": "Itariki y'ubusabe",
+      "status": "Imiterere"
+    },
+    "status": {
+      "PENDING": "Bitegereje",
+      "APPROVED": "Byemejwe",
+      "REJECTED": "Byanzwe"
+    }
+  },
   "settings": {
     "selectCooperativeTitle": "Hitamo ikimina",
     "selectCooperativeDescription": "Hitamo ikimina hejuru kugira ngo ugenzure igenamiterere.",
@@ -1484,7 +1543,9 @@
       "notifyContributions": "Menyesha ku mafaranga ashyizweho",
       "notifyLoans": "Menyesha ku nguzanyo",
       "notifyFines": "Menyesha ku mahane",
-      "notifyPayouts": "Menyesha ku kwishyura"
+      "notifyPayouts": "Menyesha ku kwishyura",
+      "baseSharePrice": "Igiciro cy'umugabane cy'ibanze (RWF)",
+      "baseSharePriceHint": "Ntibisabwa. Bikoreshwa gusa iyo itsinda ritaragira imigabane. Siga ubusa niba igiciro cy'umugabane wa mbere kigomba kuva mu isuzuma ry'inyuma."
     },
     "locales": {
       "en": "Icyongereza",

@@ -66,6 +66,12 @@ import rw.terimbere.csams.modules.report.dto.ReportType;
 import rw.terimbere.csams.modules.report.dto.ReportTypeResponse;
 import rw.terimbere.csams.modules.report.export.ReportExporter;
 import rw.terimbere.csams.modules.report.export.ReportLabels;
+import rw.terimbere.csams.modules.share.dto.ShareValuationResponse;
+import rw.terimbere.csams.modules.share.entity.SharePurchase;
+import rw.terimbere.csams.modules.share.entity.SharePurchaseStatus;
+import rw.terimbere.csams.modules.share.repository.SharePurchaseRepository;
+import rw.terimbere.csams.modules.share.service.ShareValuationService;
+import rw.terimbere.csams.modules.contribution.ShareAmountCalculator;
 import rw.terimbere.csams.modules.socialfund.entity.SocialContribution;
 import rw.terimbere.csams.modules.socialfund.entity.SocialContributionStatus;
 import rw.terimbere.csams.modules.socialfund.entity.SocialDisbursement;
@@ -110,6 +116,8 @@ public class ReportService {
     private final LedgerEntryRepository ledgerEntryRepository;
     private final AuditLogRepository auditLogRepository;
     private final FinancialCalculationService financialCalculationService;
+    private final ShareValuationService shareValuationService;
+    private final SharePurchaseRepository sharePurchaseRepository;
     private final CooperativeAuthorizationService authorizationService;
     private final AuditService auditService;
     private final ReportExporter reportExporter;
@@ -238,12 +246,28 @@ public class ReportService {
 
         Map<UUID, User> users = loadUsers(
                 memberships.stream().map(CooperativeMembership::getUserId).toList());
+        ShareValuationResponse valuation = shareValuationService.calculate(cooperativeId);
+        Instant periodFrom = periodStart(request.getFromDate());
+        Instant periodTo = periodEnd(request.getToDate());
         List<List<Object>> rows = new ArrayList<>();
+        int additionalTotal = 0;
         for (CooperativeMembership m : memberships) {
             User u = users.get(m.getUserId());
             if (u == null) {
                 continue;
             }
+            int owned = ShareAmountCalculator.ownedShareCount(m.getShareCount());
+            // Additional Shares = approved SharePurchase rows reviewed in-period only.
+            // Historical/imported share_count is an opening balance, not Additional Shares.
+            int additional = toInt(sharePurchaseRepository.sumApprovedSharesInPeriod(
+                    cooperativeId, m.getUserId(), periodFrom, periodTo));
+            int afterPeriod = toInt(sharePurchaseRepository.sumApprovedSharesAfter(
+                    cooperativeId, m.getUserId(), periodTo));
+            int sharesHeldEnd = Math.max(0, owned - afterPeriod);
+            int sharesAtStart = Math.max(0, sharesHeldEnd - additional);
+            additionalTotal += additional;
+            BigDecimal memberCurrentOwnershipValue =
+                    MoneyUtils.multiply(valuation.getCurrentShareValue(), BigDecimal.valueOf(sharesHeldEnd));
             rows.add(cells(
                     nullToEmpty(u.getUsername()),
                     nullToEmpty(u.getFullName()),
@@ -251,14 +275,42 @@ public class ReportService {
                     nullToEmpty(u.getPhone()),
                     nullToEmpty(m.getMembershipStatus()),
                     nullToEmpty(m.getRoleInCooperative()),
-                    m.getMembershipDate()));
+                    m.getMembershipDate(),
+                    sharesAtStart,
+                    additional,
+                    sharesHeldEnd,
+                    MoneyUtils.scale(valuation.getCurrentShareValue()),
+                    memberCurrentOwnershipValue));
         }
         return ReportSheetData.builder()
                 .sheetName("Members")
                 .headers(List.of(
-                        "Username", "Full Name", "Email", "Phone", "Status", "Role", "Membership Date"))
+                        "Username",
+                        "Full Name",
+                        "Email",
+                        "Phone",
+                        "Status",
+                        "Role",
+                        "Membership Date",
+                        "Shares at Start of Period",
+                        "Additional Shares Purchased During Period",
+                        "Shares Held at End of Period",
+                        "Current Share Value",
+                        "Member Current Ownership Value"))
                 .rows(rows)
-                .totalsRow(List.of("TOTAL", rows.size(), "", "", "", "", ""))
+                .totalsRow(List.of(
+                        "TOTAL",
+                        rows.size(),
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        additionalTotal,
+                        "",
+                        "",
+                        ""))
                 .build();
     }
 
@@ -964,8 +1016,25 @@ public class ReportService {
 
     private List<ReportSheetData> fullFinancialSheets(UUID cooperativeId, ReportExportRequest request) {
         BigDecimal available = financialCalculationService.calculateAvailableGroupFund(cooperativeId);
+        ShareValuationResponse valuation = shareValuationService.calculate(cooperativeId);
+        Instant periodFrom = periodStart(request.getFromDate());
+        Instant periodTo = periodEnd(request.getToDate());
+        int additionalShares = toInt(sharePurchaseRepository.sumApprovedSharesInPeriodForCooperative(
+                cooperativeId, periodFrom, periodTo));
+        BigDecimal additionalAmount = MoneyUtils.scale(nvl(sharePurchaseRepository.sumApprovedAmountInPeriod(
+                cooperativeId, periodFrom, periodTo)));
         List<List<Object>> summaryRows = List.of(
-                List.of("Available Group Fund", MoneyUtils.scale(available)),
+                List.of("Available Funds", MoneyUtils.scale(available)),
+                List.of("Outstanding Loans", valuation.getOutstandingLoans()),
+                List.of("Unpaid Interest", valuation.getUnpaidInterest()),
+                List.of("Unpaid Penalties", valuation.getUnpaidPenalties()),
+                List.of("Other Assets", valuation.getOtherAssets()),
+                List.of("Liabilities", valuation.getLiabilities()),
+                List.of("Total Ikimina Value", valuation.getTotalIkiminaValue()),
+                List.of("Total Existing Shares", valuation.getTotalExistingShares()),
+                List.of("Current Share Value", valuation.getCurrentShareValue()),
+                List.of("Additional Shares Purchased During Period", additionalShares),
+                List.of("Amount Paid for Additional Shares", additionalAmount),
                 List.of(
                         "Regular Contributions (report filter)",
                         MoneyUtils.scale(sumColumn(contributionsSheet(cooperativeId, request), 4))),
@@ -983,6 +1052,7 @@ public class ReportService {
                 .headers(List.of("Metric", "Amount"))
                 .rows(summaryRows)
                 .build());
+        sheets.add(sharePurchasesSheet(cooperativeId, request));
         sheets.add(contributionsSheet(cooperativeId, request));
         sheets.add(specialContributionsSheet(cooperativeId, request));
         sheets.add(incomeExpenseSheet(cooperativeId, request, true));
@@ -1031,6 +1101,56 @@ public class ReportService {
             names.put(user.getId(), user.getFullName());
         }
         return names;
+    }
+
+    private ReportSheetData sharePurchasesSheet(UUID cooperativeId, ReportExportRequest request) {
+        Instant periodFrom = periodStart(request.getFromDate());
+        Instant periodTo = periodEnd(request.getToDate());
+        List<SharePurchase> purchases = sharePurchaseRepository.findByCooperativeIdAndStatusAndReviewedAtBetween(
+                cooperativeId, SharePurchaseStatus.APPROVED, periodFrom, periodTo);
+        Map<UUID, String> names = loadMemberNames(
+                purchases.stream().map(SharePurchase::getMemberUserId).distinct().toList());
+        List<List<Object>> rows = new ArrayList<>();
+        BigDecimal amountTotal = BigDecimal.ZERO;
+        int shareTotal = 0;
+        for (SharePurchase p : purchases) {
+            shareTotal += p.getNumberOfShares() == null ? 0 : p.getNumberOfShares();
+            amountTotal = MoneyUtils.add(amountTotal, nvl(p.getTotalAmount()));
+            rows.add(cells(
+                    names.getOrDefault(p.getMemberUserId(), ""),
+                    p.getNumberOfShares(),
+                    MoneyUtils.scale(nvl(p.getPricePerShare())),
+                    MoneyUtils.scale(nvl(p.getTotalAmount())),
+                    p.getReviewedAt(),
+                    p.getStatus() == null ? "" : p.getStatus().name()));
+        }
+        return ReportSheetData.builder()
+                .sheetName("Additional Shares")
+                .headers(List.of(
+                        "Member",
+                        "Additional Shares",
+                        "Price Per Share",
+                        "Amount Paid",
+                        "Approved At",
+                        "Status"))
+                .rows(rows)
+                .totalsRow(List.of("TOTAL", shareTotal, "", MoneyUtils.scale(amountTotal), "", ""))
+                .build();
+    }
+
+    private static Instant periodStart(LocalDate fromDate) {
+        return (fromDate == null ? LocalDate.of(1970, 1, 1) : fromDate)
+                .atStartOfDay()
+                .toInstant(ZoneOffset.UTC);
+    }
+
+    private static Instant periodEnd(LocalDate toDate) {
+        LocalDate end = toDate == null ? LocalDate.of(2100, 12, 31) : toDate;
+        return end.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusMillis(1);
+    }
+
+    private static int toInt(Number value) {
+        return value == null ? 0 : value.intValue();
     }
 
     private static String formatPeriod(ReportExportRequest request) {

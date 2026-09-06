@@ -41,6 +41,8 @@ import rw.terimbere.csams.modules.contribution.repository.ContributionRepository
 import rw.terimbere.csams.modules.fine.repository.FinePaymentRepository;
 import rw.terimbere.csams.modules.incomeexpense.repository.IncomeExpenseTransactionRepository;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
 import rw.terimbere.csams.modules.report.dto.ReportType;
 import rw.terimbere.csams.modules.specialcontribution.repository.SpecialContributionRepository;
@@ -76,6 +78,9 @@ class ReportAndContributionImportIntegrationTest {
 
     @Autowired
     private LedgerEntryRepository ledgerEntryRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -727,12 +732,16 @@ class ReportAndContributionImportIntegrationTest {
                                   "lastName":"%s",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(first, last, username, username)))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
+        JsonNode data = objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
+        OpeningShareBalances.set(
+                membershipRepository, coopId, UUID.fromString(data.path("userId").asText()), 1);
+        return data;
     }
 
     private String loginAccessToken(String username, String password) throws Exception {

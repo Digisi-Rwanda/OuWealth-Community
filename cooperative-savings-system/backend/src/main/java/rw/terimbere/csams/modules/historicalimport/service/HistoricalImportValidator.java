@@ -144,6 +144,7 @@ class HistoricalImportValidator {
                     "Membership Date",
                     errors,
                     "Membership Date is required. Do not leave it blank or use today's date unless the member actually joined today.");
+            // Opening/historical owned shares, not an in-period SharePurchase.
             Integer shareCount = optionalInt(row, "Share Count", 1, errors);
             if (shareCount != null && (shareCount < 1 || shareCount > 1000)) {
                 errors.add(err(row, "Share Count", "INVALID_SHARE_COUNT", "Share count must be between 1 and 1000"));

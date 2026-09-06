@@ -65,4 +65,8 @@ public class MemberFinancialSummaryResponse {
 
     /** Sum of confirmed/paid payout line amounts for this member. */
     private BigDecimal recentPayoutTotal;
+
+    private Integer sharesHeld;
+    private BigDecimal currentShareValue;
+    private BigDecimal totalShareValue;
 }

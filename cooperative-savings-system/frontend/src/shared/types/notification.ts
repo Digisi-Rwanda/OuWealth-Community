@@ -41,4 +41,5 @@ export interface PendingApprovals {
   contributionPendingCount: number
   loanPendingCount: number
   loanSecondApprovalCount: number
+  sharePurchasePendingCount?: number
 }

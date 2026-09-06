@@ -9,6 +9,7 @@ public final class FileCategories {
     public static final String PROFILE_IMAGE = "PROFILE_IMAGE";
     public static final String FINE_PAYMENT_EVIDENCE = "FINE_PAYMENT_EVIDENCE";
     public static final String CONTRIBUTION_EVIDENCE = "CONTRIBUTION_EVIDENCE";
+    public static final String SHARE_PURCHASE_EVIDENCE = "SHARE_PURCHASE_EVIDENCE";
     public static final String SOCIAL_EVIDENCE = "SOCIAL_EVIDENCE";
     public static final String INVESTMENT_DOCUMENT = "INVESTMENT_DOCUMENT";
     public static final String INCOME_EXPENSE_DOCUMENT = "INCOME_EXPENSE_DOCUMENT";
@@ -25,6 +26,7 @@ public final class FileCategories {
                     PROFILE_IMAGE,
                     FINE_PAYMENT_EVIDENCE,
                     CONTRIBUTION_EVIDENCE,
+                    SHARE_PURCHASE_EVIDENCE,
                     SOCIAL_EVIDENCE,
                     INVESTMENT_DOCUMENT,
                     INCOME_EXPENSE_DOCUMENT,

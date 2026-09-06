@@ -13,6 +13,9 @@ import rw.terimbere.csams.modules.contribution.entity.ContributionReviewStatus;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
+import rw.terimbere.csams.modules.share.entity.SharePurchaseStatus;
+import rw.terimbere.csams.modules.share.repository.SharePurchaseRepository;
+import rw.terimbere.csams.modules.share.service.SharePurchaseService;
 import rw.terimbere.csams.modules.notification.dto.NotificationResponse;
 import rw.terimbere.csams.modules.notification.dto.PendingApprovalsResponse;
 import rw.terimbere.csams.modules.notification.entity.Notification;
@@ -33,6 +36,7 @@ public class NotificationService {
     private final CooperativeAuthorizationService authorizationService;
     private final ContributionRepository contributionRepository;
     private final LoanRepository loanRepository;
+    private final SharePurchaseRepository sharePurchaseRepository;
 
     @Transactional
     public Notification create(
@@ -110,10 +114,19 @@ public class NotificationService {
                             LoanStatus.AWAITING_SECOND_APPROVAL, principal.getId());
         }
 
+        long sharePurchasePendingCount = 0;
+        if (SharePurchaseService.canReviewSharePurchases(principal)) {
+            sharePurchasePendingCount = scoped
+                    ? sharePurchaseRepository.countByCooperativeIdInAndStatus(
+                            cooperativeIds, SharePurchaseStatus.PENDING)
+                    : sharePurchaseRepository.countByStatus(SharePurchaseStatus.PENDING);
+        }
+
         return PendingApprovalsResponse.builder()
                 .contributionPendingCount(contributionPendingCount)
                 .loanPendingCount(loanPendingCount)
                 .loanSecondApprovalCount(loanSecondApprovalCount)
+                .sharePurchasePendingCount(sharePurchasePendingCount)
                 .build();
     }
 

@@ -82,6 +82,7 @@ class MemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.username").value(username))
                 .andExpect(jsonPath("$.data.membershipStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.shareCount").value(0))
                 .andExpect(jsonPath("$.data.temporaryPassword").isNotEmpty())
                 .andExpect(jsonPath("$.data.membershipDate").isNotEmpty())
                 .andReturn();
@@ -187,6 +188,46 @@ class MemberControllerIntegrationTest {
                                 """.formatted(newUsername, username)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value(newUsername));
+    }
+
+    @Test
+    void registerAndUpdateIgnoreShareCount() throws Exception {
+        String username = "shares_" + UUID.randomUUID().toString().substring(0, 8);
+        MvcResult register = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Share",
+                                  "lastName":"Locked",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "shareCount":5
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shareCount").value(0))
+                .andReturn();
+        UUID memberUserId = UUID.fromString(objectMapper
+                .readTree(register.getResponse().getContentAsString())
+                .path("data")
+                .path("userId")
+                .asText());
+
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + memberUserId)
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Share",
+                                  "lastName":"Locked",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "shareCount":12
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.shareCount").value(0));
     }
 
     private String loginAccessToken(String username, String password) throws Exception {

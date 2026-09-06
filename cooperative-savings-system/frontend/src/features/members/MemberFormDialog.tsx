@@ -54,7 +54,7 @@ function fromMember(member: Member): MemberFormValues {
     membershipDate: member.membershipDate ?? '',
     temporaryPassword: '',
     roleInCooperative: normalizeRoleInCooperative(member.roleInCooperative),
-    shareCount: String(member.shareCount ?? 1),
+    shareCount: String(member.shareCount ?? 0),
   }
 }
 
@@ -125,7 +125,6 @@ export function MemberFormDialog({
       address: values.address,
       membershipDate: values.membershipDate,
       roleInCooperative: values.roleInCooperative,
-      shareCount: values.shareCount,
     }
     onUpdate?.(toMemberUpdatePayload(updateValues))
   })
@@ -276,13 +275,19 @@ export function MemberFormDialog({
                     helperText={errors.membershipDate?.message}
                     {...register('membershipDate')}
                   />
-                  <TextField
-                    label={t('members.fields.shareCount')}
-                    fullWidth
-                    error={Boolean(errors.shareCount)}
-                    helperText={errors.shareCount?.message || t('members.fields.shareCountHint')}
-                    {...register('shareCount')}
-                  />
+                  {isCreate ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {t('members.fields.shareCountCreateHint')}
+                    </Typography>
+                  ) : (
+                    <TextField
+                      label={t('members.fields.shareCount')}
+                      fullWidth
+                      value={watch('shareCount')}
+                      disabled
+                      helperText={t('members.fields.shareCountReadOnlyHint')}
+                    />
+                  )}
                   <TextField
                     label={t('members.fields.address')}
                     fullWidth

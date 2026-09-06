@@ -3,6 +3,7 @@ package rw.terimbere.csams.modules.settings.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,4 +47,8 @@ public class CooperativeSettings extends BaseEntity {
     @Builder.Default
     @Column(name = "notify_payouts", nullable = false)
     private boolean notifyPayouts = true;
+
+    /** Optional founding price used only when the cooperative has zero issued shares. */
+    @Column(name = "base_share_price", precision = 19, scale = 4)
+    private BigDecimal baseSharePrice;
 }

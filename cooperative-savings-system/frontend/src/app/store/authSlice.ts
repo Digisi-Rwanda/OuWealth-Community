@@ -13,9 +13,11 @@ import {
   PERMISSION_LOAN_WRITE,
   PERMISSION_MEMBERSHIP_MANAGE,
   PERMISSION_PAYOUT_WRITE,
+  ROLE_ACCOUNTANT,
   ROLE_COOPERATIVE_ADMIN,
   ROLE_PRESIDENT,
   ROLE_SUPER_ADMIN,
+  ROLE_VICE_PRESIDENT,
 } from '@/shared/types/auth'
 
 /**
@@ -111,5 +113,14 @@ export const selectCanManageFines = (state: { auth: AuthState }) =>
   hasPermission(state.auth.user, PERMISSION_FINE_WRITE)
 export const selectCanManageFineSettings = (state: { auth: AuthState }) =>
   hasAnyRole(state.auth.user?.roles, [ROLE_PRESIDENT, ROLE_COOPERATIVE_ADMIN, ROLE_SUPER_ADMIN])
+export const selectCanReviewSharePurchases = (state: { auth: AuthState }) =>
+  hasPermission(state.auth.user, PERMISSION_CONTRIBUTION_WRITE) &&
+  hasAnyRole(state.auth.user?.roles, [
+    ROLE_ACCOUNTANT,
+    ROLE_PRESIDENT,
+    ROLE_VICE_PRESIDENT,
+    ROLE_COOPERATIVE_ADMIN,
+    ROLE_SUPER_ADMIN,
+  ])
 
 export default authSlice.reducer

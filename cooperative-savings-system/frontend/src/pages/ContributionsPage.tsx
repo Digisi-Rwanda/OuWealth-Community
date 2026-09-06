@@ -3,7 +3,11 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '@/app/store/hooks'
-import { selectCanRecordContributions, selectIsSuperAdmin } from '@/app/store/authSlice'
+import {
+  selectCanRecordContributions,
+  selectCanReviewSharePurchases,
+  selectIsSuperAdmin,
+} from '@/app/store/authSlice'
 import {
   ContributionApprovalsPanel,
   HistoryPanel,
@@ -11,6 +15,7 @@ import {
   MonthlyEntryPanel,
   SpecialCampaignsPanel,
 } from '@/features/contributions'
+import { SharePurchaseApprovalsPanel } from '@/features/shares'
 import { contributionTabsForUser } from '@/features/contributions/contributionHelpers'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { PageHeader } from '@/shared/components/PageHeader'
@@ -32,6 +37,7 @@ export function ContributionsPage() {
   const [searchParams] = useSearchParams()
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
   const canRecord = useAppSelector(selectCanRecordContributions)
+  const canReviewShares = useAppSelector(selectCanReviewSharePurchases)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
   const tabs = useMemo(
     () => contributionTabsForUser(canRecord, isSuperAdmin),
@@ -132,7 +138,12 @@ export function ContributionsPage() {
         <MemberContributionSubmitPanel cooperativeId={cooperativeId} />
       ) : null}
       {active === 'approvals' ? (
-        <ContributionApprovalsPanel cooperativeId={cooperativeId} />
+        <Stack spacing={4}>
+          <ContributionApprovalsPanel cooperativeId={cooperativeId} />
+          {canReviewShares ? (
+            <SharePurchaseApprovalsPanel cooperativeId={cooperativeId} />
+          ) : null}
+        </Stack>
       ) : null}
       {active === 'history' ? (
         <HistoryPanel cooperativeId={cooperativeId} isAdmin={canRecord} />

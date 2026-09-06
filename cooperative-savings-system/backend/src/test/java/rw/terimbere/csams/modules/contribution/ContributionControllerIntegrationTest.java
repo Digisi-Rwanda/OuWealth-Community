@@ -23,6 +23,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.membership.OpeningShareBalances;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntryStatus;
@@ -51,6 +53,9 @@ class ContributionControllerIntegrationTest {
 
     @Autowired
     private SpecialContributionRepository specialContributionRepository;
+
+    @Autowired
+    private CooperativeMembershipRepository membershipRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -85,7 +90,8 @@ class ContributionControllerIntegrationTest {
                                   "lastName":"Member",
                                   "username":"%s",
                                   "email":"%s@test.local",
-                                  "roleInCooperative":"MEMBER"
+                                  "roleInCooperative":"MEMBER",
+                                  "shareCount": 1
                                 }
                                 """.formatted(memberUsername, memberUsername)))
                 .andExpect(status().isOk())
@@ -94,6 +100,7 @@ class ContributionControllerIntegrationTest {
                 objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
         memberUserId = UUID.fromString(memberData.path("userId").asText());
         memberPassword = memberData.path("temporaryPassword").asText();
+        OpeningShareBalances.set(membershipRepository, cooperativeId, memberUserId, 1);
     }
 
     @Test
@@ -579,13 +586,14 @@ class ContributionControllerIntegrationTest {
                                 }
                                 """.formatted(twoShareUser, twoShareUser)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.shareCount").value(2))
+                .andExpect(jsonPath("$.data.shareCount").value(0))
                 .andReturn();
         UUID twoShareId = UUID.fromString(objectMapper
                 .readTree(register.getResponse().getContentAsString())
                 .path("data")
                 .path("userId")
                 .asText());
+        OpeningShareBalances.set(membershipRepository, cooperativeId, twoShareId, 2);
         String twoSharePassword = objectMapper
                 .readTree(register.getResponse().getContentAsString())
                 .path("data")

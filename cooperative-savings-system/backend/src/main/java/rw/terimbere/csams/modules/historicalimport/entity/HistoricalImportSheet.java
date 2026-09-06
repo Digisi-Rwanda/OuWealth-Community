@@ -20,7 +20,7 @@ public enum HistoricalImportSheet {
                     "Phone",
                     "National ID",
                     "Membership Date",
-                    "Share Count",
+                    "Share Count", // opening/historical owned shares, not a period purchase
                     "Membership Status",
                     "Role"),
             List.of(

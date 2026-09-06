@@ -26,6 +26,7 @@ export {
   selectCanManageMembers,
   selectCanPreparePayouts,
   selectCanRecordContributions,
+  selectCanReviewSharePurchases,
   selectCanWriteSocial,
   selectCanRecordLoans,
   selectCanManageFineSettings,

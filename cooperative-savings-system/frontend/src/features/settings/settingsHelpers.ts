@@ -12,6 +12,7 @@ export interface CooperativeSettingsFormValues {
   notifyLoans: boolean
   notifyFines: boolean
   notifyPayouts: boolean
+  baseSharePrice: string
 }
 
 export const cooperativeSettingsDefaults: CooperativeSettingsFormValues = {
@@ -21,6 +22,7 @@ export const cooperativeSettingsDefaults: CooperativeSettingsFormValues = {
   notifyLoans: true,
   notifyFines: true,
   notifyPayouts: true,
+  baseSharePrice: '',
 }
 
 export function toSettingsFormValues(
@@ -33,12 +35,32 @@ export function toSettingsFormValues(
     notifyLoans: Boolean(settings.notifyLoans),
     notifyFines: Boolean(settings.notifyFines),
     notifyPayouts: Boolean(settings.notifyPayouts),
+    baseSharePrice:
+      settings.baseSharePrice != null && settings.baseSharePrice !== ''
+        ? String(settings.baseSharePrice)
+        : '',
   }
+}
+
+export function validateBaseSharePrice(value: string): true | string {
+  const trimmed = value.trim()
+  if (trimmed === '') {
+    return true
+  }
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 'Base share price must be greater than zero, or left empty to clear'
+  }
+  return true
 }
 
 export function toSettingsPayload(
   values: CooperativeSettingsFormValues,
 ): CooperativeSettingsUpdateRequest {
+  const trimmedPrice = values.baseSharePrice.trim()
+  const parsedPrice = trimmedPrice === '' ? null : Number(trimmedPrice)
+  const hasPositivePrice =
+    parsedPrice != null && Number.isFinite(parsedPrice) && parsedPrice > 0
   return {
     timezone: values.timezone.trim() || DEFAULT_TIMEZONE,
     locale: values.locale.trim() || DEFAULT_LOCALE,
@@ -46,5 +68,7 @@ export function toSettingsPayload(
     notifyLoans: values.notifyLoans,
     notifyFines: values.notifyFines,
     notifyPayouts: values.notifyPayouts,
+    baseSharePrice: hasPositivePrice ? parsedPrice : null,
+    clearBaseSharePrice: !hasPositivePrice,
   }
 }

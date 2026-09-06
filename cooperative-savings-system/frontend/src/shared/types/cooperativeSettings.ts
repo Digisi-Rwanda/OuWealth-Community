@@ -7,6 +7,7 @@ export interface CooperativeSettings {
   notifyLoans: boolean
   notifyFines: boolean
   notifyPayouts: boolean
+  baseSharePrice?: string | number | null
   createdAt?: string
   updatedAt?: string
   version?: number
@@ -19,6 +20,8 @@ export interface CooperativeSettingsUpdateRequest {
   notifyLoans: boolean
   notifyFines: boolean
   notifyPayouts: boolean
+  baseSharePrice?: number | null
+  clearBaseSharePrice?: boolean
 }
 
 export const DEFAULT_TIMEZONE = 'Africa/Kigali'

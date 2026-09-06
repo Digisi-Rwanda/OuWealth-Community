@@ -31,7 +31,8 @@ export function pendingApprovalTotal(pending?: PendingApprovals | null): number 
   return (
     (pending.contributionPendingCount || 0) +
     (pending.loanPendingCount || 0) +
-    (pending.loanSecondApprovalCount || 0)
+    (pending.loanSecondApprovalCount || 0) +
+    (pending.sharePurchasePendingCount || 0)
   )
 }
 
@@ -42,7 +43,7 @@ export function notificationBadgeCount(
   return (unreadCount || 0) + pendingApprovalTotal(pending)
 }
 
-export type PendingApprovalKind = 'contributions' | 'loans'
+export type PendingApprovalKind = 'contributions' | 'loans' | 'shares'
 
 export interface PendingApprovalItem {
   kind: PendingApprovalKind
@@ -71,6 +72,14 @@ export function pendingApprovalItems(
       path: `${ROUTES.loans}?tab=approvals`,
     })
   }
+  const shareCount = pending?.sharePurchasePendingCount ?? 0
+  if (shareCount > 0) {
+    items.push({
+      kind: 'shares',
+      count: shareCount,
+      path: `${ROUTES.contributions}?tab=approvals`,
+    })
+  }
   return items
 }
 
@@ -90,6 +99,9 @@ export function notificationTargetPath(
   if (!type) return null
   if (type === 'contribution') {
     return `${ROUTES.contributions}?tab=history`
+  }
+  if (type === 'sharepurchase') {
+    return `${ROUTES.contributions}?tab=approvals`
   }
   if (type === 'loan' && notification.entityId) {
     return ROUTES.loanDetail(notification.entityId)

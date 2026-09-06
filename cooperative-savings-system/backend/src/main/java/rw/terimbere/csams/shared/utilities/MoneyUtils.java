@@ -40,6 +40,13 @@ public final class MoneyUtils {
         return scale(require(left).multiply(require(right), MATH_CONTEXT));
     }
 
+    public static BigDecimal divide(BigDecimal dividend, BigDecimal divisor) {
+        if (require(divisor).compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalArgumentException("Cannot divide by zero");
+        }
+        return scale(require(dividend).divide(divisor, MATH_CONTEXT));
+    }
+
     /**
      * Calculates {@code amount * (percent / 100)} using BigDecimal only.
      */

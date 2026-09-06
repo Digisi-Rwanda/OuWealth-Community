@@ -18,6 +18,7 @@ import {
   cooperativeSettingsDefaults,
   toSettingsFormValues,
   toSettingsPayload,
+  validateBaseSharePrice,
   type CooperativeSettingsFormValues,
 } from '@/features/settings'
 import { getErrorMessage } from '@/shared/api/client'
@@ -51,7 +52,7 @@ export function SettingsPage() {
     handleSubmit,
     reset,
     control,
-    formState: { isDirty },
+    formState: { isDirty, errors },
   } = useForm<CooperativeSettingsFormValues>({
     defaultValues: cooperativeSettingsDefaults,
   })
@@ -153,6 +154,18 @@ export function SettingsPage() {
                 </MenuItem>
               ))}
             </TextField>
+
+            <TextField
+              label={t('settings.fields.baseSharePrice')}
+              helperText={
+                errors.baseSharePrice?.message || t('settings.fields.baseSharePriceHint')
+              }
+              type="number"
+              error={Boolean(errors.baseSharePrice)}
+              slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+              {...register('baseSharePrice', { validate: validateBaseSharePrice })}
+              fullWidth
+            />
 
             <Typography variant="subtitle2" sx={{ pt: 1 }}>
               {t('settings.notifySection')}
