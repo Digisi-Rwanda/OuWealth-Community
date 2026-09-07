@@ -13,9 +13,10 @@ function key(keyName: string, extra: Partial<KeyboardEvent> = {}): KeyboardEvent
 }
 
 describe('loginSuccessSplash helpers', () => {
-  it('caps the normal-motion ready gate at 4000ms and keeps a short reduced-motion gate', () => {
-    expect(OU_WEALTH_SPLASH_ENTRANCE_MS).toBeLessThanOrEqual(4000)
-    expect(OU_WEALTH_SPLASH_ENTRANCE_MS).toBeGreaterThanOrEqual(3800)
+  it('keeps the normal-motion ready gate at 2.6s within the 2–3s requirement', () => {
+    expect(OU_WEALTH_SPLASH_ENTRANCE_MS).toBe(2600)
+    expect(OU_WEALTH_SPLASH_ENTRANCE_MS).toBeGreaterThanOrEqual(2000)
+    expect(OU_WEALTH_SPLASH_ENTRANCE_MS).toBeLessThanOrEqual(3000)
     expect(OU_WEALTH_SPLASH_REDUCED_MOTION_READY_MS).toBe(50)
     expect(OU_WEALTH_SPLASH_REDUCED_MOTION_READY_MS).toBeLessThan(OU_WEALTH_SPLASH_ENTRANCE_MS)
   })

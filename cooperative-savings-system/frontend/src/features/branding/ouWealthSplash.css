@@ -138,7 +138,7 @@
     rgba(74, 122, 184, 0.12) 42%,
     rgba(27, 77, 140, 0) 68%
   );
-  animation: ouGlow 1.6s 1.35s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+  animation: ouGlow 1s 0.85s cubic-bezier(0.22, 0.7, 0.2, 1) both;
   pointer-events: none;
 }
 
@@ -162,7 +162,7 @@
 }
 
 .ou-splash-mark-wrap {
-  animation: ouSettle 0.95s 2.9s cubic-bezier(0.3, 0.9, 0.25, 1) both;
+  animation: ouSettle 0.65s 1.9s cubic-bezier(0.3, 0.9, 0.25, 1) both;
 }
 
 .ou-splash-mark {
@@ -173,31 +173,31 @@
 }
 
 .ou-splash-ring {
-  animation: ouRing 1.15s 1.45s cubic-bezier(0.5, 0, 0.2, 1) both;
+  animation: ouRing 0.8s 0.9s cubic-bezier(0.5, 0, 0.2, 1) both;
 }
 
 .ou-splash-u-1 {
-  animation: ouDraw 0.95s 0.18s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.1s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-u-2 {
-  animation: ouDraw 0.95s 0.34s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.2s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-u-3 {
-  animation: ouDraw 0.95s 0.5s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.3s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-u-4 {
-  animation: ouDraw 0.95s 0.66s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.4s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-u-5 {
-  animation: ouDraw 0.95s 0.82s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.5s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-u-6 {
-  animation: ouDraw 0.95s 0.98s cubic-bezier(0.4, 0, 0.25, 1) both;
+  animation: ouDraw 0.65s 0.6s cubic-bezier(0.4, 0, 0.25, 1) both;
 }
 
 .ou-splash-copy {
@@ -213,7 +213,7 @@
   line-height: 0.92;
   color: #eaf1fa;
   letter-spacing: -0.018em;
-  animation: ouRise 0.8s 2.35s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+  animation: ouRise 0.55s 1.5s cubic-bezier(0.22, 0.8, 0.2, 1) both;
 }
 
 .ou-splash-rule {
@@ -221,7 +221,7 @@
   height: 1px;
   background: #4a7ab8;
   transform-origin: center;
-  animation: ouRuleIn 0.7s 2.62s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+  animation: ouRuleIn 0.45s 1.75s cubic-bezier(0.22, 0.8, 0.2, 1) both;
 }
 
 .ou-splash-community {
@@ -231,7 +231,7 @@
   color: #4a7ab8;
   letter-spacing: 0.54em;
   padding-left: 0.5625em;
-  animation: ouTrack 0.9s 2.78s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+  animation: ouTrack 0.6s 1.85s cubic-bezier(0.22, 0.8, 0.2, 1) both;
 }
 
 .ou-splash-tagline {
@@ -241,7 +241,7 @@
   line-height: 1;
   color: #8f8880;
   margin-top: 0.75em;
-  animation: ouRise 0.8s 3.1s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+  animation: ouRise 0.55s 2.05s cubic-bezier(0.22, 0.8, 0.2, 1) both;
 }
 
 .ou-splash-instant {

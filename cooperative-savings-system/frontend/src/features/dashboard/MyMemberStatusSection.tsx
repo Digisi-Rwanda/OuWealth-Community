@@ -5,7 +5,7 @@ import GavelIcon from '@mui/icons-material/Gavel'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import PercentIcon from '@mui/icons-material/Percent'
 import SavingsIcon from '@mui/icons-material/Savings'
-import { Box, Button, Grid, Paper, Stack, Typography } from '@mui/material'
+import { Box, Grid, Paper, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -63,6 +63,25 @@ const QUICK_LINKS = [
     icon: PaymentsIcon,
   },
 ] as const
+
+const QUICK_ACTION_SX = {
+  px: 2,
+  py: 1.25,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  color: 'text.primary',
+  border: '1px solid',
+  borderColor: 'divider',
+  borderRadius: 2,
+  minHeight: 44,
+  bgcolor: 'background.paper',
+  cursor: 'pointer',
+  font: 'inherit',
+  appearance: 'none',
+  textAlign: 'left',
+  '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
+} as const
 
 interface MyMemberStatusSectionProps {
   cooperativeId: string
@@ -202,9 +221,19 @@ export function MyMemberStatusSection({
             {t('dashboard.member.actionsTitle')}
           </Typography>
           <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }} useFlexGap>
-            <Button variant="outlined" onClick={() => setBuySharesOpen(true)} sx={{ minHeight: 44 }}>
-              {t('shares.buy.action')}
-            </Button>
+            <Paper
+              component="button"
+              type="button"
+              elevation={0}
+              onClick={() => setBuySharesOpen(true)}
+              sx={QUICK_ACTION_SX}
+            >
+              <PaymentsIcon fontSize="small" />
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {t('shares.buy.action')}
+              </Typography>
+              <ChevronRightIcon fontSize="small" sx={{ ml: 0.25, opacity: 0.7 }} />
+            </Paper>
             {QUICK_LINKS.map((link) => {
               const Icon = link.icon
               return (
@@ -213,20 +242,7 @@ export function MyMemberStatusSection({
                   component={RouterLink}
                   to={link.path}
                   elevation={0}
-                  sx={{
-                    px: 2,
-                    py: 1.25,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    textDecoration: 'none',
-                    color: 'text.primary',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    minHeight: 44,
-                    '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
-                  }}
+                  sx={{ ...QUICK_ACTION_SX, textDecoration: 'none' }}
                 >
                   <Icon fontSize="small" />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
