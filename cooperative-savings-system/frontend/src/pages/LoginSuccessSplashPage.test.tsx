@@ -139,6 +139,24 @@ describe('LoginSuccessSplashPage', () => {
     expect(screen.queryByText('dashboard-route')).not.toBeInTheDocument()
   })
 
+  it('shows the continue prompt and auto-exits at the entrance gate with no interaction', async () => {
+    renderSplash({ state: LOGIN_SUCCESS_STATE })
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_ENTRANCE_MS)
+    })
+    const splash = screen.getByTestId('ouwealth-splash')
+    expect(splash).toHaveAttribute('data-ready', 'true')
+    expect(splash).toHaveClass('is-exiting')
+    expect(screen.getByText('PRESS ANY KEY TO CONTINUE')).toBeInTheDocument()
+    expect(screen.queryByText('dashboard-route')).not.toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_EXIT_MS)
+    })
+    expect(screen.getByText('dashboard-route')).toBeInTheDocument()
+    expect(screen.queryByTestId('ouwealth-splash')).not.toBeInTheDocument()
+  })
+
   it('continues to the original post-login destination after a key press when ready', async () => {
     renderSplash({ state: LOGIN_SUCCESS_STATE })
     await act(async () => {
@@ -207,17 +225,17 @@ describe('LoginSuccessSplashPage', () => {
     fetchSpy.mockRestore()
   })
 
-  it('ignores modifier-only keys after the splash is ready', async () => {
+  it('does not let a modifier-only key create a second navigation after auto-continue', async () => {
     renderSplash({ state: LOGIN_SUCCESS_STATE })
     await act(async () => {
       vi.advanceTimersByTime(OU_WEALTH_SPLASH_ENTRANCE_MS)
     })
     fireEvent.keyDown(window, { key: 'Shift' })
+    fireEvent.keyDown(window, { key: 'Enter' })
     await act(async () => {
       vi.advanceTimersByTime(OU_WEALTH_SPLASH_EXIT_MS)
     })
-    expect(screen.getByTestId('ouwealth-splash')).toBeInTheDocument()
-    expect(screen.queryByText('dashboard-route')).not.toBeInTheDocument()
+    expect(screen.getAllByText('dashboard-route')).toHaveLength(1)
   })
 
   it('does not show the splash for an already authenticated visit to Dashboard', () => {
@@ -325,7 +343,7 @@ describe('LoginSuccessSplashPage', () => {
     expect(screen.getByText('dashboard-route')).toBeInTheDocument()
   })
 
-  it('renders the final composition immediately for reduced motion but still waits for continue', async () => {
+  it('renders the final composition immediately for reduced motion and auto-continues', async () => {
     stubMatchMedia({ reducedMotion: true })
     renderSplash({ state: LOGIN_SUCCESS_STATE })
     expect(screen.getByTestId('ouwealth-splash')).toHaveAttribute('data-ready', 'false')
@@ -339,5 +357,11 @@ describe('LoginSuccessSplashPage', () => {
     expect(screen.getByTestId('ouwealth-splash')).toHaveAttribute('data-ready', 'true')
     expect(screen.getByText('PRESS ANY KEY TO CONTINUE')).toBeInTheDocument()
     expect(screen.getByText('Wealth')).toBeInTheDocument()
+    expect(screen.queryByText('dashboard-route')).not.toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_EXIT_MS)
+    })
+    expect(screen.getByText('dashboard-route')).toBeInTheDocument()
   })
 })

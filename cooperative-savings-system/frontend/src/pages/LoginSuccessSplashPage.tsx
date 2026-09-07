@@ -29,13 +29,13 @@ export function LoginSuccessSplashPage() {
   const exitTimer = useRef<number | null>(null)
 
   const continueToDestination = useCallback(() => {
-    if (!isReadyToContinue || continued.current) return
+    if (continued.current) return
     continued.current = true
     setExiting(true)
     exitTimer.current = window.setTimeout(() => {
       navigate(next, { replace: true })
     }, OU_WEALTH_SPLASH_EXIT_MS)
-  }, [isReadyToContinue, navigate, next])
+  }, [navigate, next])
 
   useEffect(() => {
     return () => {
@@ -65,9 +65,12 @@ export function LoginSuccessSplashPage() {
     const delay = prefersReducedMotion()
       ? OU_WEALTH_SPLASH_REDUCED_MOTION_READY_MS
       : OU_WEALTH_SPLASH_ENTRANCE_MS
-    const id = window.setTimeout(() => setIsReadyToContinue(true), delay)
+    const id = window.setTimeout(() => {
+      setIsReadyToContinue(true)
+      continueToDestination()
+    }, delay)
     return () => window.clearTimeout(id)
-  }, [fromLogin])
+  }, [fromLogin, continueToDestination])
 
   useEffect(() => {
     if (!fromLogin || !isReadyToContinue) return undefined
