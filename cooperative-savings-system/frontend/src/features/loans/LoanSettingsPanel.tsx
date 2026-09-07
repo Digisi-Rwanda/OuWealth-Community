@@ -4,9 +4,14 @@ import {
   Alert,
   Box,
   Button,
+  FormControl,
   FormControlLabel,
+  FormHelperText,
+  FormLabel,
   IconButton,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   Switch,
   TextField,
@@ -24,7 +29,13 @@ import { getErrorMessage } from '@/shared/api/client'
 import { fetchLoanSettings, updateLoanSettings } from '@/shared/api/loanSettings'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
-import { INTEREST_TYPES } from '@/shared/types/loan'
+import {
+  INTEREST_TYPES,
+  LOAN_PENALTY_FREQUENCIES,
+  LOAN_PENALTY_TYPES,
+  LOAN_REPAYMENT_COMPONENTS,
+  type LoanRepaymentComponent,
+} from '@/shared/types/loan'
 import {
   loanSettingsDefaults,
   loanSettingsSchema,
@@ -53,6 +64,8 @@ export function LoanSettingsPanel({ cooperativeId }: LoanSettingsPanelProps) {
     handleSubmit,
     reset,
     control,
+    watch,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<LoanSettingsFormValues>({
     defaultValues: loanSettingsDefaults,
@@ -80,7 +93,21 @@ export function LoanSettingsPanel({ cooperativeId }: LoanSettingsPanelProps) {
           ? String(query.data.minMembershipMonths)
           : '0',
       allowMemberRequests: Boolean(query.data.allowMemberRequests),
-      lateFeeEnabled: Boolean(query.data.lateFeeEnabled),
+      repaymentDateModel:
+        query.data.repaymentDateModel === 'MONTH_END' ? 'MONTH_END' : 'SAME_DAY_OF_MONTH',
+      loanPenaltyEnabled: Boolean(query.data.loanPenaltyEnabled ?? query.data.lateFeeEnabled),
+      penaltyType:
+        (query.data.penaltyType as LoanSettingsFormValues['penaltyType']) || 'FIXED_AMOUNT',
+      penaltyRateOrAmount:
+        query.data.penaltyRateOrAmount != null ? String(query.data.penaltyRateOrAmount) : '0',
+      penaltyFrequency:
+        (query.data.penaltyFrequency as LoanSettingsFormValues['penaltyFrequency']) || 'ONE_TIME',
+      gracePeriodDays:
+        query.data.gracePeriodDays != null ? String(query.data.gracePeriodDays) : '0',
+      allocationOrder:
+        query.data.allocationOrder && query.data.allocationOrder.length === 3
+          ? (query.data.allocationOrder as LoanSettingsFormValues['allocationOrder'])
+          : ['PENALTY', 'INTEREST', 'PRINCIPAL'],
       shareTiers: (query.data.shareTiers ?? []).map((tier) => ({
         minSharePercent: String(tier.minSharePercent ?? ''),
         maxLoanAmount: String(tier.maxLoanAmount ?? ''),
@@ -194,8 +221,45 @@ export function LoanSettingsPanel({ cooperativeId }: LoanSettingsPanelProps) {
             />
           )}
         />
+        <Box>
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            {t('loans.settings.repaymentSection')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('loans.settings.repaymentSectionHint')}
+          </Typography>
+          <Controller
+            name="repaymentDateModel"
+            control={control}
+            render={({ field }) => (
+              <FormControl>
+                <FormLabel>{t('loans.settings.repaymentDateModel')}</FormLabel>
+                <RadioGroup
+                  value={field.value}
+                  onChange={(event) => field.onChange(event.target.value)}
+                >
+                  <FormControlLabel
+                    value="SAME_DAY_OF_MONTH"
+                    control={<Radio />}
+                    label={t('loans.settings.repaymentDateModelSameDay')}
+                  />
+                  <FormControlLabel
+                    value="MONTH_END"
+                    control={<Radio />}
+                    label={t('loans.settings.repaymentDateModelMonthEnd')}
+                  />
+                </RadioGroup>
+                <FormHelperText>
+                  {field.value === 'MONTH_END'
+                    ? t('loans.settings.repaymentDateModelMonthEndHelp')
+                    : t('loans.settings.repaymentDateModelSameDayHelp')}
+                </FormHelperText>
+              </FormControl>
+            )}
+          />
+        </Box>
         <Controller
-          name="lateFeeEnabled"
+          name="loanPenaltyEnabled"
           control={control}
           render={({ field }) => (
             <FormControlLabel
@@ -205,10 +269,100 @@ export function LoanSettingsPanel({ cooperativeId }: LoanSettingsPanelProps) {
                   onChange={(_, checked) => field.onChange(checked)}
                 />
               }
-              label={t('loans.settings.lateFeeEnabled')}
+              label={t('loans.settings.penaltyEnabled')}
             />
           )}
         />
+        {watch('loanPenaltyEnabled') ? (
+          <Stack spacing={2}>
+            <TextField
+              select
+              label={t('loans.settings.penaltyType')}
+              error={Boolean(errors.penaltyType)}
+              helperText={errors.penaltyType?.message}
+              {...register('penaltyType')}
+              fullWidth
+            >
+              {LOAN_PENALTY_TYPES.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {t(
+                    type === 'FIXED_AMOUNT'
+                      ? 'loans.settings.penaltyTypeFixed'
+                      : type === 'PERCENTAGE_OF_OVERDUE_INSTALLMENT'
+                        ? 'loans.settings.penaltyTypeOverdueInstallment'
+                        : 'loans.settings.penaltyTypeOutstandingBalance',
+                  )}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={t('loans.settings.penaltyRateOrAmount')}
+              error={Boolean(errors.penaltyRateOrAmount)}
+              helperText={errors.penaltyRateOrAmount?.message}
+              {...register('penaltyRateOrAmount')}
+              fullWidth
+            />
+            <TextField
+              select
+              label={t('loans.settings.penaltyFrequency')}
+              error={Boolean(errors.penaltyFrequency)}
+              helperText={errors.penaltyFrequency?.message}
+              {...register('penaltyFrequency')}
+              fullWidth
+            >
+              {LOAN_PENALTY_FREQUENCIES.map((frequency) => (
+                <MenuItem key={frequency} value={frequency}>
+                  {t(
+                    frequency === 'ONE_TIME'
+                      ? 'loans.settings.penaltyFrequencyOnce'
+                      : frequency === 'DAILY'
+                        ? 'loans.settings.penaltyFrequencyDaily'
+                        : 'loans.settings.penaltyFrequencyMonthly',
+                  )}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label={t('loans.settings.gracePeriodDays')}
+              error={Boolean(errors.gracePeriodDays)}
+              helperText={errors.gracePeriodDays?.message}
+              {...register('gracePeriodDays')}
+              fullWidth
+            />
+          </Stack>
+        ) : null}
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            {t('loans.settings.allocationOrder')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('loans.settings.allocationOrderHelp')}
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            {([0, 1, 2] as const).map((index) => (
+              <TextField
+                key={index}
+                select
+                label={t('loans.settings.allocationPosition', { position: index + 1 })}
+                value={watch('allocationOrder')[index]}
+                onChange={(event) => {
+                  const next = [...watch('allocationOrder')] as LoanRepaymentComponent[]
+                  next[index] = event.target.value as LoanRepaymentComponent
+                  setValue('allocationOrder', next, { shouldDirty: true, shouldValidate: true })
+                }}
+                error={Boolean(errors.allocationOrder)}
+                helperText={index === 2 ? errors.allocationOrder?.message : undefined}
+                fullWidth
+              >
+                {LOAN_REPAYMENT_COMPONENTS.map((component) => (
+                  <MenuItem key={component} value={component}>
+                    {t(`loans.schedule.allocation.${component}`)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ))}
+          </Stack>
+        </Box>
 
         <Box>
           <Typography variant="subtitle1" sx={{ mb: 0.5 }}>

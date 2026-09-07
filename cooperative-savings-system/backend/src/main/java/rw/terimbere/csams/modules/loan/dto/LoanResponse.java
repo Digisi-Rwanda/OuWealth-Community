@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 import rw.terimbere.csams.modules.audit.dto.ApprovalEventResponse;
 import rw.terimbere.csams.modules.loan.entity.InterestType;
 import rw.terimbere.csams.modules.loan.entity.LoanGuaranteeMode;
+import rw.terimbere.csams.modules.loan.entity.LoanPenaltyFrequency;
+import rw.terimbere.csams.modules.loan.entity.LoanPenaltyType;
+import rw.terimbere.csams.modules.loan.entity.LoanRepaymentDateModel;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 
 @Data
@@ -31,10 +34,27 @@ public class LoanResponse {
     private InterestType interestType;
     private int termMonths;
     private BigDecimal interestAmount;
+    private boolean prorataEnabled;
+    private Integer firstPeriodDays;
+    private BigDecimal regularMonthlyInterest;
+    private BigDecimal firstPeriodInterest;
+    private BigDecimal totalRepayment;
+    private BigDecimal equalInstallmentAmount;
+    private LoanRepaymentDateModel repaymentDateModel;
+    private boolean loanPenaltyEnabled;
+    private LoanPenaltyType penaltyType;
+    private BigDecimal penaltyRateOrAmount;
+    private LoanPenaltyFrequency penaltyFrequency;
+    private Integer gracePeriodDays;
+    private String allocationOrder;
+    private boolean scheduleFinalized;
+    private List<LoanInstallmentResponse> repaymentSchedule;
     private BigDecimal outstandingPrincipal;
     private BigDecimal outstandingInterest;
+    private BigDecimal outstandingPenalty;
     private BigDecimal totalRepaidPrincipal;
     private BigDecimal totalRepaidInterest;
+    private BigDecimal totalRepaidPenalty;
     private LocalDate requestDate;
     private LocalDate approvalDate;
     private LocalDate disbursementDate;

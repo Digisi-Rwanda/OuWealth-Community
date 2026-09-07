@@ -1,5 +1,10 @@
 import { apiClient } from './client'
 import { unwrapApiData } from './auth'
+import {
+  parseContentDispositionFilename,
+  throwIfBlobError,
+  triggerBlobDownload,
+} from '@/shared/utils/download'
 import type { ApiResponse, PageResponse } from '@/shared/types/api'
 import type {
   Loan,
@@ -12,6 +17,8 @@ import type {
   LoanRejectRequest,
   LoanRepayment,
   LoanRepaymentCreateRequest,
+  LoanRepaymentPreviewRequest,
+  LoanSchedulePreview,
 } from '@/shared/types/loan'
 import { mapLoan, mapLoanRepayment } from '@/shared/types/loan'
 
@@ -121,6 +128,17 @@ export async function fetchLoan(cooperativeId: string, loanId: string): Promise<
   return mapLoan(unwrapApiData(response.data))
 }
 
+export async function previewLoanRepayment(
+  cooperativeId: string,
+  payload: LoanRepaymentPreviewRequest,
+): Promise<LoanSchedulePreview> {
+  const response = await apiClient.post<ApiResponse<LoanSchedulePreview>>(
+    `/cooperatives/${cooperativeId}/loans/repayment-preview`,
+    payload,
+  )
+  return unwrapApiData(response.data)
+}
+
 export async function createLoan(
   cooperativeId: string,
   payload: LoanCreateRequest,
@@ -192,4 +210,36 @@ export async function createLoanRepayment(
     payload,
   )
   return mapLoanRepayment(unwrapApiData(response.data))
+}
+
+export async function exportLoanSchedule(
+  cooperativeId: string,
+  loanId: string,
+  format: 'pdf' | 'xlsx',
+): Promise<{ filename: string }> {
+  const response = await apiClient.get(
+    `/cooperatives/${cooperativeId}/loans/${loanId}/schedule/export`,
+    {
+      params: { format },
+      responseType: 'blob',
+      timeout: 120000,
+    },
+  )
+  const blob = response.data as Blob
+  await throwIfBlobError(blob, 'Schedule export failed')
+  const fallback = format === 'xlsx' ? 'loan-schedule.xlsx' : 'loan-schedule.pdf'
+  const filename = parseContentDispositionFilename(
+    response.headers['content-disposition'] as string | undefined,
+    fallback,
+  )
+  const typed =
+    format === 'xlsx'
+      ? new Blob([blob], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+      : blob.type === 'application/pdf'
+        ? blob
+        : new Blob([blob], { type: 'application/pdf' })
+  triggerBlobDownload(typed, filename)
+  return { filename }
 }

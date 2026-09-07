@@ -41,6 +41,12 @@ public class Fine extends BaseEntity {
     @Column(name = "source_contribution_id")
     private UUID sourceContributionId;
 
+    @Column(name = "source_loan_id")
+    private UUID sourceLoanId;
+
+    @Column(name = "source_loan_installment_id")
+    private UUID sourceLoanInstallmentId;
+
     @Column(name = "automatic_source_key", length = 80, unique = true)
     private String automaticSourceKey;
 

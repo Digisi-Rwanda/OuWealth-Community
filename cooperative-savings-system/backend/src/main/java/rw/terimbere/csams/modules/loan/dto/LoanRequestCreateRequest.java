@@ -29,6 +29,13 @@ public class LoanRequestCreateRequest {
     @Max(600)
     private Integer termMonths;
 
+    /** When true, first-period interest uses a 30-day financial-month fraction. */
+    private Boolean prorataEnabled;
+
+    @Min(0)
+    @Max(30)
+    private Integer firstPeriodDays;
+
     private String purpose;
 
     /** SELF = loan on your own; GUARANTOR = loan that needs umwishingizi. */

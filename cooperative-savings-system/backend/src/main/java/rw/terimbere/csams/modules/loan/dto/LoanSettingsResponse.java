@@ -9,6 +9,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import rw.terimbere.csams.modules.loan.entity.InterestType;
+import rw.terimbere.csams.modules.loan.entity.LoanPenaltyFrequency;
+import rw.terimbere.csams.modules.loan.entity.LoanPenaltyType;
+import rw.terimbere.csams.modules.loan.entity.LoanRepaymentComponent;
+import rw.terimbere.csams.modules.loan.entity.LoanRepaymentDateModel;
 
 @Data
 @Builder
@@ -25,6 +29,13 @@ public class LoanSettingsResponse {
     private int minMembershipMonths;
     private boolean allowMemberRequests;
     private boolean lateFeeEnabled;
+    private boolean loanPenaltyEnabled;
+    private LoanRepaymentDateModel repaymentDateModel;
+    private LoanPenaltyType penaltyType;
+    private BigDecimal penaltyRateOrAmount;
+    private LoanPenaltyFrequency penaltyFrequency;
+    private int gracePeriodDays;
+    private List<LoanRepaymentComponent> allocationOrder;
     private String currency;
     private List<LoanShareTierResponse> shareTiers;
     private Instant createdAt;

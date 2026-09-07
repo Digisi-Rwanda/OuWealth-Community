@@ -23,6 +23,7 @@ public class LoanRepaymentResponse {
     private BigDecimal amountTotal;
     private BigDecimal principalPortion;
     private BigDecimal interestPortion;
+    private BigDecimal penaltyPortion;
     private String paymentReference;
     private String notes;
     private UUID recordedBy;

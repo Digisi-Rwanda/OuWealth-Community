@@ -84,8 +84,28 @@ public class LoanSettingsService {
         if (request.getAllowMemberRequests() != null) {
             settings.setAllowMemberRequests(request.getAllowMemberRequests());
         }
-        if (request.getLateFeeEnabled() != null) {
+        if (request.getLoanPenaltyEnabled() != null) {
+            settings.setLateFeeEnabled(request.getLoanPenaltyEnabled());
+        } else if (request.getLateFeeEnabled() != null) {
             settings.setLateFeeEnabled(request.getLateFeeEnabled());
+        }
+        if (request.getRepaymentDateModel() != null) {
+            settings.setRepaymentDateModel(request.getRepaymentDateModel());
+        }
+        if (request.getPenaltyType() != null) {
+            settings.setPenaltyType(request.getPenaltyType());
+        }
+        if (request.getPenaltyRateOrAmount() != null) {
+            settings.setPenaltyRateOrAmount(MoneyUtils.scaleForStorage(request.getPenaltyRateOrAmount()));
+        }
+        if (request.getPenaltyFrequency() != null) {
+            settings.setPenaltyFrequency(request.getPenaltyFrequency());
+        }
+        if (request.getGracePeriodDays() != null) {
+            settings.setGracePeriodDays(request.getGracePeriodDays());
+        }
+        if (request.getAllocationOrder() != null) {
+            settings.setAllocationOrder(LoanAllocationOrder.serialize(request.getAllocationOrder()));
         }
         if (StringUtils.hasText(request.getCurrency())) {
             String currency = request.getCurrency().trim().toUpperCase(Locale.ROOT);
@@ -170,6 +190,16 @@ public class LoanSettingsService {
                 .minMembershipMonths(settings.getMinMembershipMonths())
                 .allowMemberRequests(settings.isAllowMemberRequests())
                 .lateFeeEnabled(settings.isLateFeeEnabled())
+                .loanPenaltyEnabled(settings.isLateFeeEnabled())
+                .repaymentDateModel(settings.getRepaymentDateModel())
+                .penaltyType(settings.getPenaltyType())
+                .penaltyRateOrAmount(MoneyUtils.scale(
+                        settings.getPenaltyRateOrAmount() == null
+                                ? BigDecimal.ZERO
+                                : settings.getPenaltyRateOrAmount()))
+                .penaltyFrequency(settings.getPenaltyFrequency())
+                .gracePeriodDays(settings.getGracePeriodDays())
+                .allocationOrder(LoanAllocationOrder.parse(settings.getAllocationOrder()))
                 .currency(settings.getCurrency())
                 .shareTiers(listShareTiers(settings.getCooperativeId()))
                 .createdAt(settings.getCreatedAt())

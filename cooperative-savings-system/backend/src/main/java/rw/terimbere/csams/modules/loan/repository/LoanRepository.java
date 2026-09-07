@@ -127,6 +127,8 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
     BigDecimal sumTotalRepaidByMember(
             @Param("cooperativeId") UUID cooperativeId, @Param("memberUserId") UUID memberUserId);
 
+    List<Loan> findByStatusIn(Collection<LoanStatus> statuses);
+
     long countByCooperativeIdAndStatus(UUID cooperativeId, LoanStatus status);
 
     long countByStatus(LoanStatus status);

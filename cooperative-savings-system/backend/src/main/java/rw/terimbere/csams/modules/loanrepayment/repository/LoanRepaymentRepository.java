@@ -15,6 +15,8 @@ public interface LoanRepaymentRepository
     List<LoanRepayment> findByLoanIdAndCooperativeIdOrderByPaymentDateDescCreatedAtDesc(
             UUID loanId, UUID cooperativeId);
 
+    List<LoanRepayment> findByLoanIdOrderByPaymentDateAscCreatedAtAsc(UUID loanId);
+
     List<LoanRepayment> findByCooperativeIdAndLoanIdAndPaymentDateAndAmountTotal(
             UUID cooperativeId, UUID loanId, LocalDate paymentDate, BigDecimal amountTotal);
 

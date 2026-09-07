@@ -36,7 +36,10 @@ import rw.terimbere.csams.modules.fine.dto.FineUpdateRequest;
 import rw.terimbere.csams.modules.fine.entity.Fine;
 import rw.terimbere.csams.modules.fine.entity.FineCalculationMode;
 import rw.terimbere.csams.modules.fine.entity.FinePayment;
+import rw.terimbere.csams.modules.fine.entity.FinePaymentMethod;
 import rw.terimbere.csams.modules.fine.entity.FinePaymentStatus;
+import rw.terimbere.csams.modules.loan.entity.Loan;
+import rw.terimbere.csams.modules.loan.entity.LoanInstallment;
 import rw.terimbere.csams.modules.fine.entity.FineSettings;
 import rw.terimbere.csams.modules.fine.entity.FineStatus;
 import rw.terimbere.csams.modules.fine.entity.FineType;
@@ -925,5 +928,113 @@ public class FineService {
 
     private static String userAgent(HttpServletRequest request) {
         return request == null ? null : request.getHeader("User-Agent");
+    }
+
+    /**
+     * Creates an automatic loan-installment penalty Fine. Returns null when the
+     * period key already exists so scheduler retries stay idempotent.
+     */
+    @Transactional
+    public Fine assessLoanInstallmentPenalty(
+            Loan loan,
+            LoanInstallment installment,
+            BigDecimal amount,
+            String periodKey,
+            LocalDate issuedDate,
+            UUID issuedBy) {
+        MoneyUtils.assertPositive(amount);
+        String key = loanPenaltySourceKey(installment.getId(), periodKey);
+        if (fineRepository.existsByAutomaticSourceKey(key)) {
+            return null;
+        }
+        BigDecimal stored = MoneyUtils.scaleForStorage(amount);
+        Fine fine = Fine.builder()
+                .cooperativeId(loan.getCooperativeId())
+                .memberUserId(loan.getMemberUserId())
+                .fineType(FineType.AUTOMATIC)
+                .calculationMode(FineCalculationMode.FIXED)
+                .sourceLoanId(loan.getId())
+                .sourceLoanInstallmentId(installment.getId())
+                .automaticSourceKey(key)
+                .baseAmount(stored)
+                .dailyIncrementSnapshot(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                .overdueDays(0)
+                .totalAmount(stored)
+                .paidAmount(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                .outstandingAmount(stored)
+                .reason("Loan installment " + installment.getInstallmentNumber() + " overdue")
+                .issuedDate(issuedDate)
+                .status(FineStatus.UNPAID)
+                .issuedBy(issuedBy)
+                .build();
+        return fineRepository.save(fine);
+    }
+
+    @Transactional
+    public void applyLoanPenaltyPayment(
+            Fine fine,
+            BigDecimal amount,
+            LocalDate paymentDate,
+            UUID recordedBy,
+            String paymentReference,
+            String currency) {
+        BigDecimal stored = MoneyUtils.scaleForStorage(amount);
+        MoneyUtils.assertPositive(stored);
+        BigDecimal outstanding = MoneyUtils.scaleForStorage(fine.getOutstandingAmount());
+        if (stored.compareTo(outstanding) > 0) {
+            throw new BusinessException("Penalty payment exceeds outstanding fine balance");
+        }
+        FinePayment payment = FinePayment.builder()
+                .fineId(fine.getId())
+                .cooperativeId(fine.getCooperativeId())
+                .memberUserId(fine.getMemberUserId())
+                .amount(stored)
+                .paymentDate(paymentDate)
+                .paymentReference(trimToNull(paymentReference))
+                .paymentMethod(FinePaymentMethod.OTHER)
+                .paymentMethodDetail("Loan repayment allocation")
+                .status(FinePaymentStatus.APPROVED)
+                .submittedBy(recordedBy)
+                .reviewedBy(recordedBy)
+                .reviewedAt(Instant.now())
+                .build();
+        payment = finePaymentRepository.save(payment);
+
+        BigDecimal newPaid = MoneyUtils.scaleForStorage(nvl(fine.getPaidAmount()).add(stored));
+        BigDecimal newOutstanding = MoneyUtils.scaleForStorage(outstanding.subtract(stored));
+        fine.setPaidAmount(newPaid);
+        fine.setOutstandingAmount(newOutstanding);
+        fine.setStatus(deriveFineStatus(newPaid, fine.getTotalAmount(), newOutstanding));
+        fineRepository.save(fine);
+
+        ledgerService.appendApproved(LedgerService.AppendRequest.builder()
+                .cooperativeId(fine.getCooperativeId())
+                .memberUserId(fine.getMemberUserId())
+                .transactionType(LedgerTransactionType.FINE_PAYMENT)
+                .debitAmount(BigDecimal.ZERO)
+                .creditAmount(stored)
+                .currency(currency)
+                .transactionDate(paymentDate)
+                .reference(payment.getPaymentReference())
+                .sourceEntityType(LedgerService.SOURCE_FINE_PAYMENT)
+                .sourceEntityId(payment.getId())
+                .description("Loan installment penalty payment")
+                .recordedBy(recordedBy)
+                .approvedBy(recordedBy)
+                .idempotencyKey(LedgerService.finePaymentKey(payment.getId()))
+                .build());
+    }
+
+    public List<Fine> unpaidLoanInstallmentFines(UUID installmentId) {
+        return fineRepository.findBySourceLoanInstallmentIdAndStatusInOrderByIssuedDateAscCreatedAtAsc(
+                installmentId, EnumSet.of(FineStatus.UNPAID, FineStatus.PARTIALLY_PAID));
+    }
+
+    public static String loanPenaltySourceKey(UUID installmentId, String periodKey) {
+        return "LOAN:" + installmentId + ":" + periodKey;
+    }
+
+    private static BigDecimal nvl(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

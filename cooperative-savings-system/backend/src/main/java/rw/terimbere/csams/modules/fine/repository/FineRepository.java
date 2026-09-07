@@ -39,6 +39,9 @@ public interface FineRepository extends JpaRepository<Fine, UUID> {
 
     boolean existsByAutomaticSourceKey(String automaticSourceKey);
 
+    List<Fine> findBySourceLoanInstallmentIdAndStatusInOrderByIssuedDateAscCreatedAtAsc(
+            UUID sourceLoanInstallmentId, Collection<FineStatus> statuses);
+
     long countByCooperativeId(UUID cooperativeId);
 
     long countByCooperativeIdAndStatusIn(UUID cooperativeId, Collection<FineStatus> statuses);

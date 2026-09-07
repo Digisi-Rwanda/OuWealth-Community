@@ -164,7 +164,7 @@ class LoanControllerIntegrationTest {
     void requestApproveDisbursePartialAndFullRepayCloses() throws Exception {
         fundGroup(10000.0000);
 
-        UUID loanId = requestAndApprove(2000.0000, 6);
+        UUID loanId = requestAndApprove(2000.0000, 1);
 
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
@@ -311,7 +311,7 @@ class LoanControllerIntegrationTest {
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.interestRatePercent").value(10.0))
-                .andExpect(jsonPath("$.data.interestAmount").value(100.0))
+                .andExpect(jsonPath("$.data.interestAmount").value(600.0))
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
     }
 
@@ -793,6 +793,220 @@ class LoanControllerIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.interestRatePercent").value(11.0));
+    }
+
+    @Test
+    void repaymentPreviewMatchesFlatAndProrataExamples() throws Exception {
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/loan-settings")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "interestRatePercent": 2.0000,
+                                  "interestType": "FLAT",
+                                  "maxLoanAmount": 1000000.0000,
+                                  "maxTermMonths": 12,
+                                  "allowMemberRequests": true
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/repayment-preview")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 300000.0000,
+                                  "termMonths": 5,
+                                  "referenceDate": "2026-01-15"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.repaymentDateModel").value("SAME_DAY_OF_MONTH"))
+                .andExpect(jsonPath("$.data.regularMonthlyInterest").value(6000.0))
+                .andExpect(jsonPath("$.data.totalInterest").value(30000.0))
+                .andExpect(jsonPath("$.data.totalRepayment").value(330000.0))
+                .andExpect(jsonPath("$.data.equalInstallmentAmount").value(66000.0))
+                .andExpect(jsonPath("$.data.scheduleFinalized").value(false))
+                .andExpect(jsonPath("$.data.installments[0].dueDate").value("2026-02-15"));
+
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/loan-settings")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "interestRatePercent": 2.0000,
+                                  "interestType": "FLAT",
+                                  "maxLoanAmount": 1000000.0000,
+                                  "maxTermMonths": 12,
+                                  "allowMemberRequests": true,
+                                  "repaymentDateModel": "MONTH_END"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/repayment-preview")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 300000.0000,
+                                  "termMonths": 5,
+                                  "referenceDate": "2026-01-15"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.repaymentDateModel").value("MONTH_END"))
+                .andExpect(jsonPath("$.data.firstPeriodDays").value(16))
+                .andExpect(jsonPath("$.data.firstPeriodInterest").value(3096.77))
+                .andExpect(jsonPath("$.data.scheduleFinalized").value(false))
+                .andExpect(jsonPath("$.data.installments[0].dueDate").value("2026-01-31"));
+    }
+
+    @Test
+    void prorataLoanPersistsContractAndDoesNotTreatPrincipalAsIncome() throws Exception {
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/loan-settings")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "interestRatePercent": 2.0000,
+                                  "interestType": "FLAT",
+                                  "maxLoanAmount": 1000000.0000,
+                                  "maxTermMonths": 12,
+                                  "allowMemberRequests": true,
+                                  "repaymentDateModel": "MONTH_END"
+                                }
+                                """))
+                .andExpect(status().isOk());
+        fundGroup(400000.0000);
+
+        MvcResult requestResult = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "memberUserId": "%s",
+                                  "amount": 300000.0000,
+                                  "termMonths": 5,
+                                  "purpose": "Prorata business"
+                                }
+                                """.formatted(memberUserId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.prorataEnabled").value(true))
+                .andExpect(jsonPath("$.data.repaymentDateModel").value("MONTH_END"))
+                .andExpect(jsonPath("$.data.scheduleFinalized").value(false))
+                .andReturn();
+        UUID loanId = UUID.fromString(objectMapper
+                .readTree(requestResult.getResponse().getContentAsString())
+                .path("data")
+                .path("id")
+                .asText());
+        completeTwoStepApproval(loanId);
+
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.prorataEnabled").value(true))
+                .andExpect(jsonPath("$.data.scheduleFinalized").value(false));
+
+        MvcResult disburseResult = mockMvc.perform(
+                        post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/disburse")
+                                .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.outstandingPrincipal").value(300000.0))
+                .andExpect(jsonPath("$.data.scheduleFinalized").value(true))
+                .andReturn();
+        JsonNode disbursed = objectMapper
+                .readTree(disburseResult.getResponse().getContentAsString())
+                .path("data");
+        LocalDate today = LocalDate.now();
+        int expectedDays = (int) java.time.temporal.ChronoUnit.DAYS.between(
+                today, today.withDayOfMonth(today.lengthOfMonth()));
+        assertThat(disbursed.path("firstPeriodDays").asInt()).isEqualTo(expectedDays);
+        assertThat(disbursed.path("repaymentDateModel").asText()).isEqualTo("MONTH_END");
+        BigDecimal firstInterest = new BigDecimal(disbursed.path("repaymentSchedule").get(0)
+                .path("interestComponent")
+                .asText());
+        BigDecimal firstPrincipal = new BigDecimal(disbursed.path("repaymentSchedule").get(0)
+                .path("principalComponent")
+                .asText());
+        BigDecimal totalInterest = new BigDecimal(disbursed.path("outstandingInterest").asText());
+        assertThat(firstInterest).isEqualByComparingTo(
+                new BigDecimal("300000").multiply(new BigDecimal("0.02"))
+                        .multiply(BigDecimal.valueOf(expectedDays))
+                        .divide(BigDecimal.valueOf(today.lengthOfMonth()), 2, java.math.RoundingMode.HALF_UP));
+
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/dashboard/summary")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableGroupFunds").value(100000.0))
+                .andExpect(jsonPath("$.data.outstandingLoanPrincipal").value(300000.0));
+
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/repayments")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": %s,
+                                  "paymentDate": "2026-08-01"
+                                }
+                                """.formatted(firstInterest.toPlainString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interestPortion").value(firstInterest.doubleValue()))
+                .andExpect(jsonPath("$.data.principalPortion").value(0.0));
+
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/dashboard/summary")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableGroupFunds")
+                        .value(new BigDecimal("100000").add(firstInterest).doubleValue()))
+                .andExpect(jsonPath("$.data.loanInterestEarned").value(firstInterest.doubleValue()))
+                .andExpect(jsonPath("$.data.outstandingLoanPrincipal").value(300000.0));
+
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/repayments")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": %s,
+                                  "paymentDate": "2026-08-02"
+                                }
+                                """.formatted(firstPrincipal.toPlainString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.principalPortion").value(firstPrincipal.doubleValue()))
+                .andExpect(jsonPath("$.data.interestPortion").value(0.0));
+
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.outstandingPrincipal")
+                        .value(new BigDecimal("300000").subtract(firstPrincipal).doubleValue()))
+                .andExpect(jsonPath("$.data.outstandingInterest")
+                        .value(totalInterest.subtract(firstInterest).doubleValue()));
+
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/dashboard/summary")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.availableGroupFunds")
+                        .value(new BigDecimal("100000").add(firstPrincipal).add(firstInterest).doubleValue()))
+                .andExpect(jsonPath("$.data.loanInterestEarned").value(firstInterest.doubleValue()))
+                .andExpect(jsonPath("$.data.outstandingLoanPrincipal")
+                        .value(new BigDecimal("300000").subtract(firstPrincipal).doubleValue()));
+    }
+
+    @Test
+    void zeroInstallmentsAreRejected() throws Exception {
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/repayment-preview")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 300000.0000,
+                                  "termMonths": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

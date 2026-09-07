@@ -1,5 +1,12 @@
 import * as yup from 'yup'
-import type { InterestType, LoanGuaranteeMode } from '@/shared/types/loan'
+import type {
+  InterestType,
+  LoanGuaranteeMode,
+  LoanPenaltyFrequency,
+  LoanPenaltyType,
+  LoanRepaymentComponent,
+  LoanRepaymentDateModel,
+} from '@/shared/types/loan'
 import type { LoanCreateRequest } from '@/shared/types/loan'
 import type { LoanRepaymentCreateRequest } from '@/shared/types/loan'
 import type { LoanSettingsUpdateRequest } from '@/shared/types/loan'
@@ -188,7 +195,13 @@ export type LoanSettingsFormValues = {
   maxTermMonths: string
   minMembershipMonths: string
   allowMemberRequests: boolean
-  lateFeeEnabled: boolean
+  repaymentDateModel: LoanRepaymentDateModel
+  loanPenaltyEnabled: boolean
+  penaltyType: LoanPenaltyType
+  penaltyRateOrAmount: string
+  penaltyFrequency: LoanPenaltyFrequency
+  gracePeriodDays: string
+  allocationOrder: LoanRepaymentComponent[]
   shareTiers: LoanShareTierFormValues[]
 }
 
@@ -199,7 +212,13 @@ export const loanSettingsDefaults: LoanSettingsFormValues = {
   maxTermMonths: '',
   minMembershipMonths: '0',
   allowMemberRequests: true,
-  lateFeeEnabled: false,
+  repaymentDateModel: 'SAME_DAY_OF_MONTH',
+  loanPenaltyEnabled: false,
+  penaltyType: 'FIXED_AMOUNT',
+  penaltyRateOrAmount: '0',
+  penaltyFrequency: 'ONE_TIME',
+  gracePeriodDays: '0',
+  allocationOrder: ['PENALTY', 'INTEREST', 'PRINCIPAL'],
   shareTiers: [],
 }
 
@@ -242,7 +261,50 @@ export const loanSettingsSchema: yup.ObjectSchema<LoanSettingsFormValues> = yup.
       return Number.isInteger(n) && n >= 0
     }),
   allowMemberRequests: yup.boolean().required(),
-  lateFeeEnabled: yup.boolean().required(),
+  repaymentDateModel: yup
+    .mixed<LoanRepaymentDateModel>()
+    .oneOf(['SAME_DAY_OF_MONTH', 'MONTH_END'])
+    .required(),
+  loanPenaltyEnabled: yup.boolean().required(),
+  penaltyType: yup
+    .mixed<LoanPenaltyType>()
+    .oneOf([
+      'FIXED_AMOUNT',
+      'PERCENTAGE_OF_OVERDUE_INSTALLMENT',
+      'PERCENTAGE_OF_OUTSTANDING_LOAN_BALANCE',
+    ])
+    .required(),
+  penaltyRateOrAmount: yup
+    .string()
+    .trim()
+    .default('0')
+    .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount or rate')
+    .test('penalty-required', 'Enter a penalty amount or rate', function (value) {
+      if (!this.parent.loanPenaltyEnabled) return true
+      return Boolean(value && Number(value) > 0)
+    }),
+  penaltyFrequency: yup
+    .mixed<LoanPenaltyFrequency>()
+    .oneOf(['ONE_TIME', 'DAILY', 'MONTHLY'])
+    .required(),
+  gracePeriodDays: yup
+    .string()
+    .trim()
+    .default('0')
+    .test('grace', 'Enter a valid number of days', (v) => {
+      if (!v) return true
+      const n = Number(v)
+      return Number.isInteger(n) && n >= 0 && n <= 365
+    }),
+  allocationOrder: yup
+    .array()
+    .of(yup.mixed<LoanRepaymentComponent>().oneOf(['PENALTY', 'INTEREST', 'PRINCIPAL']).required())
+    .length(3, 'Choose penalty, interest, and principal exactly once')
+    .test('unique', 'Each allocation component can appear only once', (value) => {
+      if (!value) return false
+      return new Set(value).size === 3
+    })
+    .required(),
   shareTiers: yup
     .array()
     .of(
@@ -282,7 +344,14 @@ export function toLoanSettingsPayload(
       ? Number(values.minMembershipMonths.trim())
       : 0,
     allowMemberRequests: values.allowMemberRequests,
-    lateFeeEnabled: values.lateFeeEnabled,
+    lateFeeEnabled: values.loanPenaltyEnabled,
+    loanPenaltyEnabled: values.loanPenaltyEnabled,
+    repaymentDateModel: values.repaymentDateModel,
+    penaltyType: values.penaltyType,
+    penaltyRateOrAmount: values.penaltyRateOrAmount.trim() || '0',
+    penaltyFrequency: values.penaltyFrequency,
+    gracePeriodDays: values.gracePeriodDays.trim() ? Number(values.gracePeriodDays.trim()) : 0,
+    allocationOrder: values.allocationOrder,
   }
   if (includeShareTiers) {
     payload.shareTiers = values.shareTiers.map((tier) => ({

@@ -28,6 +28,7 @@ import {
 } from '@/app/store/authSlice'
 import {
   LoanApplicationFormView,
+  LoanSchedulePreview,
   RepaymentDialog,
   canShowApprove,
   canShowDisburse,
@@ -49,6 +50,7 @@ import {
   approveLoan,
   createLoanRepayment,
   disburseLoan,
+  exportLoanSchedule,
   fetchLoan,
   fetchLoanRepayments,
   rejectLoan,
@@ -224,6 +226,12 @@ export function LoanDetailPage() {
         hideOnMobile: true,
       },
       {
+        id: 'penalty',
+        label: t('loans.repayment.penalty'),
+        render: (row) => formatMoney(row.penaltyPortion ?? 0),
+        hideOnMobile: true,
+      },
+      {
         id: 'reference',
         label: t('loans.fields.reference'),
         render: (row) => row.paymentReference || '—',
@@ -261,7 +269,20 @@ export function LoanDetailPage() {
 
   const outstandingPrincipal = Number(loan?.outstandingPrincipal) || 0
   const outstandingInterest = Number(loan?.outstandingInterest) || 0
-  const outstandingSum = outstandingPrincipal + outstandingInterest
+  const outstandingPenalty = Number(loan?.outstandingPenalty) || 0
+  const outstandingSum = outstandingPrincipal + outstandingInterest + outstandingPenalty
+  const canDownloadSchedule =
+    Boolean(loan?.scheduleFinalized) || (loan?.repaymentSchedule?.length ?? 0) > 0
+
+  const downloadMutation = useMutation({
+    mutationFn: (format: 'pdf' | 'xlsx') => exportLoanSchedule(cooperativeId!, loanId, format),
+    onSuccess: () => {
+      enqueueSnackbar(t('loans.schedule.downloadSuccess'), { variant: 'success' })
+    },
+    onError: (error) => {
+      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+    },
+  })
 
   return (
     <Box>
@@ -361,6 +382,22 @@ export function LoanDetailPage() {
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
+                  label={t('loans.fields.outstandingPenalty')}
+                  value={formatMoney(outstandingPenalty)}
+                />
+                <InfoRow
+                  label={t('loans.fields.repaymentDateModel')}
+                  value={
+                    loan.repaymentDateModel
+                      ? t(`loans.schedule.repaymentModel.${loan.repaymentDateModel}`, {
+                          defaultValue: String(loan.repaymentDateModel),
+                        })
+                      : '—'
+                  }
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <InfoRow
                   label={t('loans.request.guaranteeMode')}
                   value={t(
                     loan.guaranteeMode === 'GUARANTOR'
@@ -411,6 +448,38 @@ export function LoanDetailPage() {
                   value={String(loan.termMonths ?? '—')}
                 />
                 <InfoRow label={t('loans.fields.dueDate')} value={loan.dueDate ?? ''} />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <InfoRow
+                  label={t('loans.fields.prorataEnabled')}
+                  value={
+                    loan.prorataEnabled
+                      ? t('loans.schedule.prorataYes')
+                      : t('loans.schedule.prorataNo')
+                  }
+                />
+                <InfoRow
+                  label={t('loans.fields.firstPeriodDays')}
+                  value={
+                    loan.firstPeriodDays != null ? String(loan.firstPeriodDays) : '—'
+                  }
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <InfoRow
+                  label={t('loans.schedule.equalInstallment')}
+                  value={
+                    loan.equalInstallmentAmount != null
+                      ? formatMoney(loan.equalInstallmentAmount)
+                      : '—'
+                  }
+                />
+                <InfoRow
+                  label={t('loans.schedule.totalRepayment')}
+                  value={
+                    loan.totalRepayment != null ? formatMoney(loan.totalRepayment) : '—'
+                  }
+                />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
@@ -484,6 +553,58 @@ export function LoanDetailPage() {
               ) : null}
             </Stack>
           </Paper>
+
+          {loan.equalInstallmentAmount != null || (loan.repaymentSchedule?.length ?? 0) > 0 ? (
+            <Paper
+              elevation={0}
+              sx={{ p: { xs: 2.5, md: 3 }, border: '1px solid', borderColor: 'divider' }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{ mb: 1, justifyContent: 'space-between' }}
+              >
+                <Typography variant="h6">{t('loans.schedule.title')}</Typography>
+                {canDownloadSchedule ? (
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={downloadMutation.isPending}
+                      onClick={() => downloadMutation.mutate('pdf')}
+                    >
+                      {t('loans.schedule.downloadPdf')}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={downloadMutation.isPending}
+                      onClick={() => downloadMutation.mutate('xlsx')}
+                    >
+                      {t('loans.schedule.downloadExcel')}
+                    </Button>
+                  </Stack>
+                ) : null}
+              </Stack>
+              <LoanSchedulePreview
+                schedule={{
+                  principal: loan.principalAmount ?? loan.approvedAmount ?? loan.requestedAmount,
+                  monthlyInterestRatePercent: loan.interestRatePercent,
+                  numberOfInstallments: loan.termMonths,
+                  repaymentDateModel: loan.repaymentDateModel,
+                  prorataEnabled: Boolean(loan.prorataEnabled),
+                  firstPeriodDays: loan.firstPeriodDays,
+                  regularMonthlyInterest: loan.regularMonthlyInterest ?? 0,
+                  firstPeriodInterest: loan.firstPeriodInterest ?? 0,
+                  totalInterest: loan.interestAmount ?? 0,
+                  totalRepayment: loan.totalRepayment ?? 0,
+                  equalInstallmentAmount: loan.equalInstallmentAmount ?? 0,
+                  scheduleFinalized: loan.scheduleFinalized,
+                  installments: loan.repaymentSchedule,
+                }}
+              />
+            </Paper>
+          ) : null}
 
           {loan.applicationForm ? (
             <LoanApplicationFormView form={loan.applicationForm} />

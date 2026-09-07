@@ -2,6 +2,7 @@ package rw.terimbere.csams.modules.loan.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -37,18 +38,28 @@ import rw.terimbere.csams.modules.loan.dto.LoanGuarantorRespondRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanGuarantorResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanRejectRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanRepaymentCreateRequest;
+import rw.terimbere.csams.modules.loan.dto.LoanRepaymentPreviewRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanRepaymentResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanRequestCreateRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanResponse;
+import rw.terimbere.csams.modules.loan.dto.LoanScheduleResponse;
+import rw.terimbere.csams.modules.fine.entity.Fine;
+import rw.terimbere.csams.modules.fine.service.FineService;
 import rw.terimbere.csams.modules.loan.entity.InterestType;
 import rw.terimbere.csams.modules.loan.entity.Loan;
 import rw.terimbere.csams.modules.loan.entity.LoanGuaranteeMode;
+import rw.terimbere.csams.modules.loan.entity.LoanInstallment;
+import rw.terimbere.csams.modules.loan.entity.LoanRepaymentComponent;
+import rw.terimbere.csams.modules.loan.entity.LoanRepaymentDateModel;
 import rw.terimbere.csams.modules.loan.entity.LoanSettings;
 import rw.terimbere.csams.modules.loan.entity.LoanShareTier;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanShareTierRepository;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepayment;
+import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepaymentAllocation;
+import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentAllocationRepository;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
@@ -82,8 +93,12 @@ public class LoanService {
 
     private final LoanRepository loanRepository;
     private final LoanShareTierRepository loanShareTierRepository;
+    private final LoanInstallmentRepository loanInstallmentRepository;
     private final LoanRepaymentRepository loanRepaymentRepository;
+    private final LoanRepaymentAllocationRepository loanRepaymentAllocationRepository;
     private final LoanSettingsService loanSettingsService;
+    private final LoanPenaltyService loanPenaltyService;
+    private final FineService fineService;
     private final CooperativeRepository cooperativeRepository;
     private final CooperativeMembershipRepository membershipRepository;
     private final UserRepository userRepository;
@@ -96,10 +111,11 @@ public class LoanService {
     private final NotificationWhatsAppService notificationWhatsAppService;
     private final LoanGuarantorService loanGuarantorService;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void refreshOverdueStatuses(UUID cooperativeId) {
-        loanRepository.markOverdue(cooperativeId, LocalDate.now());
+        loanRepository.markOverdue(cooperativeId, today());
     }
 
     @Transactional
@@ -150,6 +166,10 @@ public class LoanService {
         if (settings.getMaxTermMonths() != null && termMonths > settings.getMaxTermMonths()) {
             throw new BusinessException("Term exceeds maximum allowed months");
         }
+        LocalDate requestDate = today();
+        LoanRepaymentDateModel model = settings.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : settings.getRepaymentDateModel();
 
         Loan loan = Loan.builder()
                 .cooperativeId(cooperativeId)
@@ -158,11 +178,13 @@ public class LoanService {
                 .interestRatePercent(MoneyUtils.scaleForStorage(settings.getInterestRatePercent()))
                 .interestType(interestType)
                 .termMonths(termMonths)
+                .repaymentDateModel(model)
+                .prorataEnabled(model == LoanRepaymentDateModel.MONTH_END)
                 .outstandingPrincipal(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
                 .outstandingInterest(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
                 .totalRepaidPrincipal(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
                 .totalRepaidInterest(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
-                .requestDate(LocalDate.now())
+                .requestDate(requestDate)
                 .status(LoanStatus.PENDING)
                 .guaranteeMode(guaranteeMode)
                 .shareCount(eligibility.getShareCount())
@@ -174,6 +196,7 @@ public class LoanService {
                 .purpose(trimToNull(request.getPurpose()))
                 .requestedBy(principal.getId())
                 .build();
+        applyFlatScheduleTerms(loan, amount, requestDate);
         loan.setApplicationSnapshot(writeSnapshot(buildApplicationForm(
                 cooperative, membership, memberUserId, loan, Instant.now())));
         loan = loanRepository.save(loan);
@@ -232,12 +255,40 @@ public class LoanService {
                 .interestRatePercent(settings.getInterestRatePercent())
                 .interestType(settings.getInterestType() == null ? InterestType.FLAT : settings.getInterestType())
                 .termMonths(resolveTermMonths(null, settings))
-                .requestDate(LocalDate.now())
+                .requestDate(today())
                 .build();
         LoanApplicationFormResponse form =
                 buildApplicationForm(cooperative, membership, principal.getId(), draft, Instant.now());
         form.setEligibility(evaluateEligibility(cooperativeId, principal.getId(), null, null));
         return form;
+    }
+
+    @Transactional(readOnly = true)
+    public LoanScheduleResponse previewRepayment(UUID cooperativeId, LoanRepaymentPreviewRequest request) {
+        requireCooperative(cooperativeId);
+        authorizationService.requireMembership(cooperativeId);
+        LoanSettings settings = loanSettingsService.requireSettings(cooperativeId);
+        InterestType interestType =
+                settings.getInterestType() == null ? InterestType.FLAT : settings.getInterestType();
+        LoanSettingsService.rejectReducingInterest(interestType);
+        int termMonths = resolveTermMonths(request.getTermMonths(), settings);
+        if (settings.getMaxTermMonths() != null && termMonths > settings.getMaxTermMonths()) {
+            throw new BusinessException("Term exceeds maximum allowed months");
+        }
+        BigDecimal amount = MoneyUtils.scaleForStorage(request.getAmount());
+        MoneyUtils.assertPositive(amount);
+        LocalDate referenceDate = request.getReferenceDate() == null ? today() : request.getReferenceDate();
+        LoanRepaymentDateModel model = settings.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : settings.getRepaymentDateModel();
+        LoanScheduleResponse preview = LoanScheduleCalculator.calculate(
+                amount,
+                settings.getInterestRatePercent(),
+                termMonths,
+                model,
+                referenceDate);
+        preview.setScheduleFinalized(false);
+        return preview;
     }
 
     @Transactional(readOnly = true)
@@ -263,7 +314,7 @@ public class LoanService {
             Pageable pageable) {
         requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
-        loanRepository.markOverdue(cooperativeId, LocalDate.now());
+        loanRepository.markOverdue(cooperativeId, today());
 
         Page<Loan> page;
         if (pendingApproval) {
@@ -294,13 +345,17 @@ public class LoanService {
     public LoanResponse get(UUID cooperativeId, UUID loanId) {
         requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
-        loanRepository.markOverdue(cooperativeId, LocalDate.now());
-        return toResponse(requireLoan(cooperativeId, loanId), null, true);
+        loanRepository.markOverdue(cooperativeId, today());
+        Loan loan = requireLoan(cooperativeId, loanId);
+        if (isScheduleBased(loan)) {
+            loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
+        }
+        return toResponse(loan, null, true);
     }
 
     @Transactional
     public List<LoanResponse> recentForMember(UUID cooperativeId, UUID memberUserId) {
-        loanRepository.markOverdue(cooperativeId, LocalDate.now());
+        loanRepository.markOverdue(cooperativeId, today());
         return loanRepository
                 .findTop20ByCooperativeIdAndMemberUserIdOrderByRequestDateDescCreatedAtDesc(
                         cooperativeId, memberUserId)
@@ -397,7 +452,7 @@ public class LoanService {
         loan.setStatus(LoanStatus.REJECTED);
         loan.setRejectionReason(request.getRejectionReason().trim());
         loan.setApprovedBy(principal.getId());
-        loan.setApprovalDate(LocalDate.now());
+        loan.setApprovalDate(today());
         loan = loanRepository.save(loan);
 
         approvalTrailService.append(
@@ -456,12 +511,9 @@ public class LoanService {
                             + MoneyUtils.scale(principalAmount));
         }
 
-        BigDecimal interest = loan.getInterestAmount() != null
-                ? loan.getInterestAmount()
-                : LoanInterestCalculator.computeInterest(
-                        principalAmount, loan.getInterestRatePercent(), loan.getInterestType());
-
-        LocalDate disbursementDate = LocalDate.now();
+        LocalDate disbursementDate = today();
+        finalizeScheduleAtDisbursement(loan, principalAmount, disbursementDate);
+        BigDecimal interest = loan.getInterestAmount();
         loan.setPrincipalAmount(MoneyUtils.scaleForStorage(principalAmount));
         loan.setInterestAmount(MoneyUtils.scaleForStorage(interest));
         loan.setOutstandingPrincipal(MoneyUtils.scaleForStorage(principalAmount));
@@ -469,7 +521,7 @@ public class LoanService {
         loan.setDisbursementDate(disbursementDate);
         loan.setDisbursedBy(principal.getId());
         loan.setStatus(LoanStatus.ACTIVE);
-        if (loan.getDueDate() == null) {
+        if (loan.getDueDate() == null && !loanInstallmentRepository.existsByLoanId(loan.getId())) {
             loan.setDueDate(disbursementDate.plusMonths(loan.getTermMonths()));
         }
         loan = loanRepository.save(loan);
@@ -552,7 +604,7 @@ public class LoanService {
         Cooperative cooperative = requireCooperative(cooperativeId);
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
-        loanRepository.markOverdue(cooperativeId, LocalDate.now());
+        loanRepository.markOverdue(cooperativeId, today());
 
         Loan loan = requireLoan(cooperativeId, loanId);
         if (loan.getStatus() != LoanStatus.ACTIVE && loan.getStatus() != LoanStatus.OVERDUE) {
@@ -562,38 +614,63 @@ public class LoanService {
         BigDecimal amount = MoneyUtils.scaleForStorage(request.getAmount());
         MoneyUtils.assertPositive(amount);
 
+        if (isScheduleBased(loan)) {
+            loanPenaltyService.evaluate(loan, today(), principal.getId());
+            loan = requireLoan(cooperativeId, loanId);
+        }
+
         BigDecimal outstandingPrincipal = loan.getOutstandingPrincipal() == null
                 ? BigDecimal.ZERO
                 : loan.getOutstandingPrincipal();
         BigDecimal outstandingInterest = loan.getOutstandingInterest() == null
                 ? BigDecimal.ZERO
                 : loan.getOutstandingInterest();
+        BigDecimal outstandingPenalty = loan.getOutstandingPenalty() == null
+                ? BigDecimal.ZERO
+                : loan.getOutstandingPenalty();
         BigDecimal totalOutstanding = MoneyUtils.add(
-                MoneyUtils.scale(outstandingPrincipal), MoneyUtils.scale(outstandingInterest));
+                MoneyUtils.add(MoneyUtils.scale(outstandingPrincipal), MoneyUtils.scale(outstandingInterest)),
+                MoneyUtils.scale(outstandingPenalty));
 
         if (MoneyUtils.scale(amount).compareTo(totalOutstanding) > 0) {
             throw new BusinessException(
                     "REPAYMENT_EXCEEDS_OUTSTANDING",
-                    "Repayment amount exceeds outstanding principal + interest (" + totalOutstanding + ")");
+                    "Repayment amount exceeds outstanding principal + interest + penalty (" + totalOutstanding + ")");
         }
 
         boolean interestFirst = request.getAllocateInterestFirst() == null || request.getAllocateInterestFirst();
         BigDecimal interestPortion;
         BigDecimal principalPortion;
-        BigDecimal remaining = amount;
-
-        if (interestFirst) {
-            interestPortion = remaining.min(outstandingInterest);
-            remaining = remaining.subtract(interestPortion);
-            principalPortion = remaining.min(outstandingPrincipal);
+        BigDecimal penaltyPortion = BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE);
+        LoanScheduleAllocator.PaymentSplit split = null;
+        List<LoanInstallment> installments = List.of();
+        if (isScheduleBased(loan) && loanInstallmentRepository.existsByLoanId(loan.getId())) {
+            installments = loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loan.getId());
+            split = LoanScheduleAllocator.allocatePayment(
+                    installments,
+                    MoneyUtils.scale(amount),
+                    LoanAllocationOrder.parse(loan.getAllocationOrder()),
+                    today());
+            principalPortion = split.principalPortion();
+            interestPortion = split.interestPortion();
+            penaltyPortion = split.penaltyPortion();
+            loanInstallmentRepository.saveAll(installments);
         } else {
-            principalPortion = remaining.min(outstandingPrincipal);
-            remaining = remaining.subtract(principalPortion);
-            interestPortion = remaining.min(outstandingInterest);
+            BigDecimal remaining = amount;
+            if (interestFirst) {
+                interestPortion = remaining.min(outstandingInterest);
+                remaining = remaining.subtract(interestPortion);
+                principalPortion = remaining.min(outstandingPrincipal);
+            } else {
+                principalPortion = remaining.min(outstandingPrincipal);
+                remaining = remaining.subtract(principalPortion);
+                interestPortion = remaining.min(outstandingInterest);
+            }
+            interestPortion = MoneyUtils.scaleForStorage(interestPortion);
+            principalPortion = MoneyUtils.scaleForStorage(principalPortion);
         }
-        interestPortion = MoneyUtils.scaleForStorage(interestPortion);
-        principalPortion = MoneyUtils.scaleForStorage(principalPortion);
-        BigDecimal amountTotal = MoneyUtils.scaleForStorage(principalPortion.add(interestPortion));
+        BigDecimal amountTotal = MoneyUtils.scaleForStorage(
+                principalPortion.add(interestPortion).add(penaltyPortion));
 
         LoanRepayment repayment = LoanRepayment.builder()
                 .loanId(loan.getId())
@@ -603,32 +680,41 @@ public class LoanService {
                 .amountTotal(amountTotal)
                 .principalPortion(principalPortion)
                 .interestPortion(interestPortion)
+                .penaltyPortion(penaltyPortion)
                 .paymentReference(trimToNull(request.getPaymentReference()))
                 .notes(trimToNull(request.getNotes()))
                 .recordedBy(principal.getId())
                 .build();
         repayment = loanRepaymentRepository.save(repayment);
+        persistAllocations(repayment, split);
 
         loan.setOutstandingPrincipal(
                 MoneyUtils.scaleForStorage(outstandingPrincipal.subtract(principalPortion)));
         loan.setOutstandingInterest(
                 MoneyUtils.scaleForStorage(outstandingInterest.subtract(interestPortion)));
+        loan.setOutstandingPenalty(
+                MoneyUtils.scaleForStorage(outstandingPenalty.subtract(penaltyPortion)));
         loan.setTotalRepaidPrincipal(MoneyUtils.scaleForStorage(
                 (loan.getTotalRepaidPrincipal() == null ? BigDecimal.ZERO : loan.getTotalRepaidPrincipal())
                         .add(principalPortion)));
         loan.setTotalRepaidInterest(MoneyUtils.scaleForStorage(
                 (loan.getTotalRepaidInterest() == null ? BigDecimal.ZERO : loan.getTotalRepaidInterest())
                         .add(interestPortion)));
+        loan.setTotalRepaidPenalty(MoneyUtils.scaleForStorage(
+                (loan.getTotalRepaidPenalty() == null ? BigDecimal.ZERO : loan.getTotalRepaidPenalty())
+                        .add(penaltyPortion)));
 
         if (MoneyUtils.isZero(MoneyUtils.scale(loan.getOutstandingPrincipal()))
-                && MoneyUtils.isZero(MoneyUtils.scale(loan.getOutstandingInterest()))) {
+                && MoneyUtils.isZero(MoneyUtils.scale(loan.getOutstandingInterest()))
+                && MoneyUtils.isZero(MoneyUtils.scale(loan.getOutstandingPenalty()))) {
             loan.setStatus(LoanStatus.CLOSED);
         } else if (loan.getStatus() == LoanStatus.OVERDUE
                 && loan.getDueDate() != null
-                && !loan.getDueDate().isBefore(LocalDate.now())) {
+                && !loan.getDueDate().isBefore(today())) {
             loan.setStatus(LoanStatus.ACTIVE);
         }
         loanRepository.save(loan);
+        applyPenaltyPaymentsToFines(installments, split, repayment, principal.getId(), cooperative.getCurrency());
 
         if (principalPortion.compareTo(BigDecimal.ZERO) > 0) {
             ledgerService.appendApproved(LedgerService.AppendRequest.builder()
@@ -720,7 +806,7 @@ public class LoanService {
         if (membershipDate == null) {
             throw new BusinessException("Membership date is required to validate loan eligibility");
         }
-        long months = ChronoUnit.MONTHS.between(membershipDate, LocalDate.now());
+        long months = ChronoUnit.MONTHS.between(membershipDate, today());
         if (months < minMonths) {
             throw new BusinessException(
                     "Member must have at least " + minMonths + " months of membership to request a loan");
@@ -835,6 +921,208 @@ public class LoanService {
         return DEFAULT_TERM_MONTHS;
     }
 
+    private void applyFlatScheduleTerms(Loan loan, BigDecimal principal, LocalDate referenceDate) {
+        if (loan.getInterestType() == InterestType.REDUCING) {
+            loan.setInterestAmount(LoanInterestCalculator.computeInterest(
+                    principal, loan.getInterestRatePercent(), loan.getInterestType()));
+            return;
+        }
+        LoanSettings settings = loanSettingsService.requireSettings(loan.getCooperativeId());
+        LoanRepaymentDateModel model = settings.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : settings.getRepaymentDateModel();
+        loan.setRepaymentDateModel(model);
+        loan.setProrataEnabled(model == LoanRepaymentDateModel.MONTH_END);
+        LoanScheduleResponse schedule = LoanScheduleCalculator.calculate(
+                principal,
+                loan.getInterestRatePercent(),
+                loan.getTermMonths(),
+                model,
+                referenceDate);
+        loan.setInterestAmount(MoneyUtils.scaleForStorage(schedule.getTotalInterest()));
+        loan.setEqualInstallmentAmount(MoneyUtils.scaleForStorage(schedule.getEqualInstallmentAmount()));
+        loan.setFirstPeriodDays(schedule.getFirstPeriodDays());
+    }
+
+    private void finalizeScheduleAtDisbursement(
+            Loan loan, BigDecimal principalAmount, LocalDate disbursementDate) {
+        if (loan.getInterestType() == InterestType.REDUCING) {
+            if (loan.getInterestAmount() == null) {
+                loan.setInterestAmount(LoanInterestCalculator.computeInterest(
+                        principalAmount, loan.getInterestRatePercent(), loan.getInterestType()));
+            }
+            return;
+        }
+        if (!isScheduleBased(loan) && loan.getInterestAmount() != null) {
+            return;
+        }
+        LoanSettings settings = loanSettingsService.requireSettings(loan.getCooperativeId());
+        snapshotRepaymentPolicy(loan, settings);
+        LoanRepaymentDateModel model = loan.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : loan.getRepaymentDateModel();
+        loan.setProrataEnabled(model == LoanRepaymentDateModel.MONTH_END);
+        LoanScheduleResponse schedule = LoanScheduleCalculator.calculate(
+                principalAmount,
+                loan.getInterestRatePercent(),
+                loan.getTermMonths(),
+                model,
+                disbursementDate);
+        schedule.setScheduleFinalized(true);
+        loan.setInterestAmount(MoneyUtils.scaleForStorage(schedule.getTotalInterest()));
+        loan.setEqualInstallmentAmount(MoneyUtils.scaleForStorage(schedule.getEqualInstallmentAmount()));
+        loan.setFirstPeriodDays(schedule.getFirstPeriodDays());
+        persistInstallments(loan, schedule);
+        if (!schedule.getInstallments().isEmpty()) {
+            loan.setDueDate(schedule.getInstallments().get(schedule.getInstallments().size() - 1).getDueDate());
+        }
+    }
+
+    private void snapshotRepaymentPolicy(Loan loan, LoanSettings settings) {
+        loan.setRepaymentDateModel(settings.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : settings.getRepaymentDateModel());
+        loan.setLoanPenaltyEnabled(settings.isLateFeeEnabled());
+        loan.setPenaltyType(settings.getPenaltyType());
+        loan.setPenaltyRateOrAmount(settings.getPenaltyRateOrAmount());
+        loan.setPenaltyFrequency(settings.getPenaltyFrequency());
+        loan.setGracePeriodDays(settings.getGracePeriodDays());
+        loan.setAllocationOrder(LoanAllocationOrder.serialize(
+                LoanAllocationOrder.parse(settings.getAllocationOrder())));
+    }
+
+    private void persistInstallments(Loan loan, LoanScheduleResponse schedule) {
+        Loan saved = loanRepository.save(loan);
+        if (loanInstallmentRepository.existsByLoanId(saved.getId())) {
+            return;
+        }
+        UUID loanId = saved.getId();
+        UUID cooperativeId = saved.getCooperativeId();
+        List<LoanInstallment> rows = schedule.getInstallments().stream()
+                .map(item -> LoanInstallment.builder()
+                        .loanId(loanId)
+                        .cooperativeId(cooperativeId)
+                        .installmentNumber(item.getInstallmentNumber())
+                        .dueDate(item.getDueDate())
+                        .openingPrincipalBalance(MoneyUtils.scaleForStorage(item.getOpeningPrincipalBalance()))
+                        .principalDue(MoneyUtils.scaleForStorage(item.getPrincipalComponent()))
+                        .interestDue(MoneyUtils.scaleForStorage(item.getInterestComponent()))
+                        .penaltyDue(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                        .principalPaid(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                        .interestPaid(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                        .penaltyPaid(BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE))
+                        .scheduledInstallmentAmount(MoneyUtils.scaleForStorage(item.getScheduledInstallmentAmount()))
+                        .status(item.getStatus())
+                        .build())
+                .toList();
+        for (LoanInstallment row : rows) {
+            row.refreshStatus(today());
+        }
+        loanInstallmentRepository.saveAll(rows);
+    }
+
+    private boolean isScheduleBased(Loan loan) {
+        if (loan.getInterestType() == InterestType.REDUCING) {
+            return false;
+        }
+        return loan.getEqualInstallmentAmount() != null
+                || (loan.getId() != null && loanInstallmentRepository.existsByLoanId(loan.getId()));
+    }
+
+    private LoanScheduleResponse buildScheduleForLoan(Loan loan) {
+        if (!isScheduleBased(loan)) {
+            return null;
+        }
+        if (loan.getId() != null && loanInstallmentRepository.existsByLoanId(loan.getId())) {
+            List<LoanInstallment> installments =
+                    loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loan.getId());
+            return toScheduleResponse(loan, installments, true);
+        }
+        BigDecimal principal = loan.getPrincipalAmount() != null
+                ? loan.getPrincipalAmount()
+                : loan.getApprovedAmount() != null ? loan.getApprovedAmount() : loan.getRequestedAmount();
+        if (principal == null || principal.compareTo(BigDecimal.ZERO) <= 0 || loan.getTermMonths() <= 0) {
+            return null;
+        }
+        LocalDate start = loan.getDisbursementDate() != null
+                ? loan.getDisbursementDate()
+                : loan.getApprovalDate() != null ? loan.getApprovalDate() : loan.getRequestDate();
+        if (start == null) {
+            start = today();
+        }
+        LoanRepaymentDateModel model = loan.getRepaymentDateModel() == null
+                ? LoanRepaymentDateModel.SAME_DAY_OF_MONTH
+                : loan.getRepaymentDateModel();
+        LoanScheduleResponse schedule = LoanScheduleCalculator.calculate(
+                principal,
+                loan.getInterestRatePercent(),
+                loan.getTermMonths(),
+                model,
+                start);
+        schedule.setScheduleFinalized(false);
+        return schedule;
+    }
+
+    private LoanScheduleResponse toScheduleResponse(
+            Loan loan, List<LoanInstallment> installments, boolean finalized) {
+        List<rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse> rows = installments.stream()
+                .map(this::toInstallmentResponse)
+                .toList();
+        BigDecimal totalInterest = rows.stream()
+                .map(rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse::getInterestComponent)
+                .reduce(BigDecimal.ZERO, MoneyUtils::add);
+        BigDecimal totalRepayment = rows.stream()
+                .map(rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse::getScheduledInstallmentAmount)
+                .reduce(BigDecimal.ZERO, MoneyUtils::add);
+        return LoanScheduleResponse.builder()
+                .principal(scaleOrNull(loan.getPrincipalAmount() != null
+                        ? loan.getPrincipalAmount()
+                        : loan.getApprovedAmount()))
+                .monthlyInterestRatePercent(loan.getInterestRatePercent() == null
+                        ? null
+                        : MoneyUtils.scale(loan.getInterestRatePercent()))
+                .numberOfInstallments(rows.size())
+                .repaymentDateModel(loan.getRepaymentDateModel())
+                .prorataEnabled(loan.isProrataEnabled())
+                .firstPeriodDays(loan.getFirstPeriodDays())
+                .regularMonthlyInterest(rows.size() > 1 ? rows.get(1).getInterestComponent() : null)
+                .firstPeriodInterest(rows.isEmpty() ? null : rows.get(0).getInterestComponent())
+                .totalInterest(totalInterest)
+                .totalRepayment(totalRepayment)
+                .equalInstallmentAmount(scaleOrNull(loan.getEqualInstallmentAmount()))
+                .scheduleFinalized(finalized)
+                .installments(rows)
+                .build();
+    }
+
+    private rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse toInstallmentResponse(
+            LoanInstallment installment) {
+        installment.refreshStatus(today());
+        return rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse.builder()
+                .id(installment.getId())
+                .installmentNumber(installment.getInstallmentNumber())
+                .dueDate(installment.getDueDate())
+                .openingPrincipalBalance(scaleOrNull(installment.getOpeningPrincipalBalance()))
+                .paymentAmount(scaleOrNull(installment.totalDue()))
+                .scheduledInstallmentAmount(scaleOrNull(installment.getScheduledInstallmentAmount()))
+                .principalComponent(scaleOrNull(installment.getPrincipalDue()))
+                .interestComponent(scaleOrNull(installment.getInterestDue()))
+                .penaltyDue(scaleOrNull(installment.getPenaltyDue()))
+                .remainingPrincipal(scaleOrNull(installment.remainingPrincipal()))
+                .status(installment.getStatus())
+                .amountPaid(scaleOrNull(installment.totalPaid()))
+                .balance(scaleOrNull(installment.remainingAmount()))
+                .principalPaid(scaleOrNull(installment.getPrincipalPaid()))
+                .interestPaid(scaleOrNull(installment.getInterestPaid()))
+                .penaltyPaid(scaleOrNull(installment.getPenaltyPaid()))
+                .remainingAmount(scaleOrNull(installment.remainingAmount()))
+                .build();
+    }
+
+    private LocalDate today() {
+        return LocalDate.now(clock);
+    }
+
     private Loan requireLoan(UUID cooperativeId, UUID loanId) {
         return loanRepository
                 .findByIdAndCooperativeId(loanId, cooperativeId)
@@ -869,10 +1157,8 @@ public class LoanService {
             }
             loan.setTermMonths(term);
         }
-        BigDecimal interest = LoanInterestCalculator.computeInterest(
-                approvedAmount, loan.getInterestRatePercent(), loan.getInterestType());
         loan.setApprovedAmount(approvedAmount);
-        loan.setInterestAmount(interest);
+        applyFlatScheduleTerms(loan, approvedAmount, today());
         loan.setFirstApprovedBy(principal.getId());
         loan.setFirstApprovedAt(Instant.now());
         loan.setFirstApproverRole(CooperativeOfficerRoles.displayRole(principal));
@@ -884,20 +1170,19 @@ public class LoanService {
         if (request != null && request.getApprovedAmount() != null) {
             MoneyUtils.assertPositive(request.getApprovedAmount());
             loan.setApprovedAmount(MoneyUtils.scaleForStorage(request.getApprovedAmount()));
-            loan.setInterestAmount(LoanInterestCalculator.computeInterest(
-                    loan.getApprovedAmount(), loan.getInterestRatePercent(), loan.getInterestType()));
+            applyFlatScheduleTerms(loan, loan.getApprovedAmount(), today());
         }
         loan.setApprovedBy(principal.getId());
-        loan.setApprovalDate(LocalDate.now());
+        loan.setApprovalDate(today());
         loan.setStatus(LoanStatus.APPROVED);
         applyDueDate(loan, request);
     }
 
-    private static void applyDueDate(Loan loan, LoanApproveRequest request) {
+    private void applyDueDate(Loan loan, LoanApproveRequest request) {
         if (request == null || request.getDueDate() == null) {
             return;
         }
-        LocalDate reference = loan.getApprovalDate() == null ? LocalDate.now() : loan.getApprovalDate();
+        LocalDate reference = loan.getApprovalDate() == null ? today() : loan.getApprovalDate();
         if (request.getDueDate().isBefore(reference)) {
             throw new ValidationException("dueDate must be on or after the approval date");
         }
@@ -921,6 +1206,7 @@ public class LoanService {
         if (form == null) {
             form = buildApplicationFormFromLoan(loan);
         }
+        LoanScheduleResponse schedule = buildScheduleForLoan(loan);
         return LoanResponse.builder()
                 .id(loan.getId())
                 .cooperativeId(loan.getCooperativeId())
@@ -936,10 +1222,27 @@ public class LoanService {
                 .interestType(loan.getInterestType())
                 .termMonths(loan.getTermMonths())
                 .interestAmount(scaleOrNull(loan.getInterestAmount()))
+                .prorataEnabled(loan.isProrataEnabled())
+                .firstPeriodDays(loan.getFirstPeriodDays())
+                .regularMonthlyInterest(schedule == null ? null : scaleOrNull(schedule.getRegularMonthlyInterest()))
+                .firstPeriodInterest(schedule == null ? null : scaleOrNull(schedule.getFirstPeriodInterest()))
+                .totalRepayment(schedule == null ? null : scaleOrNull(schedule.getTotalRepayment()))
+                .equalInstallmentAmount(scaleOrNull(loan.getEqualInstallmentAmount()))
+                .repaymentDateModel(loan.getRepaymentDateModel())
+                .loanPenaltyEnabled(loan.isLoanPenaltyEnabled())
+                .penaltyType(loan.getPenaltyType())
+                .penaltyRateOrAmount(scaleOrNull(loan.getPenaltyRateOrAmount()))
+                .penaltyFrequency(loan.getPenaltyFrequency())
+                .gracePeriodDays(loan.getGracePeriodDays())
+                .allocationOrder(loan.getAllocationOrder())
+                .scheduleFinalized(schedule != null && schedule.isScheduleFinalized())
+                .repaymentSchedule(schedule == null ? List.of() : schedule.getInstallments())
                 .outstandingPrincipal(scaleOrNull(loan.getOutstandingPrincipal()))
                 .outstandingInterest(scaleOrNull(loan.getOutstandingInterest()))
+                .outstandingPenalty(scaleOrNull(loan.getOutstandingPenalty()))
                 .totalRepaidPrincipal(scaleOrNull(loan.getTotalRepaidPrincipal()))
                 .totalRepaidInterest(scaleOrNull(loan.getTotalRepaidInterest()))
+                .totalRepaidPenalty(scaleOrNull(loan.getTotalRepaidPenalty()))
                 .requestDate(loan.getRequestDate())
                 .approvalDate(loan.getApprovalDate())
                 .disbursementDate(loan.getDisbursementDate())
@@ -1062,6 +1365,159 @@ public class LoanService {
         }
     }
 
+    private void persistAllocations(LoanRepayment repayment, LoanScheduleAllocator.PaymentSplit split) {
+        if (split == null || split.lines() == null || split.lines().isEmpty()) {
+            return;
+        }
+        List<LoanRepaymentAllocation> rows = split.lines().stream()
+                .filter(line -> line.installmentId() != null && line.amount().compareTo(BigDecimal.ZERO) > 0)
+                .map(line -> LoanRepaymentAllocation.builder()
+                        .repaymentId(repayment.getId())
+                        .installmentId(line.installmentId())
+                        .loanId(repayment.getLoanId())
+                        .cooperativeId(repayment.getCooperativeId())
+                        .component(line.component())
+                        .amount(MoneyUtils.scaleForStorage(line.amount()))
+                        .build())
+                .toList();
+        if (!rows.isEmpty()) {
+            loanRepaymentAllocationRepository.saveAll(rows);
+        }
+    }
+
+    private void applyPenaltyPaymentsToFines(
+            List<LoanInstallment> installments,
+            LoanScheduleAllocator.PaymentSplit split,
+            LoanRepayment repayment,
+            UUID recordedBy,
+            String currency) {
+        if (split == null || split.lines() == null) {
+            return;
+        }
+        for (LoanScheduleAllocator.AllocationLine line : split.lines()) {
+            if (line.component() != LoanRepaymentComponent.PENALTY
+                    || line.installmentId() == null
+                    || line.amount().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal remaining = MoneyUtils.scale(line.amount());
+            for (Fine fine : fineService.unpaidLoanInstallmentFines(line.installmentId())) {
+                if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                    break;
+                }
+                BigDecimal take = remaining.min(MoneyUtils.scale(fine.getOutstandingAmount()));
+                if (take.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                fineService.applyLoanPenaltyPayment(
+                        fine, take, repayment.getPaymentDate(), recordedBy, repayment.getPaymentReference(), currency);
+                remaining = MoneyUtils.scale(remaining.subtract(take));
+            }
+        }
+    }
+
+    public record ScheduleExport(byte[] content, String contentType, String filename) {}
+
+    @Transactional
+    public ScheduleExport exportSchedule(
+            UUID cooperativeId, UUID loanId, String format, HttpServletRequest httpRequest) {
+        Cooperative cooperative = requireCooperative(cooperativeId);
+        authorizationService.requireMembership(cooperativeId);
+        Loan loan = requireLoan(cooperativeId, loanId);
+        if (isScheduleBased(loan)) {
+            loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
+            loan = requireLoan(cooperativeId, loanId);
+        }
+        LoanScheduleResponse schedule = buildScheduleForLoan(loan);
+        if (schedule == null) {
+            throw new BusinessException("This loan does not have an amortization schedule");
+        }
+        String memberName = userRepository
+                .findByIdAndDeletedFalse(loan.getMemberUserId())
+                .map(this::formatName)
+                .orElse("");
+        List<List<Object>> summary = List.of(List.of(
+                memberName,
+                loan.getId(),
+                scaleOrNull(loan.getPrincipalAmount()),
+                scaleOrNull(loan.getInterestRatePercent()),
+                loan.getRepaymentDateModel() == null ? "" : loan.getRepaymentDateModel().name(),
+                loan.getDisbursementDate(),
+                loan.getTermMonths(),
+                scaleOrNull(loan.getInterestAmount()),
+                schedule.getTotalRepayment()));
+        List<List<Object>> rows = new java.util.ArrayList<>();
+        for (var item : schedule.getInstallments()) {
+            rows.add(List.of(
+                    item.getInstallmentNumber(),
+                    item.getDueDate(),
+                    item.getOpeningPrincipalBalance(),
+                    item.getPrincipalComponent(),
+                    item.getInterestComponent(),
+                    item.getPenaltyDue(),
+                    item.getPaymentAmount(),
+                    item.getPrincipalPaid(),
+                    item.getInterestPaid(),
+                    item.getPenaltyPaid(),
+                    item.getAmountPaid(),
+                    item.getRemainingAmount(),
+                    item.getStatus() == null ? "" : item.getStatus().name()));
+        }
+        rw.terimbere.csams.modules.report.dto.ReportHeaderMeta header =
+                rw.terimbere.csams.modules.report.dto.ReportHeaderMeta.builder()
+                        .cooperativeName(cooperative.getName())
+                        .reportTitle("Loan amortization schedule")
+                        .selectedPeriod(loan.getDisbursementDate() == null
+                                ? "Preview"
+                                : loan.getDisbursementDate().toString())
+                        .generatedAt(Instant.now())
+                        .generatedBy(actorLabel(authorizationService.currentPrincipal()))
+                        .currency(cooperative.getCurrency())
+                        .build();
+        List<rw.terimbere.csams.modules.report.dto.ReportSheetData> sheets = List.of(
+                rw.terimbere.csams.modules.report.dto.ReportSheetData.builder()
+                        .sheetName("Loan")
+                        .headers(List.of(
+                                "Member",
+                                "Loan Id",
+                                "Principal",
+                                "Monthly Rate",
+                                "Repayment Model",
+                                "Disbursement Date",
+                                "Term",
+                                "Contractual Interest",
+                                "Contractual Repayment"))
+                        .rows(summary)
+                        .build(),
+                rw.terimbere.csams.modules.report.dto.ReportSheetData.builder()
+                        .sheetName("Schedule")
+                        .headers(List.of(
+                                "Installment",
+                                "Due Date",
+                                "Opening Balance",
+                                "Principal Due",
+                                "Interest Due",
+                                "Penalty Due",
+                                "Total Due",
+                                "Principal Paid",
+                                "Interest Paid",
+                                "Penalty Paid",
+                                "Total Paid",
+                                "Remaining",
+                                "Status"))
+                        .rows(rows)
+                        .build());
+        boolean excel = format != null && format.equalsIgnoreCase("xlsx");
+        byte[] content = excel
+                ? rw.terimbere.csams.modules.report.export.ExcelReportWriter.write(header, sheets)
+                : rw.terimbere.csams.modules.report.export.PdfReportWriter.write(header, sheets);
+        String filename = "loan-schedule-" + loan.getId() + (excel ? ".xlsx" : ".pdf");
+        String contentType = excel
+                ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                : "application/pdf";
+        return new ScheduleExport(content, contentType, filename);
+    }
+
     private LoanRepaymentResponse toRepaymentResponse(LoanRepayment repayment) {
         return LoanRepaymentResponse.builder()
                 .id(repayment.getId())
@@ -1072,6 +1528,8 @@ public class LoanService {
                 .amountTotal(MoneyUtils.scale(repayment.getAmountTotal()))
                 .principalPortion(MoneyUtils.scale(repayment.getPrincipalPortion()))
                 .interestPortion(MoneyUtils.scale(repayment.getInterestPortion()))
+                .penaltyPortion(MoneyUtils.scale(
+                        repayment.getPenaltyPortion() == null ? BigDecimal.ZERO : repayment.getPenaltyPortion()))
                 .paymentReference(repayment.getPaymentReference())
                 .notes(repayment.getNotes())
                 .recordedBy(repayment.getRecordedBy())

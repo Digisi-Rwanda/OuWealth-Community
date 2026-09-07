@@ -55,6 +55,33 @@ public class LoanSettings extends BaseEntity {
     private boolean lateFeeEnabled = false;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "repayment_date_model", nullable = false, length = 32)
+    private LoanRepaymentDateModel repaymentDateModel = LoanRepaymentDateModel.SAME_DAY_OF_MONTH;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "penalty_type", nullable = false, length = 64)
+    private LoanPenaltyType penaltyType = LoanPenaltyType.FIXED_AMOUNT;
+
+    @Builder.Default
+    @Column(name = "penalty_rate_or_amount", nullable = false, precision = 19, scale = 4)
+    private BigDecimal penaltyRateOrAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "penalty_frequency", nullable = false, length = 32)
+    private LoanPenaltyFrequency penaltyFrequency = LoanPenaltyFrequency.ONE_TIME;
+
+    @Builder.Default
+    @Column(name = "grace_period_days", nullable = false)
+    private int gracePeriodDays = 0;
+
+    @Builder.Default
+    @Column(name = "allocation_order", nullable = false, length = 64)
+    private String allocationOrder = "PENALTY,INTEREST,PRINCIPAL";
+
+    @Builder.Default
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "RWF";

@@ -20,11 +20,12 @@ import { useForm } from 'react-hook-form'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectAuthUser } from '@/app/store/authSlice'
 import { LoanApplicationFormView } from './LoanApplicationFormView'
+import { LoanSchedulePreview } from './LoanSchedulePreview'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '@/shared/api/client'
 import { fetchLoanSettings } from '@/shared/api/loanSettings'
-import { fetchLoanEligibility, createLoan, fetchLoanApplicationPreview } from '@/shared/api/loans'
+import { fetchLoanEligibility, createLoan, fetchLoanApplicationPreview, previewLoanRepayment } from '@/shared/api/loans'
 import { fetchMembers } from '@/shared/api/members'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
@@ -119,6 +120,18 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
   const selectedMemberId = watch('memberUserId')
   const guaranteeMode = watch('guaranteeMode')
   const eligibilityMemberId = isAdmin ? selectedMemberId : currentUser?.id
+  const parsedTerm = termMonths.trim() ? Number(termMonths.trim()) : undefined
+  const canPreview = Boolean(cooperativeId && amount && Number(amount) > 0)
+
+  const scheduleQuery = useQuery({
+    queryKey: ['loans', 'repayment-preview', cooperativeId, amount, parsedTerm],
+    queryFn: () =>
+      previewLoanRepayment(cooperativeId, {
+        amount,
+        termMonths: parsedTerm,
+      }),
+    enabled: canPreview,
+  })
 
   const eligibilityQuery = useQuery({
     queryKey: ['loans', 'eligibility', cooperativeId, eligibilityMemberId, amount],
@@ -251,14 +264,27 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
           {...register('amount')}
           fullWidth
         />
-        {isAdmin ? (
-          <TextField
-            label={t('loans.fields.termMonths')}
-            error={Boolean(errors.termMonths)}
-            helperText={errors.termMonths?.message}
-            {...register('termMonths')}
-            fullWidth
-          />
+        <TextField
+          label={t('loans.fields.termMonths')}
+          error={Boolean(errors.termMonths)}
+          helperText={errors.termMonths?.message || t('loans.request.termHint')}
+          {...register('termMonths')}
+          fullWidth
+        />
+        {scheduleQuery.data ? (
+          <Box
+            sx={{
+              p: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="subtitle2" gutterBottom>
+              {t('loans.schedule.previewTitle')}
+            </Typography>
+            <LoanSchedulePreview schedule={scheduleQuery.data} compact />
+          </Box>
         ) : null}
         <TextField
           label={t('loans.fields.purpose')}

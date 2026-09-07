@@ -47,9 +47,14 @@ import rw.terimbere.csams.modules.investment.entity.InvestmentStatus;
 import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntry;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
+import rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse;
+import rw.terimbere.csams.modules.loan.dto.LoanScheduleResponse;
 import rw.terimbere.csams.modules.loan.entity.Loan;
+import rw.terimbere.csams.modules.loan.entity.LoanInstallment;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
+import rw.terimbere.csams.modules.loan.service.LoanScheduleCalculator;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepayment;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
@@ -104,6 +109,7 @@ public class ReportService {
     private final ContributionRepository contributionRepository;
     private final SpecialContributionRepository specialContributionRepository;
     private final LoanRepository loanRepository;
+    private final LoanInstallmentRepository loanInstallmentRepository;
     private final LoanRepaymentRepository loanRepaymentRepository;
     private final FineRepository fineRepository;
     private final FinePaymentRepository finePaymentRepository;
@@ -222,7 +228,7 @@ public class ReportService {
             case MEMBERS -> List.of(membersSheet(cooperativeId, request));
             case CONTRIBUTIONS -> List.of(contributionsSheet(cooperativeId, request));
             case SPECIAL_CONTRIBUTIONS -> List.of(specialContributionsSheet(cooperativeId, request));
-            case LOANS -> List.of(loansSheet(cooperativeId, request));
+            case LOANS -> loanReportSheets(cooperativeId, request);
             case REPAYMENTS -> List.of(repaymentsSheet(cooperativeId, request));
             case FINES -> List.of(finesSheet(cooperativeId, request));
             case FINE_PAYMENTS -> List.of(finePaymentsSheet(cooperativeId, request));
@@ -403,7 +409,14 @@ public class ReportService {
                 .build();
     }
 
-    private ReportSheetData loansSheet(UUID cooperativeId, ReportExportRequest request) {
+    private List<ReportSheetData> loanReportSheets(UUID cooperativeId, ReportExportRequest request) {
+        List<Loan> loans = loadLoans(cooperativeId, request);
+        Map<UUID, String> names = loadMemberNames(
+                loans.stream().map(Loan::getMemberUserId).distinct().toList());
+        return List.of(loansSheet(loans, names), loanInstallmentsSheet(loans, names));
+    }
+
+    private List<Loan> loadLoans(UUID cooperativeId, ReportExportRequest request) {
         LoanStatus status = parseEnum(LoanStatus.class, request.getStatus());
         List<Loan> loans;
         if (request.getMemberUserId() != null && status != null) {
@@ -427,19 +440,40 @@ public class ReportService {
                     .filter(l -> inRange(l.getRequestDate(), request.getFromDate(), request.getToDate()))
                     .toList();
         }
-        Map<UUID, String> names = loadMemberNames(
-                loans.stream().map(Loan::getMemberUserId).distinct().toList());
+        return loans;
+    }
+
+    private ReportSheetData loansSheet(List<Loan> loans, Map<UUID, String> names) {
         List<List<Object>> rows = new ArrayList<>();
         BigDecimal principalTotal = BigDecimal.ZERO;
         BigDecimal outstandingTotal = BigDecimal.ZERO;
         for (Loan loan : loans) {
             principalTotal = MoneyUtils.add(principalTotal, nvl(loan.getPrincipalAmount()));
             outstandingTotal = MoneyUtils.add(outstandingTotal, nvl(loan.getOutstandingPrincipal()));
+            BigDecimal originalPrincipal = nvl(loan.getPrincipalAmount()).compareTo(BigDecimal.ZERO) > 0
+                    ? nvl(loan.getPrincipalAmount())
+                    : nvl(loan.getApprovedAmount()).compareTo(BigDecimal.ZERO) > 0
+                            ? nvl(loan.getApprovedAmount())
+                            : nvl(loan.getRequestedAmount());
+            BigDecimal totalInterest = nvl(loan.getInterestAmount());
+            BigDecimal totalRepayment = originalPrincipal.compareTo(BigDecimal.ZERO) > 0
+                    ? MoneyUtils.add(originalPrincipal, totalInterest)
+                    : BigDecimal.ZERO;
             rows.add(cells(
                     names.getOrDefault(loan.getMemberUserId(), ""),
                     MoneyUtils.scale(nvl(loan.getRequestedAmount())),
                     MoneyUtils.scale(nvl(loan.getApprovedAmount())),
-                    MoneyUtils.scale(nvl(loan.getPrincipalAmount())),
+                    MoneyUtils.scale(originalPrincipal),
+                    MoneyUtils.scale(nvl(loan.getInterestRatePercent())),
+                    loan.getTermMonths(),
+                    loan.getRepaymentDateModel() == null ? "" : loan.getRepaymentDateModel().name(),
+                    loan.isProrataEnabled() ? "Yes" : "No",
+                    loan.getFirstPeriodDays() == null ? "" : loan.getFirstPeriodDays(),
+                    MoneyUtils.scale(totalInterest),
+                    MoneyUtils.scale(totalRepayment),
+                    loan.getEqualInstallmentAmount() == null
+                            ? ""
+                            : MoneyUtils.scale(loan.getEqualInstallmentAmount()),
                     MoneyUtils.scale(nvl(loan.getOutstandingPrincipal())),
                     MoneyUtils.scale(nvl(loan.getOutstandingInterest())),
                     loan.getStatus() == null ? "" : loan.getStatus().name(),
@@ -454,7 +488,15 @@ public class ReportService {
                         "Member",
                         "Requested",
                         "Approved",
-                        "Principal",
+                        "Original Principal",
+                        "Monthly Flat Interest Rate",
+                        "Repayment Term",
+                        "Repayment Date Model",
+                        "Prorata",
+                        "First Period Days",
+                        "Total Interest",
+                        "Total Repayment",
+                        "Equal Installment Amount",
                         "Outstanding Principal",
                         "Outstanding Interest",
                         "Status",
@@ -468,6 +510,14 @@ public class ReportService {
                         "",
                         "",
                         MoneyUtils.scale(principalTotal),
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
                         MoneyUtils.scale(outstandingTotal),
                         "",
                         "",
@@ -475,6 +525,89 @@ public class ReportService {
                         "",
                         "",
                         ""))
+                .build();
+    }
+
+    private ReportSheetData loanInstallmentsSheet(List<Loan> loans, Map<UUID, String> names) {
+        List<List<Object>> rows = new ArrayList<>();
+        for (Loan loan : loans) {
+            List<LoanInstallment> persisted = loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loan.getId());
+            String memberName = names.getOrDefault(loan.getMemberUserId(), "");
+            if (!persisted.isEmpty()) {
+                for (LoanInstallment installment : persisted) {
+                    installment.refreshStatus(LocalDate.now());
+                    rows.add(cells(
+                            memberName,
+                            loan.getId(),
+                            installment.getInstallmentNumber(),
+                            installment.getDueDate(),
+                            installment.getOpeningPrincipalBalance(),
+                            installment.getPrincipalDue(),
+                            installment.getInterestDue(),
+                            installment.getPenaltyDue(),
+                            installment.totalDue(),
+                            installment.getPrincipalPaid(),
+                            installment.getInterestPaid(),
+                            installment.getPenaltyPaid(),
+                            installment.totalPaid(),
+                            installment.remainingAmount(),
+                            installment.getStatus() == null ? "" : installment.getStatus().name()));
+                }
+                continue;
+            }
+            if (loan.getEqualInstallmentAmount() == null || loan.getDisbursementDate() == null) {
+                continue;
+            }
+            BigDecimal principal = nvl(loan.getPrincipalAmount()).compareTo(BigDecimal.ZERO) > 0
+                    ? nvl(loan.getPrincipalAmount())
+                    : nvl(loan.getApprovedAmount());
+            if (principal.compareTo(BigDecimal.ZERO) <= 0 || loan.getTermMonths() <= 0) {
+                continue;
+            }
+            LoanScheduleResponse schedule = LoanScheduleCalculator.calculate(
+                    principal,
+                    loan.getInterestRatePercent(),
+                    loan.getTermMonths(),
+                    loan.getRepaymentDateModel(),
+                    loan.getDisbursementDate());
+            for (LoanInstallmentResponse installment : schedule.getInstallments()) {
+                rows.add(cells(
+                        memberName,
+                        loan.getId(),
+                        installment.getInstallmentNumber(),
+                        installment.getDueDate(),
+                        installment.getOpeningPrincipalBalance(),
+                        installment.getPrincipalComponent(),
+                        installment.getInterestComponent(),
+                        installment.getPenaltyDue(),
+                        installment.getPaymentAmount(),
+                        installment.getPrincipalPaid(),
+                        installment.getInterestPaid(),
+                        installment.getPenaltyPaid(),
+                        installment.getAmountPaid(),
+                        installment.getRemainingAmount(),
+                        installment.getStatus() == null ? "" : installment.getStatus().name()));
+            }
+        }
+        return ReportSheetData.builder()
+                .sheetName("Loan Installments")
+                .headers(List.of(
+                        "Member",
+                        "Loan Id",
+                        "Installment",
+                        "Due Date",
+                        "Opening Balance",
+                        "Principal Due",
+                        "Interest Due",
+                        "Penalty Due",
+                        "Total Due",
+                        "Principal Paid",
+                        "Interest Paid",
+                        "Penalty Paid",
+                        "Total Paid",
+                        "Remaining",
+                        "Status"))
+                .rows(rows)
                 .build();
     }
 

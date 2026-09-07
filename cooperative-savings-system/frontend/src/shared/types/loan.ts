@@ -13,6 +13,36 @@ export type LoanStatus =
 
 export type InterestType = 'FLAT' | 'REDUCING'
 
+export type LoanRepaymentDateModel = 'SAME_DAY_OF_MONTH' | 'MONTH_END'
+
+export type LoanPenaltyType =
+  | 'FIXED_AMOUNT'
+  | 'PERCENTAGE_OF_OVERDUE_INSTALLMENT'
+  | 'PERCENTAGE_OF_OUTSTANDING_LOAN_BALANCE'
+
+export type LoanPenaltyFrequency = 'ONE_TIME' | 'DAILY' | 'MONTHLY'
+
+export type LoanRepaymentComponent = 'PENALTY' | 'INTEREST' | 'PRINCIPAL'
+
+export const LOAN_REPAYMENT_DATE_MODELS: LoanRepaymentDateModel[] = [
+  'SAME_DAY_OF_MONTH',
+  'MONTH_END',
+]
+
+export const LOAN_PENALTY_TYPES: LoanPenaltyType[] = [
+  'FIXED_AMOUNT',
+  'PERCENTAGE_OF_OVERDUE_INSTALLMENT',
+  'PERCENTAGE_OF_OUTSTANDING_LOAN_BALANCE',
+]
+
+export const LOAN_PENALTY_FREQUENCIES: LoanPenaltyFrequency[] = ['ONE_TIME', 'DAILY', 'MONTHLY']
+
+export const LOAN_REPAYMENT_COMPONENTS: LoanRepaymentComponent[] = [
+  'PENALTY',
+  'INTEREST',
+  'PRINCIPAL',
+]
+
 export type LoanGuaranteeMode = 'SELF' | 'GUARANTOR'
 
 export const LOAN_GUARANTEE_MODES: LoanGuaranteeMode[] = ['SELF', 'GUARANTOR']
@@ -49,6 +79,13 @@ export interface LoanSettings {
   minMembershipMonths?: number | null
   allowMemberRequests: boolean
   lateFeeEnabled?: boolean
+  loanPenaltyEnabled?: boolean
+  repaymentDateModel?: LoanRepaymentDateModel | string
+  penaltyType?: LoanPenaltyType | string
+  penaltyRateOrAmount?: string | number | null
+  penaltyFrequency?: LoanPenaltyFrequency | string
+  gracePeriodDays?: number
+  allocationOrder?: LoanRepaymentComponent[] | string[]
   currency?: string
   shareTiers?: LoanShareTier[]
   version?: number
@@ -64,6 +101,13 @@ export interface LoanSettingsUpdateRequest {
   minMembershipMonths?: number | null
   allowMemberRequests: boolean
   lateFeeEnabled?: boolean
+  loanPenaltyEnabled?: boolean
+  repaymentDateModel?: LoanRepaymentDateModel | string
+  penaltyType?: LoanPenaltyType | string
+  penaltyRateOrAmount?: string | number | null
+  penaltyFrequency?: LoanPenaltyFrequency | string
+  gracePeriodDays?: number
+  allocationOrder?: LoanRepaymentComponent[]
   shareTiers?: LoanShareTier[]
 }
 
@@ -140,10 +184,27 @@ export interface Loan {
   interestType: InterestType | string
   termMonths: number
   interestAmount?: string | number | null
+  prorataEnabled?: boolean
+  firstPeriodDays?: number | null
+  regularMonthlyInterest?: string | number | null
+  firstPeriodInterest?: string | number | null
+  totalRepayment?: string | number | null
+  equalInstallmentAmount?: string | number | null
+  repaymentDateModel?: LoanRepaymentDateModel | string | null
+  loanPenaltyEnabled?: boolean
+  penaltyType?: LoanPenaltyType | string | null
+  penaltyRateOrAmount?: string | number | null
+  penaltyFrequency?: LoanPenaltyFrequency | string | null
+  gracePeriodDays?: number | null
+  allocationOrder?: string | null
+  scheduleFinalized?: boolean
+  repaymentSchedule?: LoanInstallment[]
   outstandingPrincipal?: string | number | null
   outstandingInterest?: string | number | null
+  outstandingPenalty?: string | number | null
   totalRepaidPrincipal?: string | number | null
   totalRepaidInterest?: string | number | null
+  totalRepaidPenalty?: string | number | null
   requestDate?: string | null
   approvalDate?: string | null
   disbursementDate?: string | null
@@ -169,6 +230,51 @@ export interface Loan {
   createdAt?: string
   updatedAt?: string
   version?: number
+}
+
+export type LoanInstallmentStatus = 'PENDING' | 'DUE' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE'
+
+export interface LoanInstallment {
+  id?: string
+  installmentNumber: number
+  dueDate?: string | null
+  openingPrincipalBalance?: string | number | null
+  paymentAmount: string | number
+  scheduledInstallmentAmount?: string | number | null
+  principalComponent: string | number
+  interestComponent: string | number
+  penaltyDue?: string | number | null
+  remainingPrincipal?: string | number | null
+  status?: LoanInstallmentStatus | string | null
+  amountPaid?: string | number | null
+  balance?: string | number | null
+  principalPaid?: string | number | null
+  interestPaid?: string | number | null
+  penaltyPaid?: string | number | null
+  remainingAmount?: string | number | null
+}
+
+export interface LoanSchedulePreview {
+  principal: string | number
+  monthlyInterestRatePercent: string | number
+  numberOfInstallments: number
+  repaymentDateModel?: LoanRepaymentDateModel | string | null
+  prorataEnabled: boolean
+  firstPeriodDays?: number | null
+  daysInFirstMonth?: number | null
+  regularMonthlyInterest: string | number
+  firstPeriodInterest: string | number
+  totalInterest: string | number
+  totalRepayment: string | number
+  equalInstallmentAmount: string | number
+  scheduleFinalized?: boolean
+  installments?: LoanInstallment[]
+}
+
+export interface LoanRepaymentPreviewRequest {
+  amount: string | number
+  termMonths?: number
+  referenceDate?: string
 }
 
 export interface LoanCreateRequest {
@@ -202,6 +308,7 @@ export interface LoanRepayment {
   amountTotal: string | number
   principalPortion: string | number
   interestPortion: string | number
+  penaltyPortion?: string | number | null
   paymentReference?: string | null
   notes?: string | null
   recordedBy?: string | null
@@ -234,7 +341,17 @@ export function mapLoanSettings(raw: LoanSettings): LoanSettings {
     interestRatePercent: raw.interestRatePercent ?? 0,
     interestType: raw.interestType || 'FLAT',
     allowMemberRequests: Boolean(raw.allowMemberRequests),
-    lateFeeEnabled: Boolean(raw.lateFeeEnabled),
+    lateFeeEnabled: Boolean(raw.lateFeeEnabled ?? raw.loanPenaltyEnabled),
+    loanPenaltyEnabled: Boolean(raw.loanPenaltyEnabled ?? raw.lateFeeEnabled),
+    repaymentDateModel: (raw.repaymentDateModel as LoanRepaymentDateModel) || 'SAME_DAY_OF_MONTH',
+    penaltyType: (raw.penaltyType as LoanPenaltyType) || 'FIXED_AMOUNT',
+    penaltyRateOrAmount: raw.penaltyRateOrAmount ?? 0,
+    penaltyFrequency: (raw.penaltyFrequency as LoanPenaltyFrequency) || 'ONE_TIME',
+    gracePeriodDays: Number(raw.gracePeriodDays ?? 0),
+    allocationOrder:
+      raw.allocationOrder && raw.allocationOrder.length > 0
+        ? raw.allocationOrder
+        : ['PENALTY', 'INTEREST', 'PRINCIPAL'],
     shareTiers: raw.shareTiers ?? [],
   }
 }
@@ -250,6 +367,8 @@ export function mapLoan(raw: Loan): Loan {
     termMonths: Number(raw.termMonths ?? 0),
     interestRatePercent: raw.interestRatePercent ?? 0,
     interestType: raw.interestType || 'FLAT',
+    prorataEnabled: Boolean(raw.prorataEnabled),
+    repaymentSchedule: raw.repaymentSchedule ?? [],
     status: raw.status || 'PENDING',
     firstApprovedBy: raw.firstApprovedBy != null ? String(raw.firstApprovedBy) : null,
     approvalHistory: (raw.approvalHistory ?? []).map(mapApprovalEvent),

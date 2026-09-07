@@ -4,9 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -26,9 +31,11 @@ import rw.terimbere.csams.modules.loan.dto.LoanGuarantorRespondRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanGuarantorResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanRejectRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanRepaymentCreateRequest;
+import rw.terimbere.csams.modules.loan.dto.LoanRepaymentPreviewRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanRepaymentResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanRequestCreateRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanResponse;
+import rw.terimbere.csams.modules.loan.dto.LoanScheduleResponse;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.service.LoanGuarantorService;
 import rw.terimbere.csams.modules.loan.service.LoanService;
@@ -84,6 +91,14 @@ public class LoanController {
     public ResponseEntity<ApiResponse<LoanApplicationFormResponse>> applicationPreview(
             @PathVariable UUID cooperativeId) {
         return ResponseEntity.ok(ApiResponse.ok(loanService.applicationPreview(cooperativeId)));
+    }
+
+    @PostMapping("/repayment-preview")
+    @PreAuthorize("hasAuthority('LOAN_READ')")
+    @Operation(summary = "Preview flat monthly interest, total repayment, and equal installments")
+    public ResponseEntity<ApiResponse<LoanScheduleResponse>> repaymentPreview(
+            @PathVariable UUID cooperativeId, @Valid @RequestBody LoanRepaymentPreviewRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(loanService.previewRepayment(cooperativeId, request)));
     }
 
     @GetMapping("/eligibility")
@@ -182,5 +197,27 @@ public class LoanController {
     public ResponseEntity<ApiResponse<List<LoanRepaymentResponse>>> listRepayments(
             @PathVariable UUID cooperativeId, @PathVariable UUID loanId) {
         return ResponseEntity.ok(ApiResponse.ok(loanService.listRepayments(cooperativeId, loanId)));
+    }
+
+    @GetMapping("/{loanId}/schedule/export")
+    @PreAuthorize("hasAuthority('LOAN_READ')")
+    @Operation(summary = "Download the amortization schedule as PDF or Excel")
+    public void exportSchedule(
+            @PathVariable UUID cooperativeId,
+            @PathVariable UUID loanId,
+            @RequestParam(defaultValue = "pdf") String format,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse)
+            throws IOException {
+        LoanService.ScheduleExport export = loanService.exportSchedule(cooperativeId, loanId, format, httpRequest);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(export.filename(), StandardCharsets.UTF_8)
+                .build();
+        httpResponse.setStatus(HttpServletResponse.SC_OK);
+        httpResponse.setContentType(export.contentType());
+        httpResponse.setHeader(HttpHeaders.CONTENT_DISPOSITION, disposition.toString());
+        httpResponse.setContentLength(export.content().length);
+        httpResponse.getOutputStream().write(export.content());
+        httpResponse.flushBuffer();
     }
 }

@@ -16,8 +16,9 @@ public final class LoanInterestCalculator {
     private LoanInterestCalculator() {}
 
     /**
-     * FLAT: interest = principal × rate/100 (one-time flat charge).
-     * REDUCING (legacy existing loans only): same simple percentage — do not invent a new formula here.
+     * One period of FLAT interest: {@code principal × rate/100}.
+     * New FLAT loans use {@link LoanScheduleCalculator} to multiply this by the term
+     * (with optional first-period prorata). REDUCING remains a legacy one-period path.
      */
     public static BigDecimal computeInterest(BigDecimal principal, BigDecimal ratePercent, InterestType type) {
         BigDecimal p = MoneyUtils.scaleForStorage(principal == null ? BigDecimal.ZERO : principal);

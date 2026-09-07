@@ -59,6 +59,10 @@ public class LoanRepayment {
     @Column(name = "interest_portion", nullable = false, precision = 19, scale = 4, updatable = false)
     private BigDecimal interestPortion;
 
+    @Builder.Default
+    @Column(name = "penalty_portion", nullable = false, precision = 19, scale = 4, updatable = false)
+    private BigDecimal penaltyPortion = BigDecimal.ZERO;
+
     @Column(name = "payment_reference", length = 128, updatable = false)
     private String paymentReference;
 

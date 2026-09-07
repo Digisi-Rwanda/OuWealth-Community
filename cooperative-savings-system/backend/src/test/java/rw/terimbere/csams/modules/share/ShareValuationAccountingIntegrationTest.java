@@ -176,10 +176,10 @@ class ShareValuationAccountingIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.principalPortion").value(40000.0))
-                .andExpect(jsonPath("$.data.interestPortion").value(0.0));
+                .andExpect(jsonPath("$.data.principalPortion").value(30000.0))
+                .andExpect(jsonPath("$.data.interestPortion").value(10000.0));
 
-        expectValuation("940000.0", "60000.0", "10000.0", "0.0", "0.0", "1010000.0", 5, "202000.0");
+        expectValuation("940000.0", "70000.0", "0.0", "0.0", "0.0", "1010000.0", 5, "202000.0");
 
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/repayments")
                         .header("Authorization", "Bearer " + superAdminToken)
@@ -192,7 +192,7 @@ class ShareValuationAccountingIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.interestPortion").value(10000.0));
+                .andExpect(jsonPath("$.data.principalPortion").value(10000.0));
 
         expectValuation("950000.0", "60000.0", "0.0", "0.0", "0.0", "1010000.0", 5, "202000.0");
     }
@@ -334,7 +334,7 @@ class ShareValuationAccountingIntegrationTest {
                                 {
                                   "memberUserId":"%s",
                                   "amount":%s,
-                                  "termMonths":6,
+                                  "termMonths":1,
                                   "purpose":"Business"
                                 }
                                 """.formatted(memberUserId, amount)))
