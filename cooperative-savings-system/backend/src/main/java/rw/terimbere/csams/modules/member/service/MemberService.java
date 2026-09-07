@@ -50,6 +50,9 @@ import rw.terimbere.csams.modules.member.dto.MemberResponse;
 import rw.terimbere.csams.modules.member.dto.MemberStatusUpdateRequest;
 import rw.terimbere.csams.modules.member.dto.MemberUpdateRequest;
 import rw.terimbere.csams.shared.utilities.MoneyUtils;
+import rw.terimbere.csams.modules.notification.account.AccountNotificationCopy;
+import rw.terimbere.csams.modules.notification.entity.NotificationType;
+import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.role.entity.Role;
@@ -99,6 +102,7 @@ public class MemberService {
     private final PayoutService payoutService;
     private final PayoutLineRepository payoutLineRepository;
     private final ShareValuationService shareValuationService;
+    private final NotificationFacade notificationFacade;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -171,6 +175,12 @@ public class MemberService {
                 "{\"username\":\"" + escape(username) + "\",\"membershipId\":\"" + membership.getId() + "\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
+
+        notifyAccount(
+                user.getId(),
+                cooperativeId,
+                AccountNotificationCopy.WELCOME_TITLE,
+                AccountNotificationCopy.welcomeNewMemberBody(schemeName(cooperativeId), roleInCoop));
 
         MemberResponse response = toResponse(user, membership);
         response.setTemporaryPassword(temporaryPassword);
@@ -396,11 +406,13 @@ public class MemberService {
         if (request.getMembershipDate() != null) {
             membership.setMembershipDate(request.getMembershipDate());
         }
+        String previousRole = CooperativeOfficerRoles.normalize(membership.getRoleInCooperative());
+        String nextRole = previousRole;
         if (StringUtils.hasText(request.getRoleInCooperative())) {
-            String roleInCoop = CooperativeOfficerRoles.normalize(request.getRoleInCooperative());
-            assertCanAssignRole(principal, roleInCoop);
-            membership.setRoleInCooperative(roleInCoop);
-            ensureSystemRoles(user, roleInCoop);
+            nextRole = CooperativeOfficerRoles.normalize(request.getRoleInCooperative());
+            assertCanAssignRole(principal, nextRole);
+            membership.setRoleInCooperative(nextRole);
+            ensureSystemRoles(user, nextRole);
             userRepository.save(user);
         }
         membershipRepository.save(membership);
@@ -415,6 +427,13 @@ public class MemberService {
                 "{\"email\":\"" + escape(user.getEmail()) + "\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
+        if (!previousRole.equals(nextRole)) {
+            notifyAccount(
+                    user.getId(),
+                    cooperativeId,
+                    AccountNotificationCopy.ROLE_CHANGED_TITLE,
+                    AccountNotificationCopy.roleChangedBody(schemeName(cooperativeId), previousRole, nextRole));
+        }
         return toResponse(user, membership);
     }
 
@@ -512,6 +531,7 @@ public class MemberService {
 
         User user;
         String temporaryPassword = null;
+        boolean createdNewUser = false;
         if (request.getUserId() != null) {
             user = requireUser(request.getUserId());
         } else {
@@ -545,6 +565,7 @@ public class MemberService {
                     .accountStatus(AccountStatus.ACTIVE)
                     .roles(roles)
                     .build());
+            createdNewUser = true;
         }
 
         ensureSystemRoles(user, CooperativeOfficerRoles.PRESIDENT);
@@ -572,6 +593,21 @@ public class MemberService {
                 "{\"roleInCooperative\":\"PRESIDENT\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
+
+        String schemeName = schemeName(cooperativeId);
+        if (createdNewUser) {
+            notifyAccount(
+                    user.getId(),
+                    cooperativeId,
+                    AccountNotificationCopy.WELCOME_TITLE,
+                    AccountNotificationCopy.welcomeNewAdministratorBody(schemeName));
+        } else {
+            notifyAccount(
+                    user.getId(),
+                    cooperativeId,
+                    AccountNotificationCopy.MEMBERSHIP_ADDED_TITLE,
+                    AccountNotificationCopy.membershipAddedBody(schemeName, CooperativeOfficerRoles.PRESIDENT));
+        }
 
         MemberResponse response = toResponse(user, membership);
         if (temporaryPassword != null) {
@@ -614,6 +650,19 @@ public class MemberService {
         if (platformRole != null) {
             user.getRoles().add(requireRole(platformRole));
         }
+    }
+
+    private void notifyAccount(UUID userId, UUID cooperativeId, String title, String body) {
+        notificationFacade.notifyUser(
+                userId, cooperativeId, NotificationType.ACCOUNT, title, body, "User", userId);
+    }
+
+    private String schemeName(UUID cooperativeId) {
+        return cooperativeRepository
+                .findByIdAndDeletedFalse(cooperativeId)
+                .map(Cooperative::getName)
+                .filter(StringUtils::hasText)
+                .orElse("your Saving Scheme");
     }
 
     private void requireCooperativeExists(UUID cooperativeId) {

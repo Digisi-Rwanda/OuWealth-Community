@@ -162,7 +162,7 @@ export interface LoanGuarantor {
   loanStatus?: LoanStatus | string | null
   guarantorUserId: string
   guarantorName?: string | null
-  guaranteedAmount: string | number
+  guaranteedAmount?: string | number | null
   status: LoanGuarantorStatus | string
   requestedBy?: string | null
   requestedAt?: string | null
@@ -239,10 +239,10 @@ export interface LoanInstallment {
   installmentNumber: number
   dueDate?: string | null
   openingPrincipalBalance?: string | number | null
-  paymentAmount: string | number
+  paymentAmount?: string | number | null
   scheduledInstallmentAmount?: string | number | null
-  principalComponent: string | number
-  interestComponent: string | number
+  principalComponent?: string | number | null
+  interestComponent?: string | number | null
   penaltyDue?: string | number | null
   remainingPrincipal?: string | number | null
   status?: LoanInstallmentStatus | string | null
@@ -255,18 +255,18 @@ export interface LoanInstallment {
 }
 
 export interface LoanSchedulePreview {
-  principal: string | number
-  monthlyInterestRatePercent: string | number
-  numberOfInstallments: number
+  principal?: string | number | null
+  monthlyInterestRatePercent?: string | number | null
+  numberOfInstallments?: number | null
   repaymentDateModel?: LoanRepaymentDateModel | string | null
   prorataEnabled: boolean
   firstPeriodDays?: number | null
   daysInFirstMonth?: number | null
-  regularMonthlyInterest: string | number
-  firstPeriodInterest: string | number
-  totalInterest: string | number
-  totalRepayment: string | number
-  equalInstallmentAmount: string | number
+  regularMonthlyInterest?: string | number | null
+  firstPeriodInterest?: string | number | null
+  totalInterest?: string | number | null
+  totalRepayment?: string | number | null
+  equalInstallmentAmount?: string | number | null
   scheduleFinalized?: boolean
   installments?: LoanInstallment[]
 }

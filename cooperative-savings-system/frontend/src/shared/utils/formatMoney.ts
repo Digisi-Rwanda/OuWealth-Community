@@ -1,6 +1,13 @@
+export const EMPTY_MONEY_PLACEHOLDER = '—'
+
+function isEmptyMoneyValue(value: unknown): boolean {
+  return value == null || (typeof value === 'string' && value.trim() === '')
+}
+
 /**
  * Format money from integer minor units or a decimal string without binary float math.
  * Prefer passing amounts as decimal strings (e.g. "1250.50") from the API.
+ * Null, undefined, or blank optional values render as "—" and do not throw.
  */
 export function normalizeDecimalString(value: string | number): string {
   if (typeof value === 'number') {
@@ -31,8 +38,10 @@ function splitParts(decimal: string): { sign: string; whole: string; fraction: s
   return { sign, whole, fraction }
 }
 
+export type MoneyAmount = string | number | null | undefined
+
 export function formatMoney(
-  amount: string | number,
+  amount: MoneyAmount,
   options: {
     currency?: string
     locale?: string
@@ -40,6 +49,10 @@ export function formatMoney(
     maximumFractionDigits?: number
   } = {},
 ): string {
+  if (isEmptyMoneyValue(amount)) {
+    return EMPTY_MONEY_PLACEHOLDER
+  }
+
   const {
     currency = 'RWF',
     locale = 'en-RW',
@@ -47,7 +60,7 @@ export function formatMoney(
     maximumFractionDigits = 2,
   } = options
 
-  const normalized = normalizeDecimalString(amount)
+  const normalized = normalizeDecimalString(amount as string | number)
   const { sign, whole, fraction } = splitParts(normalized)
 
   const paddedFraction = fraction
@@ -84,4 +97,19 @@ export function formatMoney(
   }
 
   return `${currency} ${numberPart}`
+}
+
+/** Presentation helper: never throw. Invalid or empty optional amounts show "—". */
+export function formatOptionalMoney(
+  amount: MoneyAmount,
+  options?: Parameters<typeof formatMoney>[1],
+): string {
+  if (isEmptyMoneyValue(amount)) {
+    return EMPTY_MONEY_PLACEHOLDER
+  }
+  try {
+    return formatMoney(amount, options)
+  } catch {
+    return EMPTY_MONEY_PLACEHOLDER
+  }
 }

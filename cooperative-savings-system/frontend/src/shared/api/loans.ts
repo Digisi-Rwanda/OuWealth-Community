@@ -5,6 +5,7 @@ import {
   throwIfBlobError,
   triggerBlobDownload,
 } from '@/shared/utils/download'
+import type { ReportWhatsAppShareResult, ReportWhatsAppStatus } from '@/shared/types/report'
 import type { ApiResponse, PageResponse } from '@/shared/types/api'
 import type {
   Loan,
@@ -223,11 +224,17 @@ export async function exportLoanSchedule(
       params: { format },
       responseType: 'blob',
       timeout: 120000,
+      headers:
+        format === 'pdf'
+          ? {
+              Accept: 'application/pdf, application/json',
+            }
+          : undefined,
     },
   )
   const blob = response.data as Blob
   await throwIfBlobError(blob, 'Schedule export failed')
-  const fallback = format === 'xlsx' ? 'loan-schedule.xlsx' : 'loan-schedule.pdf'
+  const fallback = format === 'xlsx' ? 'repayment-schedule.xlsx' : 'repayment-schedule.pdf'
   const filename = parseContentDispositionFilename(
     response.headers['content-disposition'] as string | undefined,
     fallback,
@@ -242,4 +249,28 @@ export async function exportLoanSchedule(
         : new Blob([blob], { type: 'application/pdf' })
   triggerBlobDownload(typed, filename)
   return { filename }
+}
+
+export async function fetchLoanScheduleWhatsAppStatus(
+  cooperativeId: string,
+  loanId: string,
+): Promise<ReportWhatsAppStatus> {
+  const response = await apiClient.get<ApiResponse<ReportWhatsAppStatus>>(
+    `/cooperatives/${cooperativeId}/loans/${loanId}/schedule/whatsapp-status`,
+  )
+  const data = unwrapApiData(response.data)
+  return { configured: Boolean(data?.configured) }
+}
+
+export async function shareLoanScheduleViaWhatsApp(
+  cooperativeId: string,
+  loanId: string,
+  recipientPhone: string,
+): Promise<ReportWhatsAppShareResult> {
+  const response = await apiClient.post<ApiResponse<ReportWhatsAppShareResult>>(
+    `/cooperatives/${cooperativeId}/loans/${loanId}/schedule/share-whatsapp`,
+    { recipientPhone },
+    { timeout: 120000 },
+  )
+  return unwrapApiData(response.data)
 }

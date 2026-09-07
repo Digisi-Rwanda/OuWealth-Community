@@ -160,9 +160,11 @@ class LoanScheduleAllocationIntegrationTest {
                 .andExpect(jsonPath("$.data.equalInstallmentAmount").value(66000.0))
                 .andExpect(jsonPath("$.data.scheduleFinalized").value(true))
                 .andExpect(jsonPath("$.data.repaymentSchedule.length()").value(5))
+                .andExpect(jsonPath("$.data.dueDate").value("2026-06-15"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].dueDate").value("2026-02-15"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[1].dueDate").value("2026-03-15"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[2].dueDate").value("2026-04-15"))
+                .andExpect(jsonPath("$.data.repaymentSchedule[4].dueDate").value("2026-06-15"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].openingPrincipalBalance").value(300000.0))
                 .andExpect(jsonPath("$.data.repaymentSchedule[1].openingPrincipalBalance").value(240000.0))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].status").value("PENDING"));
@@ -207,10 +209,12 @@ class LoanScheduleAllocationIntegrationTest {
                 .andExpect(jsonPath("$.data.prorataEnabled").value(true))
                 .andExpect(jsonPath("$.data.firstPeriodDays").value(16))
                 .andExpect(jsonPath("$.data.firstPeriodInterest").value(3096.77))
+                .andExpect(jsonPath("$.data.dueDate").value("2026-05-31"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].dueDate").value("2026-01-31"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[1].dueDate").value("2026-02-28"))
                 .andExpect(jsonPath("$.data.repaymentSchedule[2].dueDate").value("2026-03-31"))
-                .andExpect(jsonPath("$.data.repaymentSchedule[3].dueDate").value("2026-04-30"));
+                .andExpect(jsonPath("$.data.repaymentSchedule[3].dueDate").value("2026-04-30"))
+                .andExpect(jsonPath("$.data.repaymentSchedule[4].dueDate").value("2026-05-31"));
     }
 
     @Test
@@ -636,10 +640,19 @@ class LoanScheduleAllocationIntegrationTest {
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].penaltyDue").value(8000.0));
 
-        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/schedule/export")
+        MvcResult pdf = mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId
+                                + "/schedule/export")
                         .param("format", "pdf")
                         .header("Authorization", "Bearer " + superAdminToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Content-Type", org.hamcrest.Matchers.containsString("application/pdf")))
+                .andReturn();
+        byte[] pdfBytes = pdf.getResponse().getContentAsByteArray();
+        assertThat(pdfBytes.length).isGreaterThan(200);
+        assertThat(new String(pdfBytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        assertThat(new String(pdfBytes, java.nio.charset.StandardCharsets.ISO_8859_1)).doesNotContain(loanId.toString());
+
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/schedule/export")
                         .param("format", "xlsx")
                         .header("Authorization", "Bearer " + superAdminToken))

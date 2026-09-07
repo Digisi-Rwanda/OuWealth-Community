@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, normalizeDecimalString } from './formatMoney'
+import { formatMoney, formatOptionalMoney, normalizeDecimalString } from './formatMoney'
 
 describe('normalizeDecimalString', () => {
   it('accepts decimal strings without float conversion', () => {
@@ -38,5 +38,30 @@ describe('formatMoney', () => {
     expect(formatMoney('0.3', { currency: 'USD', locale: 'en-US', maximumFractionDigits: 2 })).toContain(
       '0.3',
     )
+  })
+
+  it('renders an em dash for null, undefined, or blank optional amounts', () => {
+    expect(formatMoney(null)).toBe('—')
+    expect(formatMoney(undefined)).toBe('—')
+    expect(formatMoney('')).toBe('—')
+    expect(formatMoney('   ')).toBe('—')
+  })
+
+  it('still formats zero as a real amount', () => {
+    expect(formatMoney(0)).toMatch(/0/)
+    expect(formatMoney('0')).toMatch(/0/)
+  })
+})
+
+describe('formatOptionalMoney', () => {
+  it('does not throw for null or invalid optional amounts', () => {
+    expect(formatOptionalMoney(null)).toBe('—')
+    expect(formatOptionalMoney(undefined)).toBe('—')
+    expect(formatOptionalMoney('abc')).toBe('—')
+    expect(formatOptionalMoney('12.3.4')).toBe('—')
+  })
+
+  it('formats valid money the same as formatMoney', () => {
+    expect(formatOptionalMoney('2500')).toBe(formatMoney('2500'))
   })
 })

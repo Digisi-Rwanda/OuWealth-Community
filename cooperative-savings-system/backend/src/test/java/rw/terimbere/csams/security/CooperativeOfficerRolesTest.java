@@ -18,6 +18,16 @@ class CooperativeOfficerRolesTest {
     }
 
     @Test
+    void displayLabelHumanizesCooperativeRoles() {
+        assertThat(CooperativeOfficerRoles.displayLabel("MEMBER")).isEqualTo("Member");
+        assertThat(CooperativeOfficerRoles.displayLabel("VICE_PRESIDENT")).isEqualTo("Vice President");
+        assertThat(CooperativeOfficerRoles.displayLabel("ACCOUNTANT")).isEqualTo("Treasurer");
+        assertThat(CooperativeOfficerRoles.displayLabel("LOAN_OFFICER")).isEqualTo("Loan Officer");
+        assertThat(CooperativeOfficerRoles.displayLabel("cooperative_admin")).isEqualTo("President");
+        assertThat(CooperativeOfficerRoles.displayLabel(null)).isEqualTo("Member");
+    }
+
+    @Test
     void rejectsUnknownMembershipRole() {
         assertThatThrownBy(() -> CooperativeOfficerRoles.normalize("TREASURER"))
                 .isInstanceOf(ValidationException.class);

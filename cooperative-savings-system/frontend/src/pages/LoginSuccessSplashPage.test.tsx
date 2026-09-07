@@ -177,6 +177,36 @@ describe('LoginSuccessSplashPage', () => {
     expect(screen.queryByText('dashboard-route')).not.toBeInTheDocument()
   })
 
+  it('ignores repeated continue actions so only one navigation happens', async () => {
+    renderSplash({ state: LOGIN_SUCCESS_STATE })
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_ENTRANCE_MS)
+    })
+    fireEvent.keyDown(window, { key: 'Enter' })
+    fireEvent.keyDown(window, { key: 'Enter' })
+    fireEvent.click(screen.getByTestId('ouwealth-splash'))
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_EXIT_MS)
+    })
+    expect(screen.getAllByText('dashboard-route')).toHaveLength(1)
+    expect(screen.queryByTestId('ouwealth-splash')).not.toBeInTheDocument()
+  })
+
+  it('does not issue a network request when continuing to Dashboard', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    renderSplash({ state: LOGIN_SUCCESS_STATE })
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_ENTRANCE_MS)
+    })
+    fireEvent.keyDown(window, { key: 'Enter' })
+    await act(async () => {
+      vi.advanceTimersByTime(OU_WEALTH_SPLASH_EXIT_MS)
+    })
+    expect(screen.getByText('dashboard-route')).toBeInTheDocument()
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
   it('ignores modifier-only keys after the splash is ready', async () => {
     renderSplash({ state: LOGIN_SUCCESS_STATE })
     await act(async () => {

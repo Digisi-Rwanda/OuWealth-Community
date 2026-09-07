@@ -20,9 +20,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.mockito.Mockito;
+import rw.terimbere.csams.modules.notification.channel.EmailNotificationPublisher;
+import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.membership.OpeningShareBalances;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.loan.entity.Loan;
@@ -49,6 +53,9 @@ class LoanControllerIntegrationTest {
 
     @Autowired
     private CooperativeMembershipRepository membershipRepository;
+
+    @SpyBean
+    private EmailNotificationPublisher emailNotificationPublisher;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -632,6 +639,7 @@ class LoanControllerIntegrationTest {
                 .path("id")
                 .asText());
 
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/reject")
                         .header("Authorization", "Bearer " + loanOfficerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -659,6 +667,15 @@ class LoanControllerIntegrationTest {
             }
         }
         assertThat(found).isTrue();
+        Mockito.verify(emailNotificationPublisher)
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.eq(cooperativeId),
+                        Mockito.eq(NotificationType.LOAN),
+                        Mockito.eq("Loan rejected"),
+                        Mockito.any(),
+                        Mockito.eq("Loan"),
+                        Mockito.eq(loanId));
     }
 
     @Test
@@ -683,12 +700,22 @@ class LoanControllerIntegrationTest {
                 .path("id")
                 .asText());
 
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/approve")
                         .header("Authorization", "Bearer " + loanOfficerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("AWAITING_SECOND_APPROVAL"));
+        Mockito.verify(emailNotificationPublisher, Mockito.never())
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.eq(cooperativeId),
+                        Mockito.eq(NotificationType.LOAN),
+                        Mockito.eq("Loan approved"),
+                        Mockito.any(),
+                        Mockito.eq("Loan"),
+                        Mockito.eq(loanId));
 
         MvcResult afterFirst = mockMvc.perform(get("/api/v1/notifications")
                         .header("Authorization", "Bearer " + memberToken))
@@ -713,12 +740,22 @@ class LoanControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.loanSecondApprovalCount")
                         .value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
 
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId + "/approve")
                         .header("Authorization", "Bearer " + superAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
+        Mockito.verify(emailNotificationPublisher)
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.eq(cooperativeId),
+                        Mockito.eq(NotificationType.LOAN),
+                        Mockito.eq("Loan approved"),
+                        Mockito.any(),
+                        Mockito.eq("Loan"),
+                        Mockito.eq(loanId));
 
         MvcResult afterSecond = mockMvc.perform(get("/api/v1/notifications")
                         .header("Authorization", "Bearer " + memberToken))

@@ -1,10 +1,20 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
   Divider,
   Drawer,
+  MenuItem,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
   TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
@@ -14,10 +24,16 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
 import {
+  AUDITABLE_ACTIONS,
+  AUDIT_ENTITY_TYPES,
   auditEntityLabel,
   auditUserLabel,
+  buildAuditChangeRows,
+  buildAuditDescription,
+  buildAuditRecordLabel,
+  displayAuditAction,
   displayAuditEntityType,
-  formatJsonBlock,
+  formatAuditDateTime,
 } from '@/features/auditLogs'
 import { fetchAuditLog, fetchAuditLogs } from '@/shared/api/auditLogs'
 import { getErrorMessage } from '@/shared/api/client'
@@ -76,7 +92,7 @@ export function AuditLogsPage() {
       {
         id: 'action',
         label: t('auditLogs.fields.action'),
-        render: (row) => row.action || '—',
+        render: (row) => displayAuditAction(row.action, t),
       },
       {
         id: 'entityType',
@@ -116,6 +132,9 @@ export function AuditLogsPage() {
 
   const rows = listQuery.data?.content ?? []
   const detail = detailQuery.data
+  const changes = detail
+    ? buildAuditChangeRows(detail.previousValues, detail.newValues, t, detail.entityType)
+    : null
 
   return (
     <Box>
@@ -131,6 +150,7 @@ export function AuditLogsPage() {
         sx={{ mb: 2, flexWrap: 'wrap' }}
       >
         <TextField
+          select
           size="small"
           label={t('auditLogs.fields.action')}
           value={action}
@@ -138,9 +158,17 @@ export function AuditLogsPage() {
             setAction(e.target.value)
             setPage(0)
           }}
-          sx={{ minWidth: { xs: '100%', sm: 180 } }}
-        />
+          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+        >
+          <MenuItem value="">{t('common.all')}</MenuItem>
+          {AUDITABLE_ACTIONS.map((value) => (
+            <MenuItem key={value} value={value}>
+              {displayAuditAction(value, t)}
+            </MenuItem>
+          ))}
+        </TextField>
         <TextField
+          select
           size="small"
           label={t('auditLogs.fields.entityType')}
           value={entityType}
@@ -148,8 +176,15 @@ export function AuditLogsPage() {
             setEntityType(e.target.value)
             setPage(0)
           }}
-          sx={{ minWidth: { xs: '100%', sm: 180 } }}
-        />
+          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+        >
+          <MenuItem value="">{t('common.all')}</MenuItem>
+          {AUDIT_ENTITY_TYPES.map((value) => (
+            <MenuItem key={value} value={value}>
+              {displayAuditEntityType(value, t)}
+            </MenuItem>
+          ))}
+        </TextField>
         <DateRangeFields
           from={from}
           to={to}
@@ -221,7 +256,7 @@ export function AuditLogsPage() {
         slotProps={{
           paper: {
             sx: {
-              width: { xs: '100%', sm: 420, md: 480 },
+              width: { xs: '100%', sm: 460, md: 560 },
               p: 2.5,
             },
           },
@@ -247,71 +282,77 @@ export function AuditLogsPage() {
         ) : null}
 
         {detail ? (
-          <Stack spacing={1.5}>
-            <DetailRow label={t('auditLogs.fields.action')} value={detail.action} />
-            <DetailRow
-              label={t('auditLogs.fields.createdAt')}
-              value={
-                detail.createdAt
-                  ? dayjs(detail.createdAt).format('YYYY-MM-DD HH:mm:ss')
-                  : '—'
-              }
-            />
-            <DetailRow
-              label={t('auditLogs.fields.entityType')}
-              value={displayAuditEntityType(detail.entityType, t)}
-            />
-            <DetailRow
-              label={t('auditLogs.fields.entityId')}
-              value={auditEntityLabel(detail)}
-            />
-            <DetailRow label={t('auditLogs.fields.userId')} value={auditUserLabel(detail)} />
-            <DetailRow
-              label={t('auditLogs.fields.ipAddress')}
-              value={detail.ipAddress || '—'}
-            />
+          <Stack spacing={2.5}>
             <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('auditLogs.fields.previousValues')}
+              <Typography variant="subtitle2" sx={{ mb: 1.25, fontWeight: 700 }}>
+                {t('auditLogs.summaryTitle')}
               </Typography>
-              <Box
-                component="pre"
+              <Stack spacing={1.25}>
+                <DetailRow
+                  label={t('auditLogs.summary.action')}
+                  value={displayAuditAction(detail.action, t)}
+                />
+                <DetailRow
+                  label={t('auditLogs.summary.performedBy')}
+                  value={auditUserLabel(detail)}
+                />
+                <DetailRow
+                  label={t('auditLogs.summary.date')}
+                  value={formatAuditDateTime(detail.createdAt)}
+                />
+                <DetailRow
+                  label={t('auditLogs.summary.record')}
+                  value={buildAuditRecordLabel(detail, t)}
+                />
+                <DetailRow
+                  label={t('auditLogs.summary.description')}
+                  value={buildAuditDescription(detail, t)}
+                />
+              </Stack>
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.25, fontWeight: 700 }}>
+                {t('auditLogs.changesTitle')}
+              </Typography>
+              {changes?.empty ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t('auditLogs.noChanges')}
+                </Typography>
+              ) : (
+                <AuditChangesTable
+                  rows={changes?.rows ?? []}
+                  showPrevious={Boolean(changes?.hasPrevious)}
+                  showNew={Boolean(changes?.hasNew)}
+                  fieldLabel={t('auditLogs.changes.field')}
+                  previousLabel={t('auditLogs.changes.previous')}
+                  newLabel={t('auditLogs.changes.new')}
+                />
+              )}
+            </Box>
+
+            {detail.ipAddress ? (
+              <Accordion
+                disableGutters
+                elevation={0}
+                defaultExpanded={false}
                 sx={{
-                  m: 0,
-                  mt: 0.5,
-                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
                   borderRadius: 1,
-                  bgcolor: 'action.hover',
-                  overflowX: 'auto',
-                  fontSize: '0.75rem',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
+                  '&:before': { display: 'none' },
                 }}
               >
-                {formatJsonBlock(detail.previousValues)}
-              </Box>
-            </Box>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('auditLogs.fields.newValues')}
-              </Typography>
-              <Box
-                component="pre"
-                sx={{
-                  m: 0,
-                  mt: 0.5,
-                  p: 1.5,
-                  borderRadius: 1,
-                  bgcolor: 'action.hover',
-                  overflowX: 'auto',
-                  fontSize: '0.75rem',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {formatJsonBlock(detail.newValues)}
-              </Box>
-            </Box>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {t('auditLogs.technicalDetails')}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <DetailRow label={t('auditLogs.fields.ipAddress')} value={detail.ipAddress} />
+                </AccordionDetails>
+              </Accordion>
+            ) : null}
           </Stack>
         ) : null}
       </Drawer>
@@ -327,5 +368,54 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       </Typography>
       <Typography variant="body2">{value}</Typography>
     </Box>
+  )
+}
+
+function AuditChangesTable({
+  rows,
+  showPrevious,
+  showNew,
+  fieldLabel,
+  previousLabel,
+  newLabel,
+}: {
+  rows: Array<{ key: string; label: string; previous: string; next: string }>
+  showPrevious: boolean
+  showNew: boolean
+  fieldLabel: string
+  previousLabel: string
+  newLabel: string
+}) {
+  const previousVisible = showPrevious || !showNew
+  const newVisible = showNew || !showPrevious
+  return (
+    <Table size="small" sx={{ '& td, & th': { px: 1, py: 1, verticalAlign: 'top' } }}>
+      <TableHead>
+        <TableRow>
+          <TableCell sx={{ fontWeight: 700 }}>{fieldLabel}</TableCell>
+          {previousVisible ? (
+            <TableCell sx={{ fontWeight: 700 }}>{previousLabel}</TableCell>
+          ) : null}
+          {newVisible ? <TableCell sx={{ fontWeight: 700 }}>{newLabel}</TableCell> : null}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell>{row.label}</TableCell>
+            {previousVisible ? (
+              <TableCell sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {row.previous}
+              </TableCell>
+            ) : null}
+            {newVisible ? (
+              <TableCell sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                {row.next}
+              </TableCell>
+            ) : null}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }

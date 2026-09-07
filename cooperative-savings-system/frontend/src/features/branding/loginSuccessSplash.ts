@@ -1,7 +1,7 @@
 import { ROUTES } from '@/shared/constants/routes'
 
-/** Last entrance beat from the reference sequence (tagline 3.42s + 0.9s; documented handoff 4.35s). */
-export const OU_WEALTH_SPLASH_ENTRANCE_MS = 4350
+/** Last entrance beat (tagline delay 3.10s + 0.80s). Continue is available at this handoff. */
+export const OU_WEALTH_SPLASH_ENTRANCE_MS = 3900
 
 /** Short fade before navigating to the post-login destination. */
 export const OU_WEALTH_SPLASH_EXIT_MS = 280

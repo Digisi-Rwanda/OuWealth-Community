@@ -102,7 +102,7 @@ export function LoansListPanel({ cooperativeId, mode }: LoansListPanelProps) {
       },
       {
         id: 'dueDate',
-        label: t('loans.fields.dueDate'),
+        label: t('loans.fields.maturityDate'),
         render: (row) => row.dueDate || '—',
         hideOnMobile: true,
       },

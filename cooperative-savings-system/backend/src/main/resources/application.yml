@@ -20,6 +20,21 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:true}
+          connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:10000}
+          timeout: ${MAIL_TIMEOUT_MS:10000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -43,6 +58,8 @@ management:
       enabled: true
     readinessstate:
       enabled: true
+    mail:
+      enabled: ${MAIL_HEALTH_ENABLED:false}
 
 springdoc:
   api-docs:
@@ -85,6 +102,10 @@ app:
     api-version: ${WHATSAPP_API_VERSION:v21.0}
     template-name: ${WHATSAPP_TEMPLATE_NAME:}
     template-language: ${WHATSAPP_TEMPLATE_LANGUAGE:en}
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+    host: ${MAIL_HOST:}
+    from: ${MAIL_FROM:}
 
 logging:
   pattern:

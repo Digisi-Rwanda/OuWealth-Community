@@ -33,6 +33,7 @@ import rw.terimbere.csams.modules.auth.entity.RefreshToken;
 import rw.terimbere.csams.modules.auth.repository.PasswordResetTokenRepository;
 import rw.terimbere.csams.modules.auth.repository.RefreshTokenRepository;
 import rw.terimbere.csams.modules.auth.util.TokenHashing;
+import rw.terimbere.csams.modules.notification.account.AccountNotificationCopy;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.role.entity.Role;
@@ -325,6 +326,18 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("superadmin"))
                 .andExpect(jsonPath("$.data.email").value("superadmin@terimbere.local"));
+        MvcResult notifications = mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode content = objectMapper
+                .readTree(notifications.getResponse().getContentAsString())
+                .path("data")
+                .path("content");
+        for (JsonNode notification : content) {
+            assertThat(notification.path("title").asText())
+                    .isNotEqualTo(AccountNotificationCopy.WELCOME_TITLE);
+        }
     }
 
     @Test
@@ -349,12 +362,37 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.user.username").value(username))
                 .andExpect(jsonPath("$.data.user.roles", org.hamcrest.Matchers.hasItem("MEMBER")));
 
-        mockMvc.perform(post("/api/v1/auth/login")
+        MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"username":"%s","password":"SignupPass1!"}
                                 """.formatted(username)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+        String access = objectMapper
+                .readTree(login.getResponse().getContentAsString())
+                .path("data")
+                .path("accessToken")
+                .asText();
+        MvcResult notifications = mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode content = objectMapper
+                .readTree(notifications.getResponse().getContentAsString())
+                .path("data")
+                .path("content");
+        long welcomes = 0;
+        for (JsonNode notification : content) {
+            if (AccountNotificationCopy.WELCOME_TITLE.equals(notification.path("title").asText())) {
+                welcomes++;
+                assertThat(notification.path("type").asText()).isEqualTo("ACCOUNT");
+                assertThat(notification.path("body").asText())
+                        .contains("account has been created")
+                        .doesNotContain("SignupPass1!");
+            }
+        }
+        assertThat(welcomes).isEqualTo(1);
     }
 
     @Test

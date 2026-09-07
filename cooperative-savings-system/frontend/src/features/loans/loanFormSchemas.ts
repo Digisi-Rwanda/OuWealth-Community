@@ -7,7 +7,7 @@ import type {
   LoanRepaymentComponent,
   LoanRepaymentDateModel,
 } from '@/shared/types/loan'
-import type { LoanCreateRequest } from '@/shared/types/loan'
+import type { LoanApproveRequest, LoanCreateRequest } from '@/shared/types/loan'
 import type { LoanRepaymentCreateRequest } from '@/shared/types/loan'
 import type { LoanSettingsUpdateRequest } from '@/shared/types/loan'
 
@@ -113,13 +113,11 @@ export function toLoanCreatePayload(
 export type LoanApproveFormValues = {
   approvedAmount: string
   termMonths: string
-  dueDate: string
 }
 
 export const loanApproveDefaults: LoanApproveFormValues = {
   approvedAmount: '',
   termMonths: '',
-  dueDate: '',
 }
 
 export const loanApproveSchema: yup.ObjectSchema<LoanApproveFormValues> = yup.object({
@@ -137,8 +135,18 @@ export const loanApproveSchema: yup.ObjectSchema<LoanApproveFormValues> = yup.ob
       const n = Number(v)
       return Number.isInteger(n) && n > 0
     }),
-  dueDate: yup.string().trim().default(''),
 })
+
+export function toLoanApprovePayload(values: LoanApproveFormValues): LoanApproveRequest {
+  const payload: LoanApproveRequest = {}
+  if (values.approvedAmount.trim()) {
+    payload.approvedAmount = values.approvedAmount.trim()
+  }
+  if (values.termMonths.trim()) {
+    payload.termMonths = Number(values.termMonths.trim())
+  }
+  return payload
+}
 
 export type LoanRejectFormValues = {
   rejectionReason: string

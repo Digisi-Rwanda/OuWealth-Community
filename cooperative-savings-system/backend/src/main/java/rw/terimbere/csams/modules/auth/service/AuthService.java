@@ -42,6 +42,7 @@ import rw.terimbere.csams.modules.auth.repository.RefreshTokenRepository;
 import rw.terimbere.csams.modules.auth.util.TokenHashing;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
+import rw.terimbere.csams.modules.notification.account.AccountNotificationCopy;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.role.entity.Role;
@@ -173,6 +174,14 @@ public class AuthService {
                 userAgent);
 
         log.info("Signed up user='{}' role={}", username, roleCode);
+        notificationFacade.notifyUser(
+                user.getId(),
+                null,
+                NotificationType.ACCOUNT,
+                AccountNotificationCopy.WELCOME_TITLE,
+                AccountNotificationCopy.welcomeSignupBody(),
+                "User",
+                user.getId());
         return issueTokens(user, ip, userAgent);
     }
 

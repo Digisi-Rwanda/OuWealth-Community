@@ -22,6 +22,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.notification.account.AccountNotificationCopy;
+import rw.terimbere.csams.modules.notification.entity.NotificationType;
+import rw.terimbere.csams.modules.notification.repository.NotificationRepository;
 import rw.terimbere.csams.modules.user.entity.AccountStatus;
 import rw.terimbere.csams.modules.user.repository.UserRepository;
 
@@ -38,6 +41,9 @@ class MemberControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -134,9 +140,147 @@ class MemberControllerIntegrationTest {
     }
 
     @Test
+    void register_sendsSingleWelcomeWithoutPassword() throws Exception {
+        String username = "welcome_" + UUID.randomUUID().toString().substring(0, 8);
+        MvcResult register = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"New",
+                                  "lastName":"Member",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"MEMBER"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode data = objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
+        UUID memberUserId = UUID.fromString(data.path("userId").asText());
+        String tempPassword = data.path("temporaryPassword").asText();
+        String token = loginAccessToken(username, tempPassword);
+
+        JsonNode content = notificationsFor(token);
+        long welcomes = countTitle(content, AccountNotificationCopy.WELCOME_TITLE);
+        assertThat(welcomes).isEqualTo(1);
+        for (JsonNode notification : content) {
+            if (AccountNotificationCopy.WELCOME_TITLE.equals(notification.path("title").asText())) {
+                assertThat(notification.path("type").asText()).isEqualTo("ACCOUNT");
+                assertThat(notification.path("body").asText())
+                        .contains("Member")
+                        .doesNotContain(tempPassword)
+                        .doesNotContain("password");
+            }
+        }
+        assertThat(notificationRepository.findAll().stream()
+                        .filter(n -> memberUserId.equals(n.getUserId())
+                                && n.getType() == NotificationType.ACCOUNT
+                                && AccountNotificationCopy.WELCOME_TITLE.equals(n.getTitle()))
+                        .count())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void update_notifiesOnlyWhenRoleActuallyChanges() throws Exception {
+        String username = "role_" + UUID.randomUUID().toString().substring(0, 8);
+        String otherUsername = "other_" + UUID.randomUUID().toString().substring(0, 8);
+        MvcResult register = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Role",
+                                  "lastName":"Change",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"MEMBER"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andReturn();
+        UUID memberUserId = UUID.fromString(objectMapper
+                .readTree(register.getResponse().getContentAsString())
+                .path("data")
+                .path("userId")
+                .asText());
+        String memberPassword = objectMapper
+                .readTree(register.getResponse().getContentAsString())
+                .path("data")
+                .path("temporaryPassword")
+                .asText();
+
+        MvcResult other = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Other",
+                                  "lastName":"Member",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"MEMBER"
+                                }
+                                """.formatted(otherUsername, otherUsername)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String otherPassword = objectMapper
+                .readTree(other.getResponse().getContentAsString())
+                .path("data")
+                .path("temporaryPassword")
+                .asText();
+
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + memberUserId)
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Role",
+                                  "lastName":"Change",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"MEMBER"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk());
+
+        String memberToken = loginAccessToken(username, memberPassword);
+        assertThat(countTitle(notificationsFor(memberToken), AccountNotificationCopy.ROLE_CHANGED_TITLE)).isZero();
+
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/members/" + memberUserId)
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Role",
+                                  "lastName":"Change",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"ACCOUNTANT"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk());
+
+        JsonNode afterChange = notificationsFor(memberToken);
+        assertThat(countTitle(afterChange, AccountNotificationCopy.ROLE_CHANGED_TITLE)).isEqualTo(1);
+        for (JsonNode notification : afterChange) {
+            if (AccountNotificationCopy.ROLE_CHANGED_TITLE.equals(notification.path("title").asText())) {
+                assertThat(notification.path("body").asText())
+                        .contains("Member")
+                        .contains("Treasurer")
+                        .doesNotContain("ACCOUNTANT")
+                        .doesNotContain("MEMBER");
+            }
+        }
+
+        String otherToken = loginAccessToken(otherUsername, otherPassword);
+        assertThat(countTitle(notificationsFor(otherToken), AccountNotificationCopy.ROLE_CHANGED_TITLE)).isZero();
+    }
+
+    @Test
     void assignAdministrator_createsAdminUser() throws Exception {
         String username = "admin_" + UUID.randomUUID().toString().substring(0, 8);
-        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/administrators")
+        MvcResult created = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/administrators")
                         .header("Authorization", "Bearer " + superAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -149,7 +293,69 @@ class MemberControllerIntegrationTest {
                                 """.formatted(username, username)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.roleInCooperative").value("PRESIDENT"))
-                .andExpect(jsonPath("$.data.temporaryPassword").isNotEmpty());
+                .andExpect(jsonPath("$.data.temporaryPassword").isNotEmpty())
+                .andReturn();
+        String tempPassword = objectMapper
+                .readTree(created.getResponse().getContentAsString())
+                .path("data")
+                .path("temporaryPassword")
+                .asText();
+        String token = loginAccessToken(username, tempPassword);
+        JsonNode content = notificationsFor(token);
+        assertThat(countTitle(content, AccountNotificationCopy.WELCOME_TITLE)).isEqualTo(1);
+        assertThat(countTitle(content, AccountNotificationCopy.MEMBERSHIP_ADDED_TITLE)).isZero();
+        for (JsonNode notification : content) {
+            if (AccountNotificationCopy.WELCOME_TITLE.equals(notification.path("title").asText())) {
+                assertThat(notification.path("body").asText())
+                        .contains("President")
+                        .doesNotContain(tempPassword)
+                        .doesNotContain("PRESIDENT");
+            }
+        }
+    }
+
+    @Test
+    void assignAdministrator_existingUserGetsMembershipNotWelcome() throws Exception {
+        String username = "exist_" + UUID.randomUUID().toString().substring(0, 8);
+        MvcResult register = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/members")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "firstName":"Exist",
+                                  "lastName":"Ing",
+                                  "username":"%s",
+                                  "email":"%s@test.local",
+                                  "roleInCooperative":"MEMBER"
+                                }
+                                """.formatted(username, username)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode data = objectMapper.readTree(register.getResponse().getContentAsString()).path("data");
+        UUID userId = UUID.fromString(data.path("userId").asText());
+        String password = data.path("temporaryPassword").asText();
+
+        UUID secondCoop = createCooperative("Second Scheme " + UUID.randomUUID().toString().substring(0, 8));
+        mockMvc.perform(post("/api/v1/cooperatives/" + secondCoop + "/administrators")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"userId":"%s"}
+                                """.formatted(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.roleInCooperative").value("PRESIDENT"));
+
+        String token = loginAccessToken(username, password);
+        JsonNode content = notificationsFor(token);
+        assertThat(countTitle(content, AccountNotificationCopy.WELCOME_TITLE)).isEqualTo(1);
+        assertThat(countTitle(content, AccountNotificationCopy.MEMBERSHIP_ADDED_TITLE)).isEqualTo(1);
+        for (JsonNode notification : content) {
+            if (AccountNotificationCopy.MEMBERSHIP_ADDED_TITLE.equals(notification.path("title").asText())) {
+                assertThat(notification.path("body").asText())
+                        .contains("President")
+                        .doesNotContain("Welcome to OuWealth");
+            }
+        }
     }
 
     @Test
@@ -228,6 +434,41 @@ class MemberControllerIntegrationTest {
                                 """.formatted(username, username)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.shareCount").value(0));
+    }
+
+    private UUID createCooperative(String name) throws Exception {
+        MvcResult create = mockMvc.perform(post("/api/v1/cooperatives")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CooperativeTestFixtures.createBody(name)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return UUID.fromString(objectMapper
+                .readTree(create.getResponse().getContentAsString())
+                .path("data")
+                .path("id")
+                .asText());
+    }
+
+    private JsonNode notificationsFor(String token) throws Exception {
+        MvcResult list = mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper
+                .readTree(list.getResponse().getContentAsString())
+                .path("data")
+                .path("content");
+    }
+
+    private static long countTitle(JsonNode content, String title) {
+        long count = 0;
+        for (JsonNode notification : content) {
+            if (title.equals(notification.path("title").asText())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private String loginAccessToken(String username, String password) throws Exception {

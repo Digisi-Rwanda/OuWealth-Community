@@ -112,6 +112,8 @@ describe('report export labels', () => {
   it('keeps Download PDF and adds Share via WhatsApp separately', () => {
     expect(en.reports.export.submit).toBe('Download PDF')
     expect(en.reports.whatsapp.share).toBe('Share via WhatsApp')
+    expect(en.loans.schedule.downloadPdf).toBe('Download PDF')
+    expect(en.loans.schedule.shareWhatsApp).toBe('Share via WhatsApp')
   })
 })
 

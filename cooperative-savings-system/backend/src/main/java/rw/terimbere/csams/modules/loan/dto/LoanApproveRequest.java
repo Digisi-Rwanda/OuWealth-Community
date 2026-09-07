@@ -1,7 +1,6 @@
 package rw.terimbere.csams.modules.loan.dto;
 
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
@@ -24,6 +23,10 @@ public class LoanApproveRequest {
     @Max(600)
     private Integer termMonths;
 
-    @FutureOrPresent(message = "Loan due date cannot be in the past")
+    /**
+     * Ignored. Maturity is set at disbursement from the repayment schedule
+     * (or {@code disbursementDate + termMonths} for legacy / reducing loans).
+     * Retained so older API clients can still send the field.
+     */
     private LocalDate dueDate;
 }

@@ -129,6 +129,41 @@ public final class CooperativeOfficerRoles {
                 "A President or Vice President must co-sign this fund movement");
     }
 
+    /** Human-readable cooperative role for notifications. Never returns raw enum tokens. */
+    public static String displayLabel(String roleInCooperative) {
+        String code = roleInCooperative == null ? MEMBER : roleInCooperative.trim().toUpperCase(Locale.ROOT);
+        if (LEGACY_ADMIN.equals(code)) {
+            code = PRESIDENT;
+        }
+        return switch (code) {
+            case MEMBER -> "Member";
+            case PRESIDENT -> "President";
+            case VICE_PRESIDENT -> "Vice President";
+            case SECRETARY -> "Secretary";
+            case ACCOUNTANT -> "Treasurer";
+            case LOAN_OFFICER -> "Loan Officer";
+            default -> humanizeToken(code);
+        };
+    }
+
+    private static String humanizeToken(String token) {
+        if (token.isBlank()) {
+            return "Member";
+        }
+        String[] parts = token.replace('-', '_').split("_");
+        StringBuilder label = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            if (!label.isEmpty()) {
+                label.append(' ');
+            }
+            label.append(part.charAt(0)).append(part.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return label.isEmpty() ? "Member" : label.toString();
+    }
+
     /** Highest cooperative office for electronic approval records. */
     public static String displayRole(UserPrincipal principal) {
         if (principal == null) {

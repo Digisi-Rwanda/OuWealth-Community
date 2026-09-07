@@ -12,7 +12,7 @@ import { MembersPage } from '@/pages/MembersPage'
 import { MemberDetailPage } from '@/pages/MemberDetailPage'
 import { ContributionsPage } from '@/pages/ContributionsPage'
 import { LoansPage } from '@/pages/LoansPage'
-import { LoanDetailPage } from '@/pages/LoanDetailPage'
+import { LoanDetailRoute } from '@/pages/LoanDetailPage'
 import { FinesPage } from '@/pages/FinesPage'
 import { FineDetailPage } from '@/pages/FineDetailPage'
 import { FinePaymentQueuePage } from '@/pages/FinePaymentQueuePage'
@@ -72,7 +72,7 @@ export function AppRouter() {
                 element={<ContributionsPage />}
               />
               <Route path={ROUTES.loans} element={<LoansPage />} />
-              <Route path="/loans/:loanId" element={<LoanDetailPage />} />
+              <Route path="/loans/:loanId" element={<LoanDetailRoute />} />
               <Route path={ROUTES.fines} element={<FinesPage />} />
               <Route path="/fines/:fineId" element={<FineDetailPage />} />
               <Route

@@ -6,9 +6,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -313,7 +316,12 @@ public class LoanService {
             boolean pendingApproval,
             Pageable pageable) {
         requireCooperative(cooperativeId);
+        UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
+        if (!CooperativeOfficerRoles.isOfficer(principal)) {
+            memberUserId = principal.getId();
+            pendingApproval = false;
+        }
         loanRepository.markOverdue(cooperativeId, today());
 
         Page<Loan> page;
@@ -347,6 +355,7 @@ public class LoanService {
         authorizationService.requireMembership(cooperativeId);
         loanRepository.markOverdue(cooperativeId, today());
         Loan loan = requireLoan(cooperativeId, loanId);
+        requireLoanReadAccess(loan);
         if (isScheduleBased(loan)) {
             loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
         }
@@ -770,7 +779,7 @@ public class LoanService {
     public List<LoanRepaymentResponse> listRepayments(UUID cooperativeId, UUID loanId) {
         requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
-        requireLoan(cooperativeId, loanId);
+        requireLoanReadAccess(requireLoan(cooperativeId, loanId));
         return loanRepaymentRepository
                 .findByLoanIdAndCooperativeIdOrderByPaymentDateDescCreatedAtDesc(loanId, cooperativeId)
                 .stream()
@@ -1123,6 +1132,22 @@ public class LoanService {
         return LocalDate.now(clock);
     }
 
+    /**
+     * Ordinary members may read only their own loan. Officers and Super Admin
+     * may read any loan in a cooperative they are allowed to access.
+     */
+    void requireLoanReadAccess(Loan loan) {
+        UserPrincipal principal = authorizationService.currentPrincipal();
+        authorizationService.requireMembership(loan.getCooperativeId());
+        if (CooperativeOfficerRoles.isOfficer(principal)) {
+            return;
+        }
+        if (principal.getId() != null && principal.getId().equals(loan.getMemberUserId())) {
+            return;
+        }
+        throw new ForbiddenException();
+    }
+
     private Loan requireLoan(UUID cooperativeId, UUID loanId) {
         return loanRepository
                 .findByIdAndCooperativeId(loanId, cooperativeId)
@@ -1163,7 +1188,6 @@ public class LoanService {
         loan.setFirstApprovedAt(Instant.now());
         loan.setFirstApproverRole(CooperativeOfficerRoles.displayRole(principal));
         loan.setStatus(LoanStatus.AWAITING_SECOND_APPROVAL);
-        applyDueDate(loan, request);
     }
 
     private void applySecondApproval(Loan loan, LoanApproveRequest request, UserPrincipal principal) {
@@ -1175,18 +1199,6 @@ public class LoanService {
         loan.setApprovedBy(principal.getId());
         loan.setApprovalDate(today());
         loan.setStatus(LoanStatus.APPROVED);
-        applyDueDate(loan, request);
-    }
-
-    private void applyDueDate(Loan loan, LoanApproveRequest request) {
-        if (request == null || request.getDueDate() == null) {
-            return;
-        }
-        LocalDate reference = loan.getApprovalDate() == null ? today() : loan.getApprovalDate();
-        if (request.getDueDate().isBefore(reference)) {
-            throw new ValidationException("dueDate must be on or after the approval date");
-        }
-        loan.setDueDate(request.getDueDate());
     }
 
     private LoanResponse toResponse(Loan loan) {
@@ -1424,6 +1436,7 @@ public class LoanService {
         Cooperative cooperative = requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
         Loan loan = requireLoan(cooperativeId, loanId);
+        requireLoanReadAccess(loan);
         if (isScheduleBased(loan)) {
             loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
             loan = requireLoan(cooperativeId, loanId);
@@ -1436,19 +1449,20 @@ public class LoanService {
                 .findByIdAndDeletedFalse(loan.getMemberUserId())
                 .map(this::formatName)
                 .orElse("");
-        List<List<Object>> summary = List.of(List.of(
+        List<List<Object>> summary = List.of(nullableRow(
                 memberName,
-                loan.getId(),
-                scaleOrNull(loan.getPrincipalAmount()),
+                schedulePrincipal(loan),
                 scaleOrNull(loan.getInterestRatePercent()),
                 loan.getRepaymentDateModel() == null ? "" : loan.getRepaymentDateModel().name(),
                 loan.getDisbursementDate(),
                 loan.getTermMonths(),
                 scaleOrNull(loan.getInterestAmount()),
                 schedule.getTotalRepayment()));
-        List<List<Object>> rows = new java.util.ArrayList<>();
-        for (var item : schedule.getInstallments()) {
-            rows.add(List.of(
+        List<List<Object>> rows = new ArrayList<>();
+        List<rw.terimbere.csams.modules.loan.dto.LoanInstallmentResponse> installments =
+                schedule.getInstallments() == null ? List.of() : schedule.getInstallments();
+        for (var item : installments) {
+            rows.add(nullableRow(
                     item.getInstallmentNumber(),
                     item.getDueDate(),
                     item.getOpeningPrincipalBalance(),
@@ -1466,7 +1480,7 @@ public class LoanService {
         rw.terimbere.csams.modules.report.dto.ReportHeaderMeta header =
                 rw.terimbere.csams.modules.report.dto.ReportHeaderMeta.builder()
                         .cooperativeName(cooperative.getName())
-                        .reportTitle("Loan amortization schedule")
+                        .reportTitle("Repayment Schedule")
                         .selectedPeriod(loan.getDisbursementDate() == null
                                 ? "Preview"
                                 : loan.getDisbursementDate().toString())
@@ -1479,7 +1493,6 @@ public class LoanService {
                         .sheetName("Loan")
                         .headers(List.of(
                                 "Member",
-                                "Loan Id",
                                 "Principal",
                                 "Monthly Rate",
                                 "Repayment Model",
@@ -1511,11 +1524,46 @@ public class LoanService {
         byte[] content = excel
                 ? rw.terimbere.csams.modules.report.export.ExcelReportWriter.write(header, sheets)
                 : rw.terimbere.csams.modules.report.export.PdfReportWriter.write(header, sheets);
-        String filename = "loan-schedule-" + loan.getId() + (excel ? ".xlsx" : ".pdf");
+        String filename = scheduleDocumentFilename(memberName, excel);
         String contentType = excel
                 ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 : "application/pdf";
         return new ScheduleExport(content, contentType, filename);
+    }
+
+    /** List.of rejects null cells; preview/export rows can contain missing dates or money. */
+    private static List<Object> nullableRow(Object... values) {
+        return new ArrayList<>(Arrays.asList(values));
+    }
+
+    private static BigDecimal schedulePrincipal(Loan loan) {
+        if (loan.getPrincipalAmount() != null) {
+            return scaleOrNull(loan.getPrincipalAmount());
+        }
+        if (loan.getApprovedAmount() != null) {
+            return scaleOrNull(loan.getApprovedAmount());
+        }
+        return scaleOrNull(loan.getRequestedAmount());
+    }
+
+    static String scheduleDocumentFilename(String memberName, boolean excel) {
+        String slug = slugMemberName(memberName);
+        String base = slug.isEmpty() ? "repayment-schedule" : "repayment-schedule-" + slug;
+        return base + (excel ? ".xlsx" : ".pdf");
+    }
+
+    private static String slugMemberName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "";
+        }
+        String slug = name.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (slug.length() > 40) {
+            slug = slug.substring(0, 40).replaceAll("-+$", "");
+        }
+        return slug;
     }
 
     private LoanRepaymentResponse toRepaymentResponse(LoanRepayment repayment) {

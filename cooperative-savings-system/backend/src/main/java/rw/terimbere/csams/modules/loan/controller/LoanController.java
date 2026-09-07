@@ -36,8 +36,12 @@ import rw.terimbere.csams.modules.loan.dto.LoanRepaymentResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanRequestCreateRequest;
 import rw.terimbere.csams.modules.loan.dto.LoanResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanScheduleResponse;
+import rw.terimbere.csams.modules.loan.dto.LoanScheduleWhatsAppShareRequest;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.service.LoanGuarantorService;
+import rw.terimbere.csams.modules.loan.service.LoanScheduleWhatsAppShareService;
+import rw.terimbere.csams.modules.report.dto.ReportWhatsAppShareResponse;
+import rw.terimbere.csams.modules.report.dto.ReportWhatsAppStatusResponse;
 import rw.terimbere.csams.modules.loan.service.LoanService;
 import rw.terimbere.csams.shared.common.dto.ApiResponse;
 import rw.terimbere.csams.shared.common.dto.PageResponse;
@@ -51,6 +55,7 @@ public class LoanController {
 
     private final LoanService loanService;
     private final LoanGuarantorService loanGuarantorService;
+    private final LoanScheduleWhatsAppShareService loanScheduleWhatsAppShareService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('LOAN_READ')")
@@ -219,5 +224,26 @@ public class LoanController {
         httpResponse.setContentLength(export.content().length);
         httpResponse.getOutputStream().write(export.content());
         httpResponse.flushBuffer();
+    }
+
+    @GetMapping("/{loanId}/schedule/whatsapp-status")
+    @PreAuthorize("hasAuthority('LOAN_READ')")
+    @Operation(summary = "Whether official WhatsApp schedule sharing is configured (no secrets)")
+    public ResponseEntity<ApiResponse<ReportWhatsAppStatusResponse>> scheduleWhatsAppStatus(
+            @PathVariable UUID cooperativeId, @PathVariable UUID loanId) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(loanScheduleWhatsAppShareService.status(cooperativeId, loanId)));
+    }
+
+    @PostMapping("/{loanId}/schedule/share-whatsapp")
+    @PreAuthorize("hasAuthority('LOAN_READ')")
+    @Operation(summary = "Generate the existing repayment schedule PDF and send it via WhatsApp Cloud API")
+    public ResponseEntity<ApiResponse<ReportWhatsAppShareResponse>> shareScheduleWhatsApp(
+            @PathVariable UUID cooperativeId,
+            @PathVariable UUID loanId,
+            @Valid @RequestBody LoanScheduleWhatsAppShareRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                loanScheduleWhatsAppShareService.share(cooperativeId, loanId, request, httpRequest)));
     }
 }

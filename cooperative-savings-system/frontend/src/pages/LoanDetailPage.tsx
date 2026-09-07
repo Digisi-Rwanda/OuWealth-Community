@@ -10,6 +10,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -19,6 +20,7 @@ import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link as RouterLink, useParams } from 'react-router-dom'
+import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary'
 import { useAppSelector } from '@/app/store/hooks'
 import {
   selectAuthUser,
@@ -42,10 +44,17 @@ import {
   loanApproveSchema,
   loanRejectDefaults,
   loanRejectSchema,
+  toLoanApprovePayload,
   type LoanApproveFormValues,
   type LoanRejectFormValues,
 } from '@/features/loans/loanFormSchemas'
-import { getErrorMessage } from '@/shared/api/client'
+import { isValidReportWhatsAppRecipient } from '@/features/reports/reportHelpers'
+import {
+  getErrorMessage,
+  isForbiddenError,
+  isNotFoundError,
+  isUnauthorizedError,
+} from '@/shared/api/client'
 import {
   approveLoan,
   createLoanRepayment,
@@ -53,10 +62,13 @@ import {
   exportLoanSchedule,
   fetchLoan,
   fetchLoanRepayments,
+  fetchLoanScheduleWhatsAppStatus,
   rejectLoan,
+  shareLoanScheduleViaWhatsApp,
   writeOffLoan,
 } from '@/shared/api/loans'
 import { ApprovalHistory } from '@/shared/components/ApprovalHistory'
+import { WhatsAppShareDialog } from '@/shared/components/WhatsAppShareDialog'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
@@ -66,7 +78,7 @@ import { ResponsiveTable, type TableColumn } from '@/shared/components/Responsiv
 import { ROUTES } from '@/shared/constants/routes'
 import type { LoanRepayment, LoanRepaymentCreateRequest } from '@/shared/types/loan'
 import { loanDisplayName } from '@/shared/types/loan'
-import { formatMoney } from '@/shared/utils/formatMoney'
+import { formatMoney, formatOptionalMoney } from '@/shared/utils/formatMoney'
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -98,10 +110,18 @@ export function LoanDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [approveOpen, setApproveOpen] = useState(false)
   const [repayOpen, setRepayOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [recipientPhone, setRecipientPhone] = useState('')
 
   const loanQuery = useQuery({
     queryKey: ['loans', cooperativeId, loanId],
-    queryFn: () => fetchLoan(cooperativeId!, loanId),
+    queryFn: async () => {
+      const result = await fetchLoan(cooperativeId!, loanId)
+      if (result == null) {
+        throw new Error('LOAN_UNAVAILABLE')
+      }
+      return result
+    },
     enabled: Boolean(cooperativeId && loanId),
   })
 
@@ -110,6 +130,24 @@ export function LoanDetailPage() {
     queryFn: () => fetchLoanRepayments(cooperativeId!, loanId),
     enabled: Boolean(cooperativeId && loanId),
   })
+
+  const whatsappStatusQuery = useQuery({
+    queryKey: ['loans', cooperativeId, loanId, 'whatsapp-status'],
+    queryFn: async () => {
+      try {
+        return await fetchLoanScheduleWhatsAppStatus(cooperativeId!, loanId)
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          throw error
+        }
+        return { configured: false }
+      }
+    },
+    enabled: Boolean(cooperativeId && loanId),
+    staleTime: 60_000,
+    retry: false,
+  })
+  const whatsappConfigured = whatsappStatusQuery.data?.configured === true
 
   const approveForm = useForm<LoanApproveFormValues>({
     defaultValues: loanApproveDefaults,
@@ -128,13 +166,7 @@ export function LoanDetailPage() {
 
   const approveMutation = useMutation({
     mutationFn: (values: LoanApproveFormValues) =>
-      approveLoan(cooperativeId!, loanId, {
-        approvedAmount: values.approvedAmount.trim() || undefined,
-        termMonths: values.termMonths.trim()
-          ? Number(values.termMonths.trim())
-          : undefined,
-        dueDate: values.dueDate.trim() || undefined,
-      }),
+      approveLoan(cooperativeId!, loanId, toLoanApprovePayload(values)),
     onSuccess: () => {
       enqueueSnackbar(t('loans.actions.approveSuccess'), { variant: 'success' })
       setApproveOpen(false)
@@ -211,24 +243,24 @@ export function LoanDetailPage() {
       {
         id: 'total',
         label: t('loans.repayment.amount'),
-        render: (row) => formatMoney(row.amountTotal),
+        render: (row) => formatOptionalMoney(row.amountTotal),
       },
       {
         id: 'principal',
         label: t('loans.repayment.principal'),
-        render: (row) => formatMoney(row.principalPortion),
+        render: (row) => formatOptionalMoney(row.principalPortion),
         hideOnMobile: true,
       },
       {
         id: 'interest',
         label: t('loans.repayment.interest'),
-        render: (row) => formatMoney(row.interestPortion),
+        render: (row) => formatOptionalMoney(row.interestPortion),
         hideOnMobile: true,
       },
       {
         id: 'penalty',
         label: t('loans.repayment.penalty'),
-        render: (row) => formatMoney(row.penaltyPortion ?? 0),
+        render: (row) => formatOptionalMoney(row.penaltyPortion),
         hideOnMobile: true,
       },
       {
@@ -241,16 +273,49 @@ export function LoanDetailPage() {
     [t],
   )
 
-  if (!cooperativeId) {
-    return (
-      <Box>
-        <PageHeader title={t('pages.loans.title')} />
-        <EmptyState
-          title={t('loans.selectCooperativeTitle')}
-          description={t('loans.selectCooperativeDescription')}
-        />
-      </Box>
-    )
+  const downloadMutation = useMutation({
+    mutationFn: () => {
+      if (!cooperativeId) {
+        throw new Error(t('loans.selectCooperativeTitle'))
+      }
+      return exportLoanSchedule(cooperativeId, loanId, 'pdf')
+    },
+    onSuccess: () => {
+      enqueueSnackbar(t('loans.schedule.downloadSuccess'), { variant: 'success' })
+    },
+    onError: (error) => {
+      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+    },
+  })
+
+  const shareMutation = useMutation({
+    mutationFn: (phone: string) => {
+      if (!cooperativeId) {
+        throw new Error(t('loans.selectCooperativeTitle'))
+      }
+      if (!isValidReportWhatsAppRecipient(phone)) {
+        throw new Error(t('reports.whatsapp.phoneInvalid'))
+      }
+      return shareLoanScheduleViaWhatsApp(cooperativeId, loanId, phone.trim())
+    },
+    onSuccess: ({ filename }) => {
+      enqueueSnackbar(t('loans.schedule.whatsappSuccess', { filename }), { variant: 'success' })
+      setShareOpen(false)
+      setRecipientPhone('')
+    },
+    onError: (error) => {
+      enqueueSnackbar(getErrorMessage(error, t('loans.schedule.whatsappFailed')), {
+        variant: 'error',
+      })
+    },
+  })
+
+  const openShare = () => {
+    if (!whatsappConfigured) {
+      enqueueSnackbar(t('reports.whatsapp.notConfigured'), { variant: 'warning' })
+      return
+    }
+    setShareOpen(true)
   }
 
   const loan = loanQuery.data
@@ -274,47 +339,90 @@ export function LoanDetailPage() {
   const canDownloadSchedule =
     Boolean(loan?.scheduleFinalized) || (loan?.repaymentSchedule?.length ?? 0) > 0
 
-  const downloadMutation = useMutation({
-    mutationFn: (format: 'pdf' | 'xlsx') => exportLoanSchedule(cooperativeId!, loanId, format),
-    onSuccess: () => {
-      enqueueSnackbar(t('loans.schedule.downloadSuccess'), { variant: 'success' })
-    },
-    onError: (error) => {
-      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
-    },
-  })
+  const backLink = (
+    <Button
+      component={RouterLink}
+      to={ROUTES.loans}
+      startIcon={<ArrowBackIcon />}
+      sx={{ mb: 1 }}
+    >
+      {t('loans.backToList')}
+    </Button>
+  )
+
+  if (!cooperativeId) {
+    return (
+      <Box>
+        <PageHeader title={t('pages.loans.title')} />
+        <EmptyState
+          title={t('loans.selectCooperativeTitle')}
+          description={t('loans.selectCooperativeDescription')}
+        />
+      </Box>
+    )
+  }
+
+  if (loanQuery.isLoading) {
+    return (
+      <Box>
+        {backLink}
+        <PageHeader title={t('pages.loans.title')} description={t('loans.detailDescription')} hideBack />
+        <LoadingState />
+      </Box>
+    )
+  }
+
+  if (loanQuery.isError) {
+    const missingData =
+      loanQuery.error instanceof Error && loanQuery.error.message === 'LOAN_UNAVAILABLE'
+    const title = isForbiddenError(loanQuery.error)
+      ? t('loans.accessDeniedTitle')
+      : isNotFoundError(loanQuery.error)
+        ? t('loans.notFoundTitle')
+        : missingData
+          ? t('loans.unavailableTitle')
+          : t('common.errorTitle')
+    const message = isForbiddenError(loanQuery.error)
+      ? t('loans.accessDeniedDescription')
+      : isNotFoundError(loanQuery.error)
+        ? t('loans.notFoundDescription')
+        : missingData
+          ? t('loans.unavailableDescription')
+          : getErrorMessage(loanQuery.error, t('errors.generic'))
+    return (
+      <Box>
+        {backLink}
+        <PageHeader title={t('pages.loans.title')} description={t('loans.detailDescription')} hideBack />
+        <ErrorState title={title} message={message} onRetry={() => void loanQuery.refetch()} />
+      </Box>
+    )
+  }
+
+  if (!loan) {
+    return (
+      <Box>
+        {backLink}
+        <PageHeader title={t('pages.loans.title')} description={t('loans.detailDescription')} hideBack />
+        <ErrorState
+          title={t('loans.unavailableTitle')}
+          message={t('loans.unavailableDescription')}
+          onRetry={() => void loanQuery.refetch()}
+        />
+      </Box>
+    )
+  }
 
   return (
     <Box>
-      <Button
-        component={RouterLink}
-        to={ROUTES.loans}
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 1 }}
-      >
-        {t('loans.backToList')}
-      </Button>
+      {backLink}
 
       <PageHeader
-        title={
-          loan
-            ? t('loans.detailTitle', { member: loanDisplayName(loan) })
-            : t('pages.loans.title')
-        }
+        title={t('loans.detailTitle', { member: loanDisplayName(loan) })}
         description={t('loans.detailDescription')}
         hideBack
       />
 
-      {loanQuery.isLoading ? <LoadingState /> : null}
-      {loanQuery.isError ? (
-        <ErrorState
-          message={getErrorMessage(loanQuery.error)}
-          onRetry={() => void loanQuery.refetch()}
-        />
-      ) : null}
-
-      {loan ? (
-        <Stack spacing={2.5}>
+      <Stack spacing={2.5}>
           <Paper
             elevation={0}
             sx={{ p: { xs: 2.5, md: 3.5 }, border: '1px solid', borderColor: 'divider' }}
@@ -339,35 +447,31 @@ export function LoanDetailPage() {
                 <InfoRow label={t('loans.fields.member')} value={loanDisplayName(loan)} />
                 <InfoRow
                   label={t('loans.fields.requestedAmount')}
-                  value={formatMoney(loan.requestedAmount)}
+                  value={formatOptionalMoney(loan.requestedAmount)}
                 />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
                   label={t('loans.fields.approvedAmount')}
-                  value={
-                    loan.approvedAmount != null ? formatMoney(loan.approvedAmount) : '—'
-                  }
+                  value={formatOptionalMoney(loan.approvedAmount)}
                 />
                 <InfoRow
                   label={t('loans.fields.principal')}
-                  value={
-                    loan.principalAmount != null
-                      ? formatMoney(loan.principalAmount)
-                      : '—'
-                  }
+                  value={formatOptionalMoney(loan.principalAmount)}
                 />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
                   label={t('loans.fields.interestAmount')}
-                  value={
-                    loan.interestAmount != null ? formatMoney(loan.interestAmount) : '—'
-                  }
+                  value={formatOptionalMoney(loan.interestAmount)}
                 />
                 <InfoRow
                   label={t('loans.fields.interestRate')}
-                  value={`${loan.interestRatePercent}%`}
+                  value={
+                    loan.interestRatePercent != null && loan.interestRatePercent !== ''
+                      ? `${loan.interestRatePercent}%`
+                      : '—'
+                  }
                 />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -424,7 +528,7 @@ export function LoanDetailPage() {
                   />
                   <InfoRow
                     label={t('loans.guarantor.guaranteedAmount')}
-                    value={formatMoney(loan.guarantor.guaranteedAmount)}
+                    value={formatOptionalMoney(loan.guarantor.guaranteedAmount)}
                   />
                 </Stack>
               ) : null}
@@ -432,9 +536,13 @@ export function LoanDetailPage() {
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <InfoRow
                     label={t('loans.guarantor.response')}
-                    value={t(`loans.guarantor.status.${loan.guarantor.status}`, {
-                      defaultValue: String(loan.guarantor.status),
-                    })}
+                    value={
+                      loan.guarantor.status
+                        ? t(`loans.guarantor.status.${loan.guarantor.status}`, {
+                            defaultValue: String(loan.guarantor.status),
+                          })
+                        : '—'
+                    }
                   />
                   <InfoRow
                     label={t('loans.guarantor.respondedAt')}
@@ -447,7 +555,7 @@ export function LoanDetailPage() {
                   label={t('loans.fields.termMonths')}
                   value={String(loan.termMonths ?? '—')}
                 />
-                <InfoRow label={t('loans.fields.dueDate')} value={loan.dueDate ?? ''} />
+                <InfoRow label={t('loans.fields.maturityDate')} value={loan.dueDate ?? ''} />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
@@ -468,17 +576,11 @@ export function LoanDetailPage() {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
                   label={t('loans.schedule.equalInstallment')}
-                  value={
-                    loan.equalInstallmentAmount != null
-                      ? formatMoney(loan.equalInstallmentAmount)
-                      : '—'
-                  }
+                  value={formatOptionalMoney(loan.equalInstallmentAmount)}
                 />
                 <InfoRow
                   label={t('loans.schedule.totalRepayment')}
-                  value={
-                    loan.totalRepayment != null ? formatMoney(loan.totalRepayment) : '—'
-                  }
+                  value={formatOptionalMoney(loan.totalRepayment)}
                 />
               </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -515,7 +617,6 @@ export function LoanDetailPage() {
                         loan.approvedAmount ?? loan.requestedAmount ?? '',
                       ),
                       termMonths: loan.termMonths ? String(loan.termMonths) : '',
-                      dueDate: loan.dueDate ?? '',
                     })
                     setApproveOpen(true)
                   }}
@@ -566,23 +667,39 @@ export function LoanDetailPage() {
               >
                 <Typography variant="h6">{t('loans.schedule.title')}</Typography>
                 {canDownloadSchedule ? (
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                     <Button
                       size="small"
                       variant="outlined"
-                      disabled={downloadMutation.isPending}
-                      onClick={() => downloadMutation.mutate('pdf')}
+                      disabled={downloadMutation.isPending || shareMutation.isPending}
+                      onClick={() => downloadMutation.mutate()}
                     >
                       {t('loans.schedule.downloadPdf')}
                     </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      disabled={downloadMutation.isPending}
-                      onClick={() => downloadMutation.mutate('xlsx')}
-                    >
-                      {t('loans.schedule.downloadExcel')}
-                    </Button>
+                    {(() => {
+                      const shareButton = (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={
+                            downloadMutation.isPending ||
+                            shareMutation.isPending ||
+                            !whatsappConfigured
+                          }
+                          onClick={openShare}
+                        >
+                          {shareMutation.isPending
+                            ? t('loans.schedule.whatsappSending')
+                            : t('loans.schedule.shareWhatsApp')}
+                        </Button>
+                      )
+                      if (whatsappConfigured) return shareButton
+                      return (
+                        <Tooltip title={t('reports.whatsapp.notConfigured')}>
+                          <span>{shareButton}</span>
+                        </Tooltip>
+                      )
+                    })()}
                   </Stack>
                 ) : null}
               </Stack>
@@ -594,11 +711,11 @@ export function LoanDetailPage() {
                   repaymentDateModel: loan.repaymentDateModel,
                   prorataEnabled: Boolean(loan.prorataEnabled),
                   firstPeriodDays: loan.firstPeriodDays,
-                  regularMonthlyInterest: loan.regularMonthlyInterest ?? 0,
-                  firstPeriodInterest: loan.firstPeriodInterest ?? 0,
-                  totalInterest: loan.interestAmount ?? 0,
-                  totalRepayment: loan.totalRepayment ?? 0,
-                  equalInstallmentAmount: loan.equalInstallmentAmount ?? 0,
+                  regularMonthlyInterest: loan.regularMonthlyInterest,
+                  firstPeriodInterest: loan.firstPeriodInterest,
+                  totalInterest: loan.interestAmount,
+                  totalRepayment: loan.totalRepayment,
+                  equalInstallmentAmount: loan.equalInstallmentAmount,
                   scheduleFinalized: loan.scheduleFinalized,
                   installments: loan.repaymentSchedule,
                 }}
@@ -639,7 +756,6 @@ export function LoanDetailPage() {
             ) : null}
           </Paper>
         </Stack>
-      ) : null}
 
       <Dialog
         open={approveOpen}
@@ -670,13 +786,6 @@ export function LoanDetailPage() {
                 error={Boolean(approveForm.formState.errors.termMonths)}
                 helperText={approveForm.formState.errors.termMonths?.message}
                 {...approveForm.register('termMonths')}
-                fullWidth
-              />
-              <TextField
-                type="date"
-                label={t('loans.fields.dueDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                {...approveForm.register('dueDate')}
                 fullWidth
               />
             </Stack>
@@ -759,6 +868,27 @@ export function LoanDetailPage() {
         onClose={() => setRepayOpen(false)}
         onSubmit={(payload) => repayMutation.mutate(payload)}
       />
+
+      <WhatsAppShareDialog
+        open={shareOpen}
+        pending={shareMutation.isPending}
+        phone={recipientPhone}
+        title={t('loans.schedule.whatsappDialogTitle')}
+        description={t('loans.schedule.whatsappDialogDescription')}
+        sendingLabel={t('loans.schedule.whatsappSending')}
+        onPhoneChange={setRecipientPhone}
+        onClose={() => setShareOpen(false)}
+        onSend={() => shareMutation.mutate(recipientPhone)}
+      />
     </Box>
+  )
+}
+
+export function LoanDetailRoute() {
+  const { loanId = '' } = useParams()
+  return (
+    <RouteErrorBoundary resetKey={loanId}>
+      <LoanDetailPage />
+    </RouteErrorBoundary>
   )
 }

@@ -1,21 +1,26 @@
 package rw.terimbere.csams.modules.notification.channel;
 
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
+import rw.terimbere.csams.modules.notification.service.NotificationEmailService;
 
 /**
- * Stub email channel — logs only. Swap for a real mailer without changing callers.
+ * Email channel for {@link rw.terimbere.csams.modules.notification.service.NotificationFacade}.
  *
- * <p>Must never throw into financial flows: all errors are swallowed here (and
- * {@link rw.terimbere.csams.modules.notification.service.NotificationFacade} also catches per-channel).
+ * <p>Delivers after commit via {@link NotificationEmailService}. Missing SMTP config is a
+ * safe skip. Must never throw into financial flows.
  */
 @Component
+@RequiredArgsConstructor
 public class EmailNotificationPublisher implements NotificationChannel {
 
     private static final Logger log = LoggerFactory.getLogger(EmailNotificationPublisher.class);
+
+    private final NotificationEmailService notificationEmailService;
 
     @Override
     public void publish(
@@ -27,20 +32,14 @@ public class EmailNotificationPublisher implements NotificationChannel {
             String entityType,
             UUID entityId) {
         try {
-            log.debug(
-                    "Email notification stub (no-op): userId={}, type={}, title={}, entityType={}, entityId={}",
-                    userId,
-                    type,
-                    title,
-                    entityType,
-                    entityId);
+            notificationEmailService.deliverFromInApp(
+                    userId, cooperativeId, type, title, body, entityType, entityId);
         } catch (Exception ex) {
-            // Never fail loans/fines/contributions because the email stub misbehaved.
             log.warn(
-                    "Email notification stub failed (ignored): userId={}, type={}, error={}",
+                    "Email notification channel failed (ignored): userId={}, type={}, error={}",
                     userId,
                     type,
-                    ex.getMessage());
+                    ex.getClass().getSimpleName());
         }
     }
 }

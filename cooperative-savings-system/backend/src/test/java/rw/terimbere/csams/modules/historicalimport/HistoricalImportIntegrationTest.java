@@ -40,6 +40,8 @@ import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportStatus
 import rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntry;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
+import rw.terimbere.csams.modules.notification.account.AccountNotificationCopy;
+import rw.terimbere.csams.modules.notification.repository.NotificationRepository;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.payout.repository.PayoutLineRepository;
 import rw.terimbere.csams.modules.user.repository.UserRepository;
@@ -67,6 +69,9 @@ class HistoricalImportIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private CooperativeMembershipRepository membershipRepository;
@@ -319,6 +324,11 @@ class HistoricalImportIntegrationTest {
                 .andExpect(jsonPath("$.data.ledgerEntriesCreated").value(1));
 
         var user = userRepository.findByUsernameIgnoreCaseAndDeletedFalse(username).orElseThrow();
+        assertThat(notificationRepository.findAll().stream()
+                        .filter(n -> user.getId().equals(n.getUserId())
+                                && AccountNotificationCopy.WELCOME_TITLE.equals(n.getTitle()))
+                        .count())
+                .isZero();
         Contribution contribution = contributionRepository
                 .findByCooperativeIdAndMemberUserIdAndYearAndMonth(cooperativeId, user.getId(), 2022, 3)
                 .orElseThrow();

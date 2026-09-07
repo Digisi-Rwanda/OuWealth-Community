@@ -162,7 +162,7 @@
 }
 
 .ou-splash-mark-wrap {
-  animation: ouSettle 1.1s 3.15s cubic-bezier(0.3, 0.9, 0.25, 1) both;
+  animation: ouSettle 0.95s 2.9s cubic-bezier(0.3, 0.9, 0.25, 1) both;
 }
 
 .ou-splash-mark {
@@ -241,7 +241,7 @@
   line-height: 1;
   color: #8f8880;
   margin-top: 0.75em;
-  animation: ouRise 0.9s 3.42s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+  animation: ouRise 0.8s 3.1s cubic-bezier(0.22, 0.8, 0.2, 1) both;
 }
 
 .ou-splash-instant {

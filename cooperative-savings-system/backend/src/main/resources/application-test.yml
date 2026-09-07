@@ -32,6 +32,10 @@ app:
     enabled: false
     access-token: ""
     phone-number-id: ""
+  mail:
+    enabled: false
+    host: ""
+    from: ""
 
 
 logging:

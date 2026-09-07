@@ -20,9 +20,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.mockito.Mockito;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import rw.terimbere.csams.modules.notification.channel.EmailNotificationPublisher;
+import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.membership.OpeningShareBalances;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
@@ -56,6 +60,9 @@ class ContributionControllerIntegrationTest {
 
     @Autowired
     private CooperativeMembershipRepository membershipRepository;
+
+    @SpyBean
+    private EmailNotificationPublisher emailNotificationPublisher;
 
     private String superAdminToken;
     private UUID cooperativeId;
@@ -440,9 +447,19 @@ class ContributionControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].id").value(contributionId.toString()));
 
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/contributions/" + contributionId + "/approve")
                         .header("Authorization", "Bearer " + memberToken))
                 .andExpect(status().isForbidden());
+        Mockito.verify(emailNotificationPublisher, Mockito.never())
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.any(),
+                        Mockito.eq(NotificationType.CONTRIBUTION),
+                        Mockito.eq("Contribution approved"),
+                        Mockito.any(),
+                        Mockito.eq("Contribution"),
+                        Mockito.eq(contributionId));
 
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/contributions/" + contributionId + "/approve")
                         .header("Authorization", "Bearer " + superAdminToken))
@@ -450,10 +467,45 @@ class ContributionControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.reviewStatus").value("APPROVED"))
                 .andExpect(jsonPath("$.data.status").value("PAID"))
                 .andExpect(jsonPath("$.data.paidAmount").value(1000.0));
+        Mockito.verify(emailNotificationPublisher)
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.eq(cooperativeId),
+                        Mockito.eq(NotificationType.CONTRIBUTION),
+                        Mockito.eq("Contribution approved"),
+                        Mockito.any(),
+                        Mockito.eq("Contribution"),
+                        Mockito.eq(contributionId));
 
+        MvcResult approvedList = mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode approvedContent = objectMapper
+                .readTree(approvedList.getResponse().getContentAsString())
+                .path("data")
+                .path("content");
+        long approvedCount = 0;
+        for (JsonNode notification : approvedContent) {
+            if ("Contribution approved".equals(notification.path("title").asText())) {
+                approvedCount++;
+            }
+        }
+        assertThat(approvedCount).isEqualTo(1);
+
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/contributions/" + contributionId + "/approve")
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isUnprocessableEntity());
+        Mockito.verify(emailNotificationPublisher, Mockito.never())
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.any(),
+                        Mockito.eq(NotificationType.CONTRIBUTION),
+                        Mockito.eq("Contribution approved"),
+                        Mockito.any(),
+                        Mockito.eq("Contribution"),
+                        Mockito.eq(contributionId));
 
         long ledgerCredits = ledgerEntryRepository.findAll().stream()
                 .filter(e -> e.getSourceEntityId().equals(contributionId))
@@ -540,11 +592,21 @@ class ContributionControllerIntegrationTest {
                 .path("id")
                 .asText());
 
+        Mockito.clearInvocations(emailNotificationPublisher);
         mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/contributions/" + contributionId + "/reject")
                         .header("Authorization", "Bearer " + accountantToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rejectionReason\":\"Unclear proof\"}"))
                 .andExpect(status().isOk());
+        Mockito.verify(emailNotificationPublisher)
+                .publish(
+                        Mockito.eq(memberUserId),
+                        Mockito.eq(cooperativeId),
+                        Mockito.eq(NotificationType.CONTRIBUTION),
+                        Mockito.eq("Contribution rejected"),
+                        Mockito.any(),
+                        Mockito.eq("Contribution"),
+                        Mockito.eq(contributionId));
 
         MvcResult list = mockMvc.perform(get("/api/v1/notifications")
                         .param("unreadOnly", "true")
