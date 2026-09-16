@@ -3,7 +3,6 @@ import { ThemeProvider } from '@mui/material'
 import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,6 +10,7 @@ import authReducer from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
 import {
   fetchBillingPlans,
+  fetchSubscriptionPayment,
   fetchSubscriptionPayments,
   startBillingCheckout,
 } from '@/shared/api/billing'
@@ -39,6 +39,7 @@ vi.mock('@/shared/api/billing', async (importOriginal) => {
     ...actual,
     fetchBillingPlans: vi.fn(),
     fetchSubscriptionPayments: vi.fn(),
+    fetchSubscriptionPayment: vi.fn(),
     startBillingCheckout: vi.fn(),
   }
 })
@@ -50,6 +51,7 @@ vi.mock('@/shared/api/cooperatives', () => ({
 const fetchSubscriptionMock = vi.mocked(fetchSubscription)
 const fetchPlansMock = vi.mocked(fetchBillingPlans)
 const fetchPaymentsMock = vi.mocked(fetchSubscriptionPayments)
+const fetchPaymentMock = vi.mocked(fetchSubscriptionPayment)
 const checkoutMock = vi.mocked(startBillingCheckout)
 const fetchCoopsMock = vi.mocked(fetchMyCooperatives)
 
@@ -99,26 +101,6 @@ function emptyPayments() {
     first: true,
     last: true,
   }
-}
-
-function integrationUnavailable() {
-  return new AxiosError(
-    'Not Implemented',
-    'ERR_BAD_RESPONSE',
-    {} as InternalAxiosRequestConfig,
-    undefined,
-    {
-      status: 501,
-      statusText: 'Not Implemented',
-      headers: {},
-      config: {} as InternalAxiosRequestConfig,
-      data: {
-        success: false,
-        code: 'PAYMENT_INTEGRATION_UNAVAILABLE',
-        message: 'Payment processing is not available yet. Your Saving Scheme was not charged.',
-      },
-    } as AxiosResponse,
-  )
 }
 
 function renderPage(
@@ -174,7 +156,24 @@ function renderPage(
 describe('BillingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    checkoutMock.mockRejectedValue(integrationUnavailable())
+    checkoutMock.mockResolvedValue({
+      paymentId: 'pay-pending',
+      status: 'PENDING',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      amount: '2000.0000',
+      currency: 'RWF',
+      message: 'Payment request sent. Approve the payment on your phone.',
+    })
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-pending',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      status: 'PENDING',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-01T10:00:00Z',
+    })
   })
 
   it('renders the billing route for the selected cooperative', async () => {
@@ -282,31 +281,133 @@ describe('BillingPage', () => {
     expect(annual).toHaveTextContent('1,500')
   })
 
-  it('lets leadership choose monthly, MTN Mobile Money, and review without fake success', async () => {
-    const user = userEvent.setup()
+  it('lets leadership choose monthly, MTN Mobile Money, enter a phone, and wait for approval', async () => {
+    const user = userEvent.setup({ delay: null })
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
     expect(screen.getByTestId('plan-card-MONTHLY')).toHaveAttribute('aria-pressed', 'true')
     await user.click(screen.getByLabelText('MTN Mobile Money'))
+    expect(screen.getByLabelText(/MTN Mobile Money number/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/PIN/i)).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
     const review = screen.getByTestId('billing-review-card')
     expect(review).toHaveTextContent('Monthly')
     expect(review).toHaveTextContent('2,000')
     expect(review).toHaveTextContent('1 month')
     expect(review).toHaveTextContent('MTN Mobile Money')
-    expect(screen.queryByLabelText(/PIN/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Continue to Payment' }))
-    expect(await screen.findByTestId('checkout-unavailable')).toHaveTextContent(
-      'Payment processing is not available yet',
-    )
+    await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
     expect(checkoutMock).toHaveBeenCalledWith('coop-1', {
       billingCycle: 'MONTHLY',
       paymentChannel: 'MTN_MOMO',
+      payerPhoneNumber: '0781234567',
     })
+    const sent = checkoutMock.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(sent).not.toHaveProperty('amount')
+    expect(await screen.findByText('Payment request sent to your MTN Mobile Money number.')).toBeInTheDocument()
+    expect(screen.getByText('Approve the payment on your phone.')).toBeInTheDocument()
+    expect(screen.getByTestId('mtn-pending-status')).toHaveTextContent('Pending')
+    expect(screen.getByRole('button', { name: 'Check Payment Status' })).toBeInTheDocument()
     expect(screen.queryByText(/payment successful/i)).not.toBeInTheDocument()
-  })
+  }, 15_000)
+
+  it('validates the MTN phone number before checkout', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderPage([ROLE_PRESIDENT])
+    await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
+    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '123')
+    await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
+    expect(await screen.findByText(/valid Rwandan mobile number/i)).toBeInTheDocument()
+    expect(checkoutMock).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it('refreshes payment status and invalidates subscription after success', async () => {
+    const user = userEvent.setup({ delay: null })
+    let paymentStatus: 'PENDING' | 'SUCCESS' = 'PENDING'
+    fetchPaymentMock.mockImplementation(async () => ({
+      id: 'pay-pending',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      status: paymentStatus,
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-01T10:00:00Z',
+      paidAt: paymentStatus === 'SUCCESS' ? '2026-09-01T10:01:00Z' : null,
+    }))
+    renderPage([ROLE_PRESIDENT])
+    await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
+    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
+    const subCalls = fetchSubscriptionMock.mock.calls.length
+    const historyCalls = fetchPaymentsMock.mock.calls.length
+    await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
+    await screen.findByRole('button', { name: 'Check Payment Status' })
+    paymentStatus = 'SUCCESS'
+    await user.click(screen.getByRole('button', { name: 'Check Payment Status' }))
+    expect(await screen.findByTestId('payment-success')).toHaveTextContent('Payment successful')
+    expect(fetchPaymentMock).toHaveBeenCalled()
+    expect(fetchSubscriptionMock.mock.calls.length).toBeGreaterThan(subCalls)
+    expect(fetchPaymentsMock.mock.calls.length).toBeGreaterThan(historyCalls)
+  }, 15_000)
+
+  it('shows failure and allows retry without removing the failed attempt', async () => {
+    const user = userEvent.setup({ delay: null })
+    checkoutMock.mockResolvedValue({
+      paymentId: 'pay-fail',
+      status: 'FAILED',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      amount: '2000.0000',
+      currency: 'RWF',
+      message: 'Payment was not completed.',
+    })
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-fail',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      status: 'FAILED',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-01T10:00:00Z',
+      failedAt: '2026-09-01T10:01:00Z',
+    })
+    renderPage(
+      [ROLE_PRESIDENT],
+      trial,
+      {
+        content: [
+          {
+            id: 'pay-fail',
+            billingCycle: 'MONTHLY',
+            paymentChannel: 'MTN_MOMO',
+            status: 'FAILED',
+            currency: 'RWF',
+            amount: '2000.0000',
+            initiatedAt: '2026-09-01T10:00:00Z',
+            failedAt: '2026-09-01T10:01:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
+      },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
+    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
+    await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
+    expect(await screen.findByTestId('payment-failed')).toHaveTextContent('Payment was not completed.')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByTestId('payment-history')).toHaveTextContent('Failed')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(screen.getByRole('button', { name: 'Pay with MTN MoMo' })).toBeInTheDocument()
+  }, 15_000)
 
   it('lets leadership choose annual and bank card, then review discount', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Annual' }))
     expect(screen.getByTestId('plan-card-ANNUAL')).toHaveAttribute('aria-pressed', 'true')
@@ -320,6 +421,10 @@ describe('BillingPage', () => {
     expect(review).toHaveTextContent('Bank Card')
     expect(screen.queryByLabelText(/card number/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/cvv/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/MTN Mobile Money number/i)).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-coming-soon')).toHaveTextContent('Card processing is not yet available')
+    expect(screen.getByRole('button', { name: 'Continue to Payment' })).toBeDisabled()
+    expect(checkoutMock).not.toHaveBeenCalled()
   })
 
   it('hides payment controls for members', async () => {
@@ -331,6 +436,7 @@ describe('BillingPage', () => {
     expect(screen.queryByRole('button', { name: 'Choose Annual' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('MTN Mobile Money')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Continue to Payment' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pay with MTN MoMo' })).not.toBeInTheDocument()
     expect(screen.getByTestId('plan-card-MONTHLY')).toHaveTextContent('2,000')
   })
 

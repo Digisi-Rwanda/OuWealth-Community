@@ -31,6 +31,16 @@ class SubscriptionWriteInterceptorTest {
                         "POST", "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/billing/checkout"))
                 .isTrue();
         assertThat(SubscriptionWriteInterceptor.isExempt(
+                        "GET",
+                        "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/billing/payments"
+                                + "/22222222-2222-2222-2222-222222222222"))
+                .isTrue();
+        assertThat(SubscriptionWriteInterceptor.isExempt("POST", "/api/v1/public/billing/mtn/callback")).isTrue();
+        assertThat(SubscriptionWriteInterceptor.isExempt(
+                        "POST",
+                        "/api/v1/public/billing/mtn/callback/22222222-2222-2222-2222-222222222222"))
+                .isTrue();
+        assertThat(SubscriptionWriteInterceptor.isExempt(
                         "POST", "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/payments"))
                 .isTrue();
         assertThat(SubscriptionWriteInterceptor.isExempt(

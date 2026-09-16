@@ -36,6 +36,13 @@ app:
     enabled: false
     host: ""
     from: ""
+  subscription:
+    payment:
+      mtn:
+        enabled: false
+        subscription-key: ""
+        api-user: ""
+        api-key: ""
 
 
 logging:

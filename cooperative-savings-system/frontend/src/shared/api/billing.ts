@@ -4,6 +4,7 @@ import { unwrapApiData } from './auth'
 import type { ApiErrorBody, ApiResponse, PageQuery, PageResponse } from '@/shared/types/api'
 import type {
   BillingCheckoutRequest,
+  BillingCheckoutResponse,
   BillingPlanQuote,
   BillingPlansResponse,
   SubscriptionPaymentRecord,
@@ -15,6 +16,9 @@ export const billingPlansQueryKey = (cooperativeId: string) =>
 
 export const billingPaymentsQueryKey = (cooperativeId: string, query: PageQuery = {}) =>
   ['cooperatives', cooperativeId, 'billing', 'payments', query] as const
+
+export const billingPaymentQueryKey = (cooperativeId: string, paymentId: string) =>
+  ['cooperatives', cooperativeId, 'billing', 'payments', paymentId] as const
 
 export async function fetchBillingPlans(cooperativeId: string): Promise<BillingPlansResponse> {
   const response = await apiClient.get<ApiResponse<BillingPlansResponse>>(
@@ -47,15 +51,29 @@ export async function fetchSubscriptionPayments(
   }
 }
 
+export async function fetchSubscriptionPayment(
+  cooperativeId: string,
+  paymentId: string,
+): Promise<SubscriptionPaymentRecord> {
+  const response = await apiClient.get<ApiResponse<SubscriptionPaymentRecord>>(
+    `/cooperatives/${cooperativeId}/billing/payments/${paymentId}`,
+  )
+  return mapSubscriptionPayment(unwrapApiData(response.data))
+}
+
 /**
- * Phase 6 will start provider checkout. Phase 5 validates the payload and returns
- * PAYMENT_INTEGRATION_UNAVAILABLE without charging or activating a subscription.
+ * Starts provider checkout. Amount is never sent; the server prices the plan.
+ * Initiated payments stay PENDING until the provider confirms success.
  */
 export async function startBillingCheckout(
   cooperativeId: string,
   payload: BillingCheckoutRequest,
-): Promise<void> {
-  await apiClient.post(`/cooperatives/${cooperativeId}/billing/checkout`, payload)
+): Promise<BillingCheckoutResponse> {
+  const response = await apiClient.post<ApiResponse<BillingCheckoutResponse>>(
+    `/cooperatives/${cooperativeId}/billing/checkout`,
+    payload,
+  )
+  return unwrapApiData(response.data)
 }
 
 export function isPaymentIntegrationUnavailableError(error: unknown): boolean {

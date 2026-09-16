@@ -92,6 +92,11 @@ export const AUDITABLE_ACTIONS = [
   'WHATSAPP_SHARE',
   'SUBSCRIPTION_INIT',
   'SUBSCRIPTION_TRIAL_START',
+  'SUBSCRIPTION_PAYMENT_INITIATED',
+  'SUBSCRIPTION_PAYMENT_SUCCESS',
+  'SUBSCRIPTION_PAYMENT_FAILED',
+  'SUBSCRIPTION_ACTIVATED',
+  'SUBSCRIPTION_RENEWED',
   'OTHER',
 ] as const
 
@@ -106,6 +111,7 @@ export const AUDIT_ENTITY_TYPES = [
   'FinePayment',
   'Cooperative',
   'CooperativeSubscription',
+  'SubscriptionPayment',
   'User',
   'StoredFile',
   'IncomeExpenseTransaction',

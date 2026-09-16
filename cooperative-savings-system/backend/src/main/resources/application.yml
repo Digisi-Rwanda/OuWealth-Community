@@ -115,6 +115,15 @@ app:
     annual-list-price: 24000.0000
     annual-charge: 18000.0000
     annual-discount-percent: 25
+    payment:
+      mtn:
+        enabled: ${MTN_MOMO_ENABLED:false}
+        base-url: ${MTN_MOMO_BASE_URL:https://sandbox.momodeveloper.mtn.com}
+        subscription-key: ${MTN_MOMO_SUBSCRIPTION_KEY:}
+        api-user: ${MTN_MOMO_API_USER:}
+        api-key: ${MTN_MOMO_API_KEY:}
+        target-environment: ${MTN_MOMO_TARGET_ENVIRONMENT:sandbox}
+        callback-url: ${MTN_MOMO_CALLBACK_URL:}
 
 logging:
   pattern:

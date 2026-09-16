@@ -20,6 +20,17 @@ export interface BillingPlansResponse {
 export interface BillingCheckoutRequest {
   billingCycle: BillingCycle
   paymentChannel: BillingPaymentChannel
+  payerPhoneNumber?: string
+}
+
+export interface BillingCheckoutResponse {
+  paymentId: string
+  status: SubscriptionPaymentStatus
+  billingCycle: BillingCycle
+  paymentChannel: BillingPaymentChannel
+  amount: string | number
+  currency: string
+  message?: string | null
 }
 
 export interface SubscriptionPaymentRecord {

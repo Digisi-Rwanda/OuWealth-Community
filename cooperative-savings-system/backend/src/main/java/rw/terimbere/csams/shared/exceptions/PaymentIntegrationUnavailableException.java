@@ -1,7 +1,7 @@
 package rw.terimbere.csams.shared.exceptions;
 
 /**
- * Phase 5 checkout contract: payment providers are not configured yet.
+ * Checkout channel is not available (CARD in Phase 6A, or MTN when disabled / unconfigured).
  * Does not record a payment or change subscription entitlement.
  */
 public class PaymentIntegrationUnavailableException extends RuntimeException {

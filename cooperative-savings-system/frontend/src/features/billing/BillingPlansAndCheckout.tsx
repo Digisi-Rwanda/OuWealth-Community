@@ -12,23 +12,31 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material'
-import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getErrorMessage } from '@/shared/api/client'
 import {
+  billingPaymentQueryKey,
+  billingPaymentsQueryKey,
+  fetchSubscriptionPayment,
   isPaymentIntegrationUnavailableError,
   startBillingCheckout,
 } from '@/shared/api/billing'
+import { cooperativeSubscriptionQueryKey } from '@/shared/api/subscription'
 import type {
+  BillingCheckoutResponse,
   BillingCycle,
   BillingPaymentChannel,
   BillingPlanQuote,
   BillingPlansResponse,
+  SubscriptionPaymentStatus,
 } from '@/shared/types/billing'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { isValidRwandanPhone, normalizeRwandanPhone } from '@/shared/utils/rwandaCooperative'
 import { equivalentMonthlyAmount } from './billingAccess'
 
 interface BillingPlansAndCheckoutProps {
@@ -45,23 +53,67 @@ export function BillingPlansAndCheckout({
   trialActive,
 }: BillingPlansAndCheckoutProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle | null>(null)
   const [paymentChannel, setPaymentChannel] = useState<BillingPaymentChannel | null>(null)
+  const [payerPhone, setPayerPhone] = useState('')
+  const [phoneError, setPhoneError] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
+  const [activeCheckout, setActiveCheckout] = useState<BillingCheckoutResponse | null>(null)
 
   const monthly = plans.plans.find((plan) => plan.billingCycle === 'MONTHLY')
   const annual = plans.plans.find((plan) => plan.billingCycle === 'ANNUAL')
   const selectedPlan = plans.plans.find((plan) => plan.billingCycle === selectedCycle)
   const currency = plans.currency || 'RWF'
+  const pendingPaymentId = activeCheckout?.paymentId
+  const cardSelected = paymentChannel === 'CARD'
+  const mtnSelected = paymentChannel === 'MTN_MOMO'
+
+  const paymentQuery = useQuery({
+    queryKey: pendingPaymentId
+      ? billingPaymentQueryKey(cooperativeId, pendingPaymentId)
+      : ['billing', 'payment', 'none'],
+    queryFn: () => fetchSubscriptionPayment(cooperativeId, pendingPaymentId!),
+    enabled: Boolean(pendingPaymentId),
+    refetchInterval: (query) => {
+      if (import.meta.env.MODE === 'test') return false
+      return query.state.data?.status === 'PENDING' ? 5_000 : false
+    },
+  })
+
+  const paymentStatus: SubscriptionPaymentStatus | undefined =
+    paymentQuery.data?.status ?? activeCheckout?.status
+
+  useEffect(() => {
+    if (!paymentStatus || paymentStatus === 'PENDING') return
+    void queryClient.invalidateQueries({ queryKey: cooperativeSubscriptionQueryKey(cooperativeId) })
+    void queryClient.invalidateQueries({
+      queryKey: ['cooperatives', cooperativeId, 'billing', 'payments'],
+    })
+  }, [cooperativeId, paymentStatus, queryClient])
 
   const checkout = useMutation({
-    mutationFn: () =>
-      startBillingCheckout(cooperativeId, {
-        billingCycle: selectedCycle!,
-        paymentChannel: paymentChannel!,
-      }),
-    onSuccess: () => {
+    mutationFn: () => {
+      const payload =
+        paymentChannel === 'MTN_MOMO'
+          ? {
+              billingCycle: selectedCycle!,
+              paymentChannel: paymentChannel!,
+              payerPhoneNumber: normalizeRwandanPhone(payerPhone),
+            }
+          : {
+              billingCycle: selectedCycle!,
+              paymentChannel: paymentChannel!,
+            }
+      return startBillingCheckout(cooperativeId, payload)
+    },
+    onSuccess: (data) => {
       setCheckoutNotice(null)
+      setActiveCheckout(data)
+      void queryClient.invalidateQueries({ queryKey: billingPaymentsQueryKey(cooperativeId, { page: 0, size: 20 }) })
+      void queryClient.invalidateQueries({
+        queryKey: ['cooperatives', cooperativeId, 'billing', 'payments'],
+      })
     },
     onError: (error) => {
       if (isPaymentIntegrationUnavailableError(error)) {
@@ -71,6 +123,20 @@ export function BillingPlansAndCheckout({
       setCheckoutNotice(getErrorMessage(error, t('errors.generic')))
     },
   })
+
+  const startMtnCheckout = () => {
+    if (!isValidRwandanPhone(payerPhone)) {
+      setPhoneError(t('subscription.billing.payerPhoneInvalid'))
+      return
+    }
+    setPhoneError(null)
+    checkout.mutate()
+  }
+
+  const retryCheckout = () => {
+    setActiveCheckout(null)
+    setCheckoutNotice(null)
+  }
 
   return (
     <Stack spacing={2} data-testid="billing-plans">
@@ -100,6 +166,7 @@ export function BillingPlansAndCheckout({
             onChoose={() => {
               setSelectedCycle('MONTHLY')
               setCheckoutNotice(null)
+              setActiveCheckout(null)
             }}
           />
         ) : null}
@@ -113,6 +180,7 @@ export function BillingPlansAndCheckout({
             onChoose={() => {
               setSelectedCycle('ANNUAL')
               setCheckoutNotice(null)
+              setActiveCheckout(null)
             }}
           />
         ) : null}
@@ -130,6 +198,8 @@ export function BillingPlansAndCheckout({
                 onChange={(event) => {
                   setPaymentChannel(event.target.value as BillingPaymentChannel)
                   setCheckoutNotice(null)
+                  setActiveCheckout(null)
+                  setPhoneError(null)
                 }}
               >
                 <FormControlLabel
@@ -144,14 +214,26 @@ export function BillingPlansAndCheckout({
                 />
               </RadioGroup>
             </FormControl>
-            {paymentChannel === 'MTN_MOMO' ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {t('subscription.billing.momoLater')}
-              </Typography>
+            {mtnSelected ? (
+              <TextField
+                sx={{ mt: 2 }}
+                fullWidth
+                required
+                type="tel"
+                autoComplete="tel"
+                label={t('subscription.billing.payerPhone')}
+                value={payerPhone}
+                onChange={(event) => {
+                  setPayerPhone(event.target.value)
+                  setPhoneError(null)
+                }}
+                error={Boolean(phoneError)}
+                helperText={phoneError ?? t('subscription.billing.payerPhoneHint')}
+              />
             ) : null}
-            {paymentChannel === 'CARD' ? (
+            {cardSelected ? (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {t('subscription.billing.cardLater')}
+                {t('subscription.billing.cardComingSoon')}
               </Typography>
             ) : null}
             <Button sx={{ mt: 1 }} onClick={() => setSelectedCycle(null)}>
@@ -204,20 +286,65 @@ export function BillingPlansAndCheckout({
                   : t('subscription.billing.bankCard')
               }
             />
+            {mtnSelected && payerPhone ? (
+              <ReviewRow label={t('subscription.billing.payerPhone')} value={normalizeRwandanPhone(payerPhone)} />
+            ) : null}
+            {cardSelected ? (
+              <Alert severity="info" sx={{ mt: 2 }} data-testid="card-coming-soon">
+                {t('subscription.billing.cardComingSoon')}
+              </Alert>
+            ) : null}
             {checkoutNotice ? (
               <Alert severity="info" sx={{ mt: 2 }} data-testid="checkout-unavailable">
                 {checkoutNotice}
               </Alert>
             ) : null}
+            {activeCheckout && paymentStatus === 'PENDING' ? (
+              <Stack spacing={1} sx={{ mt: 2 }} data-testid="mtn-pending-status">
+                <Alert severity="info">{t('subscription.billing.momoSent')}</Alert>
+                <Alert severity="info">{t('subscription.billing.momoApprove')}</Alert>
+                <Typography variant="body2">
+                  {t('subscription.billing.colStatus')}: {t('subscription.billing.paymentStatus.PENDING')}
+                </Typography>
+              </Stack>
+            ) : null}
+            {paymentStatus === 'SUCCESS' ? (
+              <Alert severity="success" sx={{ mt: 2 }} data-testid="payment-success">
+                {t('subscription.billing.paymentSuccess')}
+              </Alert>
+            ) : null}
+            {paymentStatus === 'FAILED' || paymentStatus === 'CANCELED' ? (
+              <Alert severity="error" sx={{ mt: 2 }} data-testid="payment-failed">
+                {t('subscription.billing.paymentFailed')}
+              </Alert>
+            ) : null}
           </CardContent>
           <CardActions sx={{ px: 2, pb: 2 }}>
-            <Button
-              variant="contained"
-              disabled={checkout.isPending}
-              onClick={() => checkout.mutate()}
-            >
-              {t('subscription.billing.continuePayment')}
-            </Button>
+            {cardSelected ? (
+              <Button variant="contained" disabled>
+                {t('subscription.billing.continuePayment')}
+              </Button>
+            ) : paymentStatus === 'PENDING' && pendingPaymentId ? (
+              <Button
+                variant="outlined"
+                onClick={() => void paymentQuery.refetch()}
+                disabled={paymentQuery.isFetching}
+              >
+                {t('subscription.billing.checkPaymentStatus')}
+              </Button>
+            ) : paymentStatus === 'FAILED' || paymentStatus === 'CANCELED' ? (
+              <Button variant="contained" onClick={retryCheckout}>
+                {t('subscription.billing.retryPayment')}
+              </Button>
+            ) : paymentStatus === 'SUCCESS' ? null : (
+              <Button
+                variant="contained"
+                disabled={checkout.isPending}
+                onClick={startMtnCheckout}
+              >
+                {t('subscription.billing.payWithMtn')}
+              </Button>
+            )}
           </CardActions>
         </Card>
       ) : null}

@@ -3,6 +3,7 @@ import { apiClient } from './client'
 import {
   billingPlansQueryKey,
   fetchBillingPlans,
+  fetchSubscriptionPayment,
   fetchSubscriptionPayments,
   startBillingCheckout,
 } from './billing'
@@ -84,12 +85,57 @@ describe('billing API', () => {
     })
   })
 
-  it('posts checkout without treating the call as completed payment', async () => {
-    postMock.mockResolvedValue({ data: { success: true, data: null } })
-    await startBillingCheckout('coop-1', { billingCycle: 'ANNUAL', paymentChannel: 'CARD' })
+  it('posts checkout without an amount and returns the pending payment', async () => {
+    postMock.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          paymentId: 'pay-1',
+          status: 'PENDING',
+          billingCycle: 'ANNUAL',
+          paymentChannel: 'MTN_MOMO',
+          amount: '18000.0000',
+          currency: 'RWF',
+          message: 'Payment request sent. Approve the payment on your phone.',
+        },
+      },
+    })
+    await expect(
+      startBillingCheckout('coop-1', {
+        billingCycle: 'ANNUAL',
+        paymentChannel: 'MTN_MOMO',
+        payerPhoneNumber: '0781234567',
+      }),
+    ).resolves.toMatchObject({ paymentId: 'pay-1', status: 'PENDING' })
     expect(postMock).toHaveBeenCalledWith('/cooperatives/coop-1/billing/checkout', {
       billingCycle: 'ANNUAL',
-      paymentChannel: 'CARD',
+      paymentChannel: 'MTN_MOMO',
+      payerPhoneNumber: '0781234567',
     })
+    const sent = postMock.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(sent).not.toHaveProperty('amount')
+    expect(sent).not.toHaveProperty('price')
+    expect(sent).not.toHaveProperty('discount')
+  })
+
+  it('loads a single payment for status refresh', async () => {
+    getMock.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'pay-1',
+          billingCycle: 'MONTHLY',
+          paymentChannel: 'MTN_MOMO',
+          status: 'PENDING',
+          currency: 'RWF',
+          amount: '2000.0000',
+          initiatedAt: '2026-09-01T00:00:00Z',
+        },
+      },
+    })
+    const page = await fetchSubscriptionPayment('coop-1', 'pay-1')
+    expect(page.id).toBe('pay-1')
+    expect(page.status).toBe('PENDING')
+    expect(getMock).toHaveBeenCalledWith('/cooperatives/coop-1/billing/payments/pay-1')
   })
 })

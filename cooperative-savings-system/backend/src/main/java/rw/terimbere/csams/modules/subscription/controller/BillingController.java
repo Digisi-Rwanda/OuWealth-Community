@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import rw.terimbere.csams.modules.subscription.dto.BillingCheckoutRequest;
+import rw.terimbere.csams.modules.subscription.dto.BillingCheckoutResponse;
 import rw.terimbere.csams.modules.subscription.dto.BillingPlansResponse;
 import rw.terimbere.csams.modules.subscription.dto.SubscriptionPaymentResponse;
 import rw.terimbere.csams.modules.subscription.service.BillingService;
@@ -50,16 +51,25 @@ public class BillingController {
         return ResponseEntity.ok(ApiResponse.ok(PageMapper.toPageResponse(billingService.listPayments(cooperativeId, pageable))));
     }
 
+    @GetMapping("/payments/{paymentId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Verify a subscription payment with the provider when still pending")
+    public ResponseEntity<ApiResponse<SubscriptionPaymentResponse>> payment(
+            @PathVariable UUID cooperativeId, @PathVariable UUID paymentId) {
+        return ResponseEntity.ok(ApiResponse.ok(billingService.getPayment(cooperativeId, paymentId)));
+    }
+
     @PostMapping("/checkout")
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Start subscription checkout",
             description =
-                    "Validates plan and payment method for authorized billing managers. "
-                            + "Payment providers are not configured in this phase; the subscription is not charged.")
-    public ResponseEntity<ApiResponse<Void>> checkout(
+                    "Creates a PENDING platform payment and initiates MTN Mobile Money collection. "
+                            + "The subscription is not activated until the provider confirms payment. "
+                            + "Amount is always resolved from server-side SubscriptionPricing.")
+    public ResponseEntity<ApiResponse<BillingCheckoutResponse>> checkout(
             @PathVariable UUID cooperativeId, @Valid @RequestBody BillingCheckoutRequest request) {
-        billingService.checkout(cooperativeId, request);
-        return ResponseEntity.ok(ApiResponse.ok(null));
+        BillingCheckoutResponse response = billingService.checkout(cooperativeId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response.getMessage(), response));
     }
 }

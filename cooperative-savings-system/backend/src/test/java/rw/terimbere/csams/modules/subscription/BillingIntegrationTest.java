@@ -214,6 +214,25 @@ class BillingIntegrationTest {
     }
 
     @Test
+    void mtnCheckoutIsUnavailableWhenProviderDisabled() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        long paymentsBefore = paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id()).size();
+        mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
+                        .header("Authorization", "Bearer " + scheme.presidentToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                """))
+                .andExpect(status().isNotImplemented())
+                .andExpect(jsonPath("$.code").value(PaymentIntegrationUnavailableException.CODE));
+        assertThat(paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id()).size())
+                .isEqualTo(paymentsBefore);
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
+    }
+
+    @Test
     void accountantCanCheckoutContract_secretaryCannot() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         Member accountant = addMember(scheme.id(), "ACCOUNTANT");

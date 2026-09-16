@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import rw.terimbere.csams.modules.subscription.config.SubscriptionProperties;
 
 /**
  * Fail-fast production guard: refuse to start with blank or local-default JWT/DB secrets.
@@ -25,6 +26,7 @@ public class ProductionSecretsValidator implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(ProductionSecretsValidator.class);
 
     private final JwtProperties jwtProperties;
+    private final SubscriptionProperties subscriptionProperties;
     private final Environment environment;
 
     @Override
@@ -37,6 +39,14 @@ public class ProductionSecretsValidator implements ApplicationRunner {
         requireEnv("POSTGRES_USER", failures);
         requireEnv("POSTGRES_PASSWORD", failures);
         requireEnv("POSTGRES_DB", failures);
+
+        if (subscriptionProperties.getPayment().getMtn().isEnabled()) {
+            requireEnv("MTN_MOMO_SUBSCRIPTION_KEY", failures);
+            requireEnv("MTN_MOMO_API_USER", failures);
+            requireEnv("MTN_MOMO_API_KEY", failures);
+            requireEnv("MTN_MOMO_BASE_URL", failures);
+            requireEnv("MTN_MOMO_TARGET_ENVIRONMENT", failures);
+        }
 
         if (!failures.isEmpty()) {
             String message = "Production secrets validation failed:\n - " + String.join("\n - ", failures);
