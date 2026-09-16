@@ -64,9 +64,9 @@ public class BillingController {
     @Operation(
             summary = "Start subscription checkout",
             description =
-                    "Creates a PENDING platform payment and initiates MTN Mobile Money collection. "
-                            + "The subscription is not activated until the provider confirms payment. "
-                            + "Amount is always resolved from server-side SubscriptionPricing.")
+                    "Creates a PENDING platform payment and initiates MTN Mobile Money collection or "
+                            + "Flutterwave hosted card checkout. The subscription is not activated until the "
+                            + "provider confirms payment. Amount is always resolved from server-side SubscriptionPricing.")
     public ResponseEntity<ApiResponse<BillingCheckoutResponse>> checkout(
             @PathVariable UUID cooperativeId, @Valid @RequestBody BillingCheckoutRequest request) {
         BillingCheckoutResponse response = billingService.checkout(cooperativeId, request);

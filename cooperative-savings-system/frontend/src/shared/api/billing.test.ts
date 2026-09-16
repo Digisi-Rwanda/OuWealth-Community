@@ -118,6 +118,42 @@ describe('billing API', () => {
     expect(sent).not.toHaveProperty('discount')
   })
 
+  it('posts CARD checkout without card fields and keeps checkoutUrl', async () => {
+    postMock.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          paymentId: 'pay-card',
+          status: 'PENDING',
+          billingCycle: 'MONTHLY',
+          paymentChannel: 'CARD',
+          amount: '2000.0000',
+          currency: 'RWF',
+          checkoutUrl: 'https://checkout.flutterwave.com/pay/x',
+          message: 'Continue to secure card payment.',
+        },
+      },
+    })
+    await expect(
+      startBillingCheckout('coop-1', { billingCycle: 'MONTHLY', paymentChannel: 'CARD' }),
+    ).resolves.toMatchObject({
+      paymentId: 'pay-card',
+      checkoutUrl: 'https://checkout.flutterwave.com/pay/x',
+    })
+    const sent = postMock.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(sent).not.toHaveProperty('cardNumber')
+    expect(sent).not.toHaveProperty('cvv')
+    expect(sent).not.toHaveProperty('amount')
+  })
+
+  it('parses payment id from Flutterwave tx_ref hint', async () => {
+    const { paymentIdFromTxRef } = await import('./billing')
+    expect(paymentIdFromTxRef('ouwealth-sub-11111111-1111-4111-8111-111111111111')).toBe(
+      '11111111-1111-4111-8111-111111111111',
+    )
+    expect(paymentIdFromTxRef('other-ref')).toBeNull()
+  })
+
   it('loads a single payment for status refresh', async () => {
     getMock.mockResolvedValue({
       data: {

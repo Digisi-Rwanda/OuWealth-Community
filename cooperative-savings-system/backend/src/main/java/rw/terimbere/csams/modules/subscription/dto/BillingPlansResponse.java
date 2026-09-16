@@ -14,5 +14,6 @@ public class BillingPlansResponse {
 
     private String currency;
     private int trialMonths;
+    private boolean cardCheckoutAvailable;
     private List<BillingPlanQuote> plans;
 }

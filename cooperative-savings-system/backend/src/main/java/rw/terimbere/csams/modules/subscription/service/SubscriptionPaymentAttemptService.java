@@ -3,20 +3,24 @@ package rw.terimbere.csams.modules.subscription.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import rw.terimbere.csams.modules.audit.service.AuditService;
+import rw.terimbere.csams.modules.subscription.config.SubscriptionProperties;
 import rw.terimbere.csams.modules.subscription.entity.CooperativeSubscription;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionBillingCycle;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionPayment;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionPaymentChannel;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionPaymentStatus;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveCardSubscriptionPaymentProvider;
 import rw.terimbere.csams.modules.subscription.payment.mtn.MtnMomoSubscriptionPaymentProvider;
 import rw.terimbere.csams.modules.subscription.repository.CooperativeSubscriptionRepository;
 import rw.terimbere.csams.modules.subscription.repository.SubscriptionPaymentRepository;
@@ -24,18 +28,25 @@ import rw.terimbere.csams.shared.auditing.AuditableAction;
 import rw.terimbere.csams.shared.exceptions.ResourceNotFoundException;
 
 /**
- * Transactional writes for checkout attempts. HTTP calls to MTN stay outside this bean.
+ * Transactional writes for checkout attempts. HTTP calls to providers stay outside this bean.
+ *
+ * <p>Pending reuse: same cooperative + billing cycle + channel + payer identity may be reused
+ * only inside {@code app.subscription.payment.pending-reuse-minutes} (default 15). That window
+ * absorbs double-clicks without blocking a later retry. MTN identity is the normalized MSISDN;
+ * CARD has no extra payer identity. Stale or different-phone PENDING rows are canceled first.
  */
 @Service
 @RequiredArgsConstructor
 public class SubscriptionPaymentAttemptService {
 
     static final String PENDING_MESSAGE = "Payment request sent. Approve the payment on your phone.";
+    static final String CARD_PENDING_MESSAGE = "Continue to secure card payment.";
     static final String FAILED_MESSAGE = "Payment was not completed.";
 
     private final CooperativeSubscriptionRepository subscriptionRepository;
     private final SubscriptionPaymentRepository paymentRepository;
     private final SubscriptionPricing pricing;
+    private final SubscriptionProperties subscriptionProperties;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -45,21 +56,26 @@ public class SubscriptionPaymentAttemptService {
             UUID cooperativeId,
             SubscriptionBillingCycle billingCycle,
             SubscriptionPaymentChannel paymentChannel,
-            UUID actorUserId) {
+            UUID actorUserId,
+            String payerMsisdn) {
         CooperativeSubscription subscription = subscriptionRepository
                 .findByCooperativeIdForUpdate(cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("CooperativeSubscription", cooperativeId));
 
+        Instant now = clock.instant();
         SubscriptionPayment existing = paymentRepository
                 .findFirstByCooperativeIdAndBillingCycleAndPaymentChannelAndStatusOrderByInitiatedAtDesc(
                         cooperativeId, billingCycle, paymentChannel, SubscriptionPaymentStatus.PENDING)
                 .orElse(null);
         if (existing != null) {
-            return existing;
+            if (canReuse(existing, paymentChannel, payerMsisdn, now)) {
+                return existing;
+            }
+            markTerminal(existing.getId(), SubscriptionPaymentStatus.CANCELED, actorUserId);
         }
 
-        Instant now = clock.instant();
         var quote = pricing.quote(billingCycle);
+        String provider = providerName(paymentChannel);
         SubscriptionPayment payment = SubscriptionPayment.builder()
                 .subscriptionId(subscription.getId())
                 .cooperativeId(cooperativeId)
@@ -68,11 +84,12 @@ public class SubscriptionPaymentAttemptService {
                 .status(SubscriptionPaymentStatus.PENDING)
                 .currency(pricing.currency())
                 .amount(quote.charge())
-                .provider(MtnMomoSubscriptionPaymentProvider.PROVIDER_NAME)
+                .provider(provider)
+                .payerMsisdn(paymentChannel == SubscriptionPaymentChannel.MTN_MOMO ? payerMsisdn : null)
                 .initiatedAt(now)
                 .build();
         SubscriptionPayment saved = paymentRepository.saveAndFlush(payment);
-        saved.setIdempotencyKey("mtn-momo:" + saved.getId());
+        saved.setIdempotencyKey(idempotencyKey(paymentChannel, saved.getId()));
         saved = paymentRepository.saveAndFlush(saved);
 
         auditService.record(
@@ -89,7 +106,8 @@ public class SubscriptionPaymentAttemptService {
     }
 
     @Transactional
-    public SubscriptionPayment markInitiated(UUID paymentId, String externalReference) {
+    public SubscriptionPayment markInitiated(
+            UUID paymentId, String externalReference, String checkoutUrl, String provider) {
         SubscriptionPayment payment = paymentRepository
                 .findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("SubscriptionPayment", paymentId));
@@ -101,8 +119,18 @@ public class SubscriptionPaymentAttemptService {
         } else if (!StringUtils.hasText(payment.getExternalReference())) {
             payment.setExternalReference(payment.getId().toString());
         }
-        payment.setProvider(MtnMomoSubscriptionPaymentProvider.PROVIDER_NAME);
+        if (StringUtils.hasText(provider)) {
+            payment.setProvider(provider);
+        }
+        if (StringUtils.hasText(checkoutUrl)) {
+            payment.setCheckoutUrl(checkoutUrl);
+        }
         return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public SubscriptionPayment markInitiated(UUID paymentId, String externalReference) {
+        return markInitiated(paymentId, externalReference, null, MtnMomoSubscriptionPaymentProvider.PROVIDER_NAME);
     }
 
     @Transactional
@@ -141,6 +169,50 @@ public class SubscriptionPaymentAttemptService {
                 null,
                 null);
         return saved;
+    }
+
+    boolean canReuse(
+            SubscriptionPayment existing,
+            SubscriptionPaymentChannel paymentChannel,
+            String payerMsisdn,
+            Instant now) {
+        if (existing == null || existing.getStatus() != SubscriptionPaymentStatus.PENDING) {
+            return false;
+        }
+        if (existing.getInitiatedAt() == null || now == null) {
+            return false;
+        }
+        Duration window = pendingReuseWindow();
+        if (existing.getInitiatedAt().isBefore(now.minus(window))) {
+            return false;
+        }
+        if (paymentChannel == SubscriptionPaymentChannel.MTN_MOMO) {
+            return StringUtils.hasText(payerMsisdn) && Objects.equals(existing.getPayerMsisdn(), payerMsisdn);
+        }
+        return paymentChannel == SubscriptionPaymentChannel.CARD;
+    }
+
+    Duration pendingReuseWindow() {
+        int minutes = subscriptionProperties.getPayment().getPendingReuseMinutes();
+        return Duration.ofMinutes(Math.max(1, minutes));
+    }
+
+    static String providerName(SubscriptionPaymentChannel channel) {
+        if (channel == SubscriptionPaymentChannel.CARD) {
+            return FlutterwaveCardSubscriptionPaymentProvider.PROVIDER_NAME;
+        }
+        return MtnMomoSubscriptionPaymentProvider.PROVIDER_NAME;
+    }
+
+    static String idempotencyKey(SubscriptionPaymentChannel channel, UUID paymentId) {
+        if (channel == SubscriptionPaymentChannel.CARD) {
+            return "flutterwave:" + paymentId;
+        }
+        return "mtn-momo:" + paymentId;
+    }
+
+    static String pendingMessage(SubscriptionPaymentChannel channel) {
+        return channel == SubscriptionPaymentChannel.CARD ? CARD_PENDING_MESSAGE : PENDING_MESSAGE;
     }
 
     private Map<String, Object> initiatedSnapshot(SubscriptionPayment payment) {

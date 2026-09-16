@@ -22,5 +22,6 @@ public class BillingCheckoutResponse {
     private SubscriptionPaymentChannel paymentChannel;
     private BigDecimal amount;
     private String currency;
+    private String checkoutUrl;
     private String message;
 }

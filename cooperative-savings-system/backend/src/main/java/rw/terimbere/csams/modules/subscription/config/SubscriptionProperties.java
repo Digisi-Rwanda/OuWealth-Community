@@ -29,7 +29,15 @@ public class SubscriptionProperties {
     @Getter
     @Setter
     public static class Payment {
+        /**
+         * Reuse a PENDING checkout for the same cooperative, plan, channel, and payer
+         * identity only inside this window. 15 minutes covers double-clicks and in-flight
+         * MoMo/hosted-checkout approval without blocking a later legitimate retry.
+         */
+        private int pendingReuseMinutes = 15;
+
         private Mtn mtn = new Mtn();
+        private Flutterwave flutterwave = new Flutterwave();
 
         @Getter
         @Setter
@@ -57,6 +65,32 @@ public class SubscriptionProperties {
                         && StringUtils.hasText(apiUser)
                         && StringUtils.hasText(apiKey)
                         && StringUtils.hasText(targetEnvironment);
+            }
+        }
+
+        @Getter
+        @Setter
+        public static class Flutterwave {
+            private boolean enabled = false;
+            private String baseUrl = "https://api.flutterwave.com/v3";
+            private String publicKey = "";
+            private String secretKey = "";
+            /** Dashboard secret hash compared to the {@code verif-hash} webhook header. */
+            private String secretHash = "";
+            private String redirectUrl = "";
+            private String webhookUrl = "";
+            private int connectTimeoutMs = 5_000;
+            private int readTimeoutMs = 20_000;
+
+            public boolean isConfigured() {
+                return enabled
+                        && StringUtils.hasText(baseUrl)
+                        && StringUtils.hasText(secretKey)
+                        && StringUtils.hasText(redirectUrl);
+            }
+
+            public boolean isWebhookConfigured() {
+                return isConfigured() && StringUtils.hasText(secretHash);
             }
         }
     }

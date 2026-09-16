@@ -27,6 +27,7 @@ import { ReportsPage } from '@/pages/ReportsPage'
 import { HistoricalImportPage } from '@/pages/HistoricalImportPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { BillingPage } from '@/pages/BillingPage'
+import { PaymentReturnPage } from '@/pages/PaymentReturnPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { AuditLogsPage } from '@/pages/AuditLogsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
@@ -97,6 +98,7 @@ export function AppRouter() {
               <Route path="/payouts/:runId" element={<PayoutDetailPage />} />
               <Route path={ROUTES.reports} element={<ReportsPage />} />
               <Route path={ROUTES.billing} element={<BillingPage />} />
+              <Route path={ROUTES.billingPaymentReturn} element={<PaymentReturnPage />} />
               <Route
                 element={<RoleRoute roles={[...LEADERSHIP_ROLES]} />}
               >

@@ -48,6 +48,13 @@ public class ProductionSecretsValidator implements ApplicationRunner {
             requireEnv("MTN_MOMO_TARGET_ENVIRONMENT", failures);
         }
 
+        if (subscriptionProperties.getPayment().getFlutterwave().isEnabled()) {
+            requireEnv("FLUTTERWAVE_BASE_URL", failures);
+            requireEnv("FLUTTERWAVE_SECRET_KEY", failures);
+            requireEnv("FLUTTERWAVE_SECRET_HASH", failures);
+            requireEnv("FLUTTERWAVE_REDIRECT_URL", failures);
+        }
+
         if (!failures.isEmpty()) {
             String message = "Production secrets validation failed:\n - " + String.join("\n - ", failures);
             log.error(message);

@@ -10,4 +10,18 @@ public record PaymentInitiationCommand(
         SubscriptionBillingCycle billingCycle,
         BigDecimal amount,
         String currency,
-        String payerMsisdn) {}
+        String payerMsisdn,
+        String customerEmail,
+        String customerName,
+        String customerPhone) {
+
+    public PaymentInitiationCommand(
+            UUID paymentId,
+            UUID cooperativeId,
+            SubscriptionBillingCycle billingCycle,
+            BigDecimal amount,
+            String currency,
+            String payerMsisdn) {
+        this(paymentId, cooperativeId, billingCycle, amount, currency, payerMsisdn, null, null, null);
+    }
+}

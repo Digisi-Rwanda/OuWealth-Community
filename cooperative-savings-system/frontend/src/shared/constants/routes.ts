@@ -25,6 +25,7 @@ export const ROUTES = {
   reports: '/reports',
   historicalImport: '/historical-import',
   billing: '/billing',
+  billingPaymentReturn: '/billing/payment-return',
   settings: '/settings',
   notifications: '/notifications',
   auditLogs: '/audit-logs',

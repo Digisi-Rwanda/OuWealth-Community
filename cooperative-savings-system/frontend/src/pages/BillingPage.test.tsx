@@ -26,6 +26,7 @@ import {
 import type { BillingPlansResponse, SubscriptionPaymentRecord } from '@/shared/types/billing'
 import type { CooperativeSubscription } from '@/shared/types/cooperative'
 import { lightTheme } from '@/theme/theme'
+import { redirectToExternalUrl } from '@/shared/utils/browserNavigation'
 import { BillingPage } from './BillingPage'
 
 vi.mock('@/shared/api/subscription', () => ({
@@ -48,6 +49,10 @@ vi.mock('@/shared/api/cooperatives', () => ({
   fetchMyCooperatives: vi.fn(),
 }))
 
+vi.mock('@/shared/utils/browserNavigation', () => ({
+  redirectToExternalUrl: vi.fn(),
+}))
+
 const fetchSubscriptionMock = vi.mocked(fetchSubscription)
 const fetchPlansMock = vi.mocked(fetchBillingPlans)
 const fetchPaymentsMock = vi.mocked(fetchSubscriptionPayments)
@@ -58,6 +63,7 @@ const fetchCoopsMock = vi.mocked(fetchMyCooperatives)
 const plans: BillingPlansResponse = {
   currency: 'RWF',
   trialMonths: 4,
+  cardCheckoutAvailable: true,
   plans: [
     {
       billingCycle: 'MONTHLY',
@@ -107,9 +113,10 @@ function renderPage(
   roles: string[],
   subscription: CooperativeSubscription | null = trial,
   payments = emptyPayments(),
+  plansOverride: BillingPlansResponse = plans,
 ) {
   fetchSubscriptionMock.mockResolvedValue(subscription)
-  fetchPlansMock.mockResolvedValue(plans)
+  fetchPlansMock.mockResolvedValue(plansOverride)
   fetchPaymentsMock.mockResolvedValue(payments)
   fetchCoopsMock.mockResolvedValue([
     { id: 'coop-1', name: 'Umurenge Scheme', status: 'ACTIVE', currency: 'RWF', logoUrl: null },
@@ -406,8 +413,18 @@ describe('BillingPage', () => {
     expect(screen.getByRole('button', { name: 'Pay with MTN MoMo' })).toBeInTheDocument()
   }, 15_000)
 
-  it('lets leadership choose annual and bank card, then review discount', async () => {
+  it('lets leadership choose annual and bank card, then redirects to hosted checkout', async () => {
     const user = userEvent.setup({ delay: null })
+    checkoutMock.mockResolvedValue({
+      paymentId: 'pay-card',
+      status: 'PENDING',
+      billingCycle: 'ANNUAL',
+      paymentChannel: 'CARD',
+      amount: '18000.0000',
+      currency: 'RWF',
+      checkoutUrl: 'https://checkout.flutterwave.com/pay/test',
+      message: 'Continue to secure card payment.',
+    })
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Annual' }))
     expect(screen.getByTestId('plan-card-ANNUAL')).toHaveAttribute('aria-pressed', 'true')
@@ -421,11 +438,31 @@ describe('BillingPage', () => {
     expect(review).toHaveTextContent('Bank Card')
     expect(screen.queryByLabelText(/card number/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/cvv/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/expir/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/MTN Mobile Money number/i)).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-hosted-review')).toHaveTextContent(
+      'secure payment provider to enter your card details',
+    )
+    await user.click(screen.getByRole('button', { name: 'Pay securely by card' }))
+    expect(checkoutMock).toHaveBeenCalledWith('coop-1', {
+      billingCycle: 'ANNUAL',
+      paymentChannel: 'CARD',
+    })
+    const sent = checkoutMock.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(sent).not.toHaveProperty('amount')
+    expect(sent).not.toHaveProperty('cardNumber')
+    expect(redirectToExternalUrl).toHaveBeenCalledWith('https://checkout.flutterwave.com/pay/test')
+  }, 15_000)
+
+  it('shows card unavailable when Flutterwave is disabled', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderPage([ROLE_PRESIDENT], trial, emptyPayments(), { ...plans, cardCheckoutAvailable: false })
+    await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
+    await user.click(screen.getByLabelText('Bank Card'))
     expect(screen.getByTestId('card-coming-soon')).toHaveTextContent('Card processing is not yet available')
     expect(screen.getByRole('button', { name: 'Continue to Payment' })).toBeDisabled()
     expect(checkoutMock).not.toHaveBeenCalled()
-  })
+  }, 15_000)
 
   it('hides payment controls for members', async () => {
     renderPage([ROLE_MEMBER])

@@ -2,8 +2,9 @@ package rw.terimbere.csams.modules.subscription;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -12,15 +13,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,8 +41,10 @@ import rw.terimbere.csams.modules.subscription.entity.SubscriptionBillingCycle;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionPayment;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionPaymentStatus;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionStatus;
-import rw.terimbere.csams.modules.subscription.payment.mtn.MtnCollectionStatus;
-import rw.terimbere.csams.modules.subscription.payment.mtn.MtnMomoClient;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveClient;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveClient.HostedCheckoutRequest;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveClient.HostedCheckoutSession;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveClient.VerifiedTransaction;
 import rw.terimbere.csams.modules.subscription.repository.CooperativeSubscriptionRepository;
 import rw.terimbere.csams.modules.subscription.repository.SubscriptionPaymentRepository;
 import rw.terimbere.csams.modules.subscription.service.SubscriptionCalendar;
@@ -54,17 +58,18 @@ import rw.terimbere.csams.shared.exceptions.PaymentIntegrationUnavailableExcepti
 @ActiveProfiles("test")
 @TestPropertySource(
         properties = {
-            "app.subscription.payment.mtn.enabled=true",
-            "app.subscription.payment.mtn.base-url=https://sandbox.momodeveloper.mtn.com",
-            "app.subscription.payment.mtn.subscription-key=mtn-test-subscription-key-secret",
-            "app.subscription.payment.mtn.api-user=mtn-test-api-user",
-            "app.subscription.payment.mtn.api-key=mtn-test-api-key-secret",
-            "app.subscription.payment.mtn.target-environment=sandbox"
+            "app.subscription.payment.flutterwave.enabled=true",
+            "app.subscription.payment.flutterwave.base-url=https://api.flutterwave.com/v3",
+            "app.subscription.payment.flutterwave.secret-key=flw-test-secret-key",
+            "app.subscription.payment.flutterwave.secret-hash=flw-test-secret-hash",
+            "app.subscription.payment.flutterwave.redirect-url=http://localhost:5173/billing/payment-return",
+            "app.subscription.payment.pending-reuse-minutes=15"
         })
-class BillingMtnIntegrationTest {
+class BillingFlutterwaveIntegrationTest {
 
-    private static final String SECRET_A = "mtn-test-subscription-key-secret";
-    private static final String SECRET_B = "mtn-test-api-key-secret";
+    private static final String SECRET_KEY = "flw-test-secret-key";
+    private static final String SECRET_HASH = "flw-test-secret-hash";
+    private static final String CHECKOUT_URL = "https://checkout.flutterwave.com/pay/ouwealth-test";
 
     @Autowired
     private MockMvc mockMvc;
@@ -88,20 +93,20 @@ class BillingMtnIntegrationTest {
     private SubscriptionPricing pricing;
 
     @MockBean
-    private MtnMomoClient mtnMomoClient;
+    private FlutterwaveClient flutterwaveClient;
 
     private String superAdminToken;
 
     @BeforeEach
     void setUp() throws Exception {
-        reset(mtnMomoClient);
-        when(mtnMomoClient.isConfigured()).thenReturn(true);
-        when(mtnMomoClient.getRequestToPayStatus(any())).thenReturn(MtnCollectionStatus.PENDING);
+        reset(flutterwaveClient);
+        when(flutterwaveClient.isConfigured()).thenReturn(true);
+        when(flutterwaveClient.createHostedCheckout(any())).thenReturn(new HostedCheckoutSession(CHECKOUT_URL));
         superAdminToken = loginAccessToken("superadmin", "ChangeMe@123!");
     }
 
     @Test
-    void mtnCheckoutCreatesPendingPaymentUsingServerPricing() throws Exception {
+    void cardCheckoutCreatesPendingMonthlyPaymentAndReturnsHostedUrl() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         long ledgerBefore = ledgerEntryRepository.countByCooperativeId(scheme.id());
         String body = mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
@@ -110,33 +115,40 @@ class BillingMtnIntegrationTest {
                         .content("""
                                 {
                                   "billingCycle":"MONTHLY",
-                                  "paymentChannel":"MTN_MOMO",
-                                  "payerPhoneNumber":"0781234567",
+                                  "paymentChannel":"CARD",
                                   "amount":1,
-                                  "price":99,
-                                  "discount":50
+                                  "cardNumber":"4111111111111111",
+                                  "cvv":"123",
+                                  "expiry":"12/29"
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.paymentId").exists())
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.billingCycle").value("MONTHLY"))
-                .andExpect(jsonPath("$.data.paymentChannel").value("MTN_MOMO"))
+                .andExpect(jsonPath("$.data.paymentChannel").value("CARD"))
                 .andExpect(jsonPath("$.data.amount").value(2000.0))
                 .andExpect(jsonPath("$.data.currency").value("RWF"))
-                .andExpect(jsonPath("$.data.message").value("Payment request sent. Approve the payment on your phone."))
+                .andExpect(jsonPath("$.data.checkoutUrl").value(CHECKOUT_URL))
+                .andExpect(jsonPath("$.data.message").value("Continue to secure card payment."))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        assertThat(body).doesNotContain(SECRET_A, SECRET_B, "access_token", "api-key");
+        assertThat(body).doesNotContain(SECRET_KEY, SECRET_HASH, "4111111111111111", "cvv");
 
         UUID paymentId = UUID.fromString(objectMapper.readTree(body).path("data").path("paymentId").asText());
         SubscriptionPayment payment = paymentRepository.findById(paymentId).orElseThrow();
         assertThat(payment.getAmount()).isEqualByComparingTo(pricing.monthly().charge());
-        assertThat(payment.getStatus()).isEqualTo(SubscriptionPaymentStatus.PENDING);
-        assertThat(payment.getProvider()).isEqualTo("MTN_MOMO");
-        assertThat(payment.getExternalReference()).isEqualTo(paymentId.toString());
-        assertThat(payment.getIdempotencyKey()).isEqualTo("mtn-momo:" + paymentId);
+        assertThat(payment.getProvider()).isEqualTo("FLUTTERWAVE");
+        assertThat(payment.getExternalReference()).isEqualTo("ouwealth-sub-" + paymentId);
+        assertThat(payment.getCheckoutUrl()).isEqualTo(CHECKOUT_URL);
+        assertThat(payment.getIdempotencyKey()).isEqualTo("flutterwave:" + paymentId);
+
+        ArgumentCaptor<HostedCheckoutRequest> captor = ArgumentCaptor.forClass(HostedCheckoutRequest.class);
+        verify(flutterwaveClient).createHostedCheckout(captor.capture());
+        assertThat(captor.getValue().amount()).isEqualByComparingTo("2000.0000");
+        assertThat(captor.getValue().currency()).isEqualTo("RWF");
+        assertThat(captor.getValue().txRef()).isEqualTo("ouwealth-sub-" + paymentId);
+        assertThat(captor.getValue().customerEmail()).isNotBlank();
 
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
@@ -146,13 +158,13 @@ class BillingMtnIntegrationTest {
     }
 
     @Test
-    void annualCheckoutUsesServerAmountAndNormalizesPlusPhone() throws Exception {
+    void annualCardCheckoutUsesServerAmount() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + scheme.presidentToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"ANNUAL","paymentChannel":"MTN_MOMO","payerPhoneNumber":"+250781234567"}
+                                {"billingCycle":"ANNUAL","paymentChannel":"CARD"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.amount").value(18000.0))
@@ -160,131 +172,173 @@ class BillingMtnIntegrationTest {
     }
 
     @Test
-    void invalidPhoneIsRejected() throws Exception {
+    void hostedCheckoutFailureDoesNotActivate() throws Exception {
         Scheme scheme = createSchemeWithPresident();
+        when(flutterwaveClient.createHostedCheckout(any()))
+                .thenThrow(new BusinessException("PAYMENT_PROVIDER_ERROR", "Card checkout could not be started"));
         mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + scheme.presidentToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"123"}
-                                """))
-                .andExpect(status().isBadRequest());
-        assertThat(paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id())).isEmpty();
-    }
-
-    @Test
-    void providerInitiationFailureMarksPaymentFailedWithoutActivating() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        doThrow(new BusinessException("PAYMENT_PROVIDER_ERROR", "Payment request could not be sent to MTN Mobile Money"))
-                .when(mtnMomoClient)
-                .requestToPay(any(), any(), any(), any(), any());
-        mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
-                        .header("Authorization", "Bearer " + scheme.presidentToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                {"billingCycle":"MONTHLY","paymentChannel":"CARD"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("FAILED"))
-                .andExpect(jsonPath("$.data.message").value("Payment was not completed."));
-        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
-                        .header("Authorization", "Bearer " + scheme.presidentToken()))
-                .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
-        List<SubscriptionPayment> payments = paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id());
-        assertThat(payments).hasSize(1);
-        assertThat(payments.get(0).getStatus()).isEqualTo(SubscriptionPaymentStatus.FAILED);
-    }
-
-    @Test
-    void repeatedCheckoutReusesPendingAttempt() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        String first = checkout(scheme, "MONTHLY");
-        UUID firstId = UUID.fromString(objectMapper.readTree(first).path("data").path("paymentId").asText());
-        String second = checkout(scheme, "MONTHLY");
-        UUID secondId = UUID.fromString(objectMapper.readTree(second).path("data").path("paymentId").asText());
-        assertThat(secondId).isEqualTo(firstId);
-        assertThat(paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id())).hasSize(1);
-    }
-
-    @Test
-    void differentMtnPhoneDoesNotReusePendingAttempt() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        String first = checkout(scheme, "MONTHLY");
-        UUID firstId = UUID.fromString(objectMapper.readTree(first).path("data").path("paymentId").asText());
-        mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
-                        .header("Authorization", "Bearer " + scheme.presidentToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0789999999"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("PENDING"));
-        List<SubscriptionPayment> payments = paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id());
-        assertThat(payments).hasSize(2);
-        SubscriptionPayment original = paymentRepository.findById(firstId).orElseThrow();
-        assertThat(original.getStatus()).isEqualTo(SubscriptionPaymentStatus.CANCELED);
-        assertThat(original.getPayerMsisdn()).isEqualTo("250781234567");
-        SubscriptionPayment retry = payments.stream()
-                .filter(payment -> !payment.getId().equals(firstId))
-                .findFirst()
-                .orElseThrow();
-        assertThat(retry.getStatus()).isEqualTo(SubscriptionPaymentStatus.PENDING);
-        assertThat(retry.getPayerMsisdn()).isEqualTo("250789999999");
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
                 .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
     }
 
     @Test
-    void staleMtnPendingCanRetry() throws Exception {
+    void redirectOrPendingVerifyDoesNotActivate() throws Exception {
         Scheme scheme = createSchemeWithPresident();
-        UUID firstId = UUID.fromString(objectMapper.readTree(checkout(scheme, "MONTHLY")).path("data").path("paymentId").asText());
-        SubscriptionPayment stale = paymentRepository.findById(firstId).orElseThrow();
-        stale.setInitiatedAt(Instant.now().minusSeconds(16 * 60));
-        paymentRepository.saveAndFlush(stale);
-        UUID secondId = UUID.fromString(objectMapper.readTree(checkout(scheme, "MONTHLY")).path("data").path("paymentId").asText());
-        assertThat(secondId).isNotEqualTo(firstId);
-        assertThat(paymentRepository.findById(firstId).orElseThrow().getStatus())
-                .isEqualTo(SubscriptionPaymentStatus.CANCELED);
-        assertThat(paymentRepository.findById(secondId).orElseThrow().getStatus())
-                .isEqualTo(SubscriptionPaymentStatus.PENDING);
-    }
-
-    @Test
-    void providerSuccessActivatesMonthlyFromExpired() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        expireTrial(scheme.id());
-        UUID paymentId = UUID.fromString(objectMapper.readTree(checkout(scheme, "MONTHLY")).path("data").path("paymentId").asText());
-        when(mtnMomoClient.getRequestToPayStatus(paymentId)).thenReturn(MtnCollectionStatus.SUCCESSFUL);
-
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        when(flutterwaveClient.verifyByReference(any()))
+                .thenReturn(new VerifiedTransaction("pending", "ouwealth-sub-" + paymentId, "RWF", new BigDecimal("2000.0000"), "1"));
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.amount").value(2000.0));
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
+    }
 
+    @Test
+    void verifiedSuccessActivatesExpiredMonthlyWithoutLedgerWrite() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        expireTrial(scheme.id());
+        long ledgerBefore = ledgerEntryRepository.countByCooperativeId(scheme.id());
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        stubSuccessfulVerify(paymentId, "2000.0000");
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.status").value("SUCCESS"));
         CooperativeSubscription subscription = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow();
         assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
         assertThat(subscription.getBillingCycle()).isEqualTo(SubscriptionBillingCycle.MONTHLY);
-        assertThat(subscription.getCurrentPeriodStartedAt()).isNotNull();
         assertThat(subscription.getCurrentPeriodEndsAt())
                 .isEqualTo(SubscriptionCalendar.plusCalendarMonths(
                         subscription.getCurrentPeriodStartedAt(), 1, pricing.zoneId()));
-        long ledger = ledgerEntryRepository.countByCooperativeId(scheme.id());
+        assertThat(ledgerEntryRepository.countByCooperativeId(scheme.id())).isEqualTo(ledgerBefore);
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments")
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.content[0].paymentChannel").value("CARD"))
                 .andExpect(jsonPath("$.data.content[0].status").value("SUCCESS"));
-        assertThat(ledgerEntryRepository.countByCooperativeId(scheme.id())).isEqualTo(ledger);
         assertNoSecretsInAudit(scheme.id());
     }
 
     @Test
-    void annualSuccessDuringTrialStartsAtTrialEnd() throws Exception {
+    void txRefMismatchDoesNotActivate() throws Exception {
         Scheme scheme = createSchemeWithPresident();
-        CooperativeSubscription before = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow();
-        Instant trialEnd = before.getTrialEndsAt();
-        UUID paymentId = UUID.fromString(objectMapper.readTree(checkout(scheme, "ANNUAL")).path("data").path("paymentId").asText());
-        when(mtnMomoClient.getRequestToPayStatus(paymentId)).thenReturn(MtnCollectionStatus.SUCCESSFUL);
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        when(flutterwaveClient.verifyByReference(any()))
+                .thenReturn(new VerifiedTransaction(
+                        "successful", "ouwealth-sub-" + UUID.randomUUID(), "RWF", new BigDecimal("2000.0000"), "9"));
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+        assertTrial(scheme);
+    }
+
+    @Test
+    void amountMismatchDoesNotActivate() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        when(flutterwaveClient.verifyByReference(any()))
+                .thenReturn(new VerifiedTransaction(
+                        "successful", "ouwealth-sub-" + paymentId, "RWF", new BigDecimal("1.0000"), "9"));
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+        assertTrial(scheme);
+    }
+
+    @Test
+    void currencyMismatchDoesNotActivate() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        when(flutterwaveClient.verifyByReference(any()))
+                .thenReturn(new VerifiedTransaction(
+                        "successful", "ouwealth-sub-" + paymentId, "USD", new BigDecimal("2000.0000"), "9"));
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+        assertTrial(scheme);
+    }
+
+    @Test
+    void invalidWebhookSignatureDoesNotActivate() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        stubSuccessfulVerify(paymentId, "2000.0000");
+        mockMvc.perform(post("/api/v1/public/billing/flutterwave/webhook")
+                        .header("verif-hash", "wrong-hash")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(webhookBody(paymentId, 2000)))
+                .andExpect(status().isUnauthorized());
+        assertTrial(scheme);
+        assertThat(paymentRepository.findById(paymentId).orElseThrow().getStatus())
+                .isEqualTo(SubscriptionPaymentStatus.PENDING);
+    }
+
+    @Test
+    void duplicateWebhookExtendsOnce() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        expireTrial(scheme.id());
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        stubSuccessfulVerify(paymentId, "2000.0000");
+        mockMvc.perform(post("/api/v1/public/billing/flutterwave/webhook")
+                        .header("verif-hash", SECRET_HASH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(webhookBody(paymentId, 1)))
+                .andExpect(status().isOk());
+        Instant ends = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow().getCurrentPeriodEndsAt();
+        mockMvc.perform(post("/api/v1/public/billing/flutterwave/webhook")
+                        .header("verif-hash", SECRET_HASH)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(webhookBody(paymentId, 1)))
+                .andExpect(status().isOk());
+        assertThat(subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow().getCurrentPeriodEndsAt())
+                .isEqualTo(ends);
+        assertThat(paymentRepository.findById(paymentId).orElseThrow().getStatus())
+                .isEqualTo(SubscriptionPaymentStatus.SUCCESS);
+    }
+
+    @Test
+    void webhookAndReturnPageRaceExtendsOnce() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        expireTrial(scheme.id());
+        UUID paymentId = checkoutPayment(scheme, "MONTHLY");
+        stubSuccessfulVerify(paymentId, "2000.0000");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            var webhook = pool.submit(() -> mockMvc.perform(post("/api/v1/public/billing/flutterwave/webhook")
+                            .header("verif-hash", SECRET_HASH)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(webhookBody(paymentId, 2000)))
+                    .andExpect(status().isOk()));
+            var poll = pool.submit(() -> mockMvc.perform(
+                            get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
+                                    .header("Authorization", "Bearer " + scheme.presidentToken()))
+                    .andExpect(status().isOk()));
+            webhook.get(20, TimeUnit.SECONDS);
+            poll.get(20, TimeUnit.SECONDS);
+        } finally {
+            pool.shutdownNow();
+        }
+        CooperativeSubscription subscription = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow();
+        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+        assertThat(subscription.getCurrentPeriodEndsAt())
+                .isEqualTo(SubscriptionCalendar.plusCalendarMonths(
+                        subscription.getCurrentPeriodStartedAt(), 1, pricing.zoneId()));
+    }
+
+    @Test
+    void trialCardPaymentPreservesRemainingTrial() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        Instant trialEnd = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow().getTrialEndsAt();
+        UUID paymentId = checkoutPayment(scheme, "ANNUAL");
+        stubSuccessfulVerify(paymentId, "18000.0000");
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
                 .andExpect(jsonPath("$.data.status").value("SUCCESS"));
@@ -304,94 +358,38 @@ class BillingMtnIntegrationTest {
             sub.setCurrentPeriodStartedAt(Instant.parse("2026-03-20T00:00:00Z"));
             sub.setCurrentPeriodEndsAt(periodEnd);
         });
-        UUID paymentId = UUID.fromString(objectMapper.readTree(checkout(scheme, "ANNUAL")).path("data").path("paymentId").asText());
-        when(mtnMomoClient.getRequestToPayStatus(paymentId)).thenReturn(MtnCollectionStatus.SUCCESSFUL);
+        UUID paymentId = checkoutPayment(scheme, "ANNUAL");
+        stubSuccessfulVerify(paymentId, "18000.0000");
         mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
                         .header("Authorization", "Bearer " + scheme.presidentToken()))
                 .andExpect(jsonPath("$.data.status").value("SUCCESS"));
         CooperativeSubscription after = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow();
         assertThat(after.getCurrentPeriodEndsAt())
                 .isEqualTo(SubscriptionCalendar.plusCalendarMonths(periodEnd, 12, pricing.zoneId()));
-        assertThat(after.getCurrentPeriodStartedAt()).isEqualTo(Instant.parse("2026-03-20T00:00:00Z"));
     }
 
     @Test
-    void duplicateCallbackDoesNotDoubleExtend() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        expireTrial(scheme.id());
-        UUID paymentId = UUID.fromString(objectMapper.readTree(checkout(scheme, "MONTHLY")).path("data").path("paymentId").asText());
-        when(mtnMomoClient.getRequestToPayStatus(paymentId)).thenReturn(MtnCollectionStatus.SUCCESSFUL);
-        String callback = """
-                {"externalId":"%s","status":"SUCCESSFUL"}
-                """.formatted(paymentId);
-        mockMvc.perform(post("/api/v1/public/billing/mtn/callback/" + paymentId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(callback))
-                .andExpect(status().isOk());
-        Instant ends = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow().getCurrentPeriodEndsAt();
-        mockMvc.perform(post("/api/v1/public/billing/mtn/callback/" + paymentId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(callback))
-                .andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
-                        .header("Authorization", "Bearer " + scheme.presidentToken()))
-                .andExpect(jsonPath("$.data.status").value("SUCCESS"));
-        assertThat(subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow().getCurrentPeriodEndsAt())
-                .isEqualTo(ends);
-    }
-
-    @Test
-    void webhookAndPollRaceDoesNotDoubleExtend() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        expireTrial(scheme.id());
-        UUID paymentId = UUID.fromString(objectMapper.readTree(checkout(scheme, "MONTHLY")).path("data").path("paymentId").asText());
-        when(mtnMomoClient.getRequestToPayStatus(paymentId)).thenReturn(MtnCollectionStatus.SUCCESSFUL);
-        CountDownLatch start = new CountDownLatch(1);
-        ExecutorService pool = Executors.newFixedThreadPool(2);
-        try {
-            var callback = pool.submit(() -> mockMvc.perform(post("/api/v1/public/billing/mtn/callback/" + paymentId)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"externalId\":\"" + paymentId + "\",\"status\":\"SUCCESSFUL\"}"))
-                    .andExpect(status().isOk()));
-            var poll = pool.submit(() -> mockMvc.perform(
-                            get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments/" + paymentId)
-                                    .header("Authorization", "Bearer " + scheme.presidentToken()))
-                    .andExpect(status().isOk()));
-            start.countDown();
-            callback.get(20, TimeUnit.SECONDS);
-            poll.get(20, TimeUnit.SECONDS);
-        } finally {
-            pool.shutdownNow();
-        }
-        CooperativeSubscription subscription = subscriptionRepository.findByCooperativeId(scheme.id()).orElseThrow();
-        assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
-        Instant expected = SubscriptionCalendar.plusCalendarMonths(
-                subscription.getCurrentPeriodStartedAt(), 1, pricing.zoneId());
-        assertThat(subscription.getCurrentPeriodEndsAt()).isEqualTo(expected);
-    }
-
-    @Test
-    void memberCannotCheckoutEvenWithPhone() throws Exception {
+    void memberCannotStartCardCheckout() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         Member member = addMember(scheme.id(), "MEMBER");
         mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + member.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                {"billingCycle":"MONTHLY","paymentChannel":"CARD"}
                                 """))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void expiredCooperativeAndSuperAdminCanInitiateMtnCheckout() throws Exception {
+    void superAdminAndExpiredCooperativeCanPayByCard() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         expireTrial(scheme.id());
         mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + scheme.presidentToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                {"billingCycle":"MONTHLY","paymentChannel":"CARD"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
@@ -399,61 +397,89 @@ class BillingMtnIntegrationTest {
                         .header("Authorization", "Bearer " + superAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"ANNUAL","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                {"billingCycle":"ANNUAL","paymentChannel":"CARD"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.amount").value(18000.0));
     }
 
     @Test
-    void cardStillDoesNotFakeSuccessWhenMtnIsEnabled() throws Exception {
+    void plansAdvertiseCardAvailability() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/plans")
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cardCheckoutAvailable").value(true));
+    }
+
+    @Test
+    void doubleClickReusesSameCardCheckout() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        UUID first = checkoutPayment(scheme, "MONTHLY");
+        UUID second = checkoutPayment(scheme, "MONTHLY");
+        assertThat(second).isEqualTo(first);
+        verify(flutterwaveClient, times(1)).createHostedCheckout(any());
+        assertThat(paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id())).hasSize(1);
+    }
+
+    @Test
+    void staleCardPendingCanRetry() throws Exception {
+        Scheme scheme = createSchemeWithPresident();
+        UUID first = checkoutPayment(scheme, "MONTHLY");
+        SubscriptionPayment stale = paymentRepository.findById(first).orElseThrow();
+        stale.setInitiatedAt(Instant.now().minusSeconds(16 * 60));
+        paymentRepository.saveAndFlush(stale);
+        UUID second = checkoutPayment(scheme, "MONTHLY");
+        assertThat(second).isNotEqualTo(first);
+        assertThat(paymentRepository.findById(first).orElseThrow().getStatus())
+                .isEqualTo(SubscriptionPaymentStatus.CANCELED);
+        verify(flutterwaveClient, times(2)).createHostedCheckout(any());
+    }
+
+    @Test
+    void mtnStillUnavailableWhenOnlyFlutterwaveIsEnabled() throws Exception {
         Scheme scheme = createSchemeWithPresident();
         mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + scheme.presidentToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"MONTHLY","paymentChannel":"CARD"}
+                                {"billingCycle":"MONTHLY","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
                                 """))
                 .andExpect(status().isNotImplemented())
                 .andExpect(jsonPath("$.code").value(PaymentIntegrationUnavailableException.CODE));
-        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
-                        .header("Authorization", "Bearer " + scheme.presidentToken()))
-                .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
     }
 
-    @Test
-    void paymentHistoryKeepsFailedAttempts() throws Exception {
-        Scheme scheme = createSchemeWithPresident();
-        doThrow(new BusinessException("PAYMENT_PROVIDER_ERROR", "Payment request could not be sent to MTN Mobile Money"))
-                .when(mtnMomoClient)
-                .requestToPay(any(), any(), any(), any(), any());
-        checkout(scheme, "MONTHLY");
-        reset(mtnMomoClient);
-        when(mtnMomoClient.isConfigured()).thenReturn(true);
-        when(mtnMomoClient.getRequestToPayStatus(any())).thenReturn(MtnCollectionStatus.PENDING);
-        checkout(scheme, "MONTHLY");
-        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/billing/payments")
-                        .header("Authorization", "Bearer " + scheme.presidentToken()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content.length()").value(2));
-        assertThat(paymentRepository.findByCooperativeIdOrderByCreatedAtDesc(scheme.id()).stream()
-                        .map(SubscriptionPayment::getStatus)
-                        .toList())
-                .contains(SubscriptionPaymentStatus.FAILED, SubscriptionPaymentStatus.PENDING);
+    private void stubSuccessfulVerify(UUID paymentId, String amount) {
+        VerifiedTransaction verified = new VerifiedTransaction(
+                "successful", "ouwealth-sub-" + paymentId, "RWF", new BigDecimal(amount), "991");
+        when(flutterwaveClient.verifyByReference("ouwealth-sub-" + paymentId)).thenReturn(verified);
+        when(flutterwaveClient.verifyByTransactionId(any())).thenReturn(verified);
     }
 
-    private String checkout(Scheme scheme, String cycle) throws Exception {
-        return mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
+    private UUID checkoutPayment(Scheme scheme, String cycle) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/cooperatives/" + scheme.id() + "/billing/checkout")
                         .header("Authorization", "Bearer " + scheme.presidentToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"billingCycle":"%s","paymentChannel":"MTN_MOMO","payerPhoneNumber":"0781234567"}
+                                {"billingCycle":"%s","paymentChannel":"CARD"}
                                 """.formatted(cycle)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
+        return UUID.fromString(objectMapper.readTree(body).path("data").path("paymentId").asText());
+    }
+
+    private String webhookBody(UUID paymentId, int amount) {
+        return """
+                {"event":"charge.completed","data":{"id":991,"tx_ref":"ouwealth-sub-%s","status":"successful","amount":%s,"currency":"RWF"}}
+                """.formatted(paymentId, amount);
+    }
+
+    private void assertTrial(Scheme scheme) throws Exception {
+        mockMvc.perform(get("/api/v1/cooperatives/" + scheme.id() + "/subscription")
+                        .header("Authorization", "Bearer " + scheme.presidentToken()))
+                .andExpect(jsonPath("$.data.effectiveStatus").value("TRIAL"));
     }
 
     private void assertNoSecretsInAudit(UUID cooperativeId) {
@@ -467,8 +493,8 @@ class BillingMtnIntegrationTest {
                     cooperativeId, action.name())) {
                 String previous = log.getPreviousValues() == null ? "" : log.getPreviousValues();
                 String next = log.getNewValues() == null ? "" : log.getNewValues();
-                assertThat(previous).doesNotContain(SECRET_A, SECRET_B);
-                assertThat(next).doesNotContain(SECRET_A, SECRET_B, "access_token");
+                assertThat(previous).doesNotContain(SECRET_KEY, SECRET_HASH, "4111111111111111");
+                assertThat(next).doesNotContain(SECRET_KEY, SECRET_HASH, "verif-hash");
             }
         }
     }
@@ -498,14 +524,14 @@ class BillingMtnIntegrationTest {
     }
 
     private Scheme createSchemeWithPresident() throws Exception {
-        String name = "MtnBill " + UUID.randomUUID().toString().substring(0, 8);
+        String name = "FlwBill " + UUID.randomUUID().toString().substring(0, 8);
         UUID coopId = idFrom(mockMvc.perform(post("/api/v1/cooperatives")
                         .header("Authorization", "Bearer " + superAdminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CooperativeTestFixtures.createBody(name)))
                 .andExpect(status().isOk())
                 .andReturn());
-        String username = "mtnpres_" + UUID.randomUUID().toString().substring(0, 8);
+        String username = "flwpres_" + UUID.randomUUID().toString().substring(0, 8);
         String password = "President1!";
         mockMvc.perform(post("/api/v1/cooperatives/" + coopId + "/administrators")
                         .header("Authorization", "Bearer " + superAdminToken)

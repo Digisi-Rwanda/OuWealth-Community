@@ -14,6 +14,7 @@ export interface BillingPlanQuote {
 export interface BillingPlansResponse {
   currency: string
   trialMonths: number
+  cardCheckoutAvailable?: boolean
   plans: BillingPlanQuote[]
 }
 
@@ -30,6 +31,7 @@ export interface BillingCheckoutResponse {
   paymentChannel: BillingPaymentChannel
   amount: string | number
   currency: string
+  checkoutUrl?: string | null
   message?: string | null
 }
 

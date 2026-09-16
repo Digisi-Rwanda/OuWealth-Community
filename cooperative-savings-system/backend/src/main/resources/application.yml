@@ -116,6 +116,10 @@ app:
     annual-charge: 18000.0000
     annual-discount-percent: 25
     payment:
+      # Reuse a PENDING checkout only inside this window (same plan, channel, and payer
+      # identity). 15 minutes covers double-clicks and in-flight approval without
+      # blocking a later legitimate retry. Stale PENDING rows are canceled and replaced.
+      pending-reuse-minutes: ${SUBSCRIPTION_PENDING_REUSE_MINUTES:15}
       mtn:
         enabled: ${MTN_MOMO_ENABLED:false}
         base-url: ${MTN_MOMO_BASE_URL:https://sandbox.momodeveloper.mtn.com}
@@ -124,6 +128,14 @@ app:
         api-key: ${MTN_MOMO_API_KEY:}
         target-environment: ${MTN_MOMO_TARGET_ENVIRONMENT:sandbox}
         callback-url: ${MTN_MOMO_CALLBACK_URL:}
+      flutterwave:
+        enabled: ${FLUTTERWAVE_ENABLED:false}
+        base-url: ${FLUTTERWAVE_BASE_URL:https://api.flutterwave.com/v3}
+        public-key: ${FLUTTERWAVE_PUBLIC_KEY:}
+        secret-key: ${FLUTTERWAVE_SECRET_KEY:}
+        secret-hash: ${FLUTTERWAVE_SECRET_HASH:}
+        redirect-url: ${FLUTTERWAVE_REDIRECT_URL:}
+        webhook-url: ${FLUTTERWAVE_WEBHOOK_URL:}
 
 logging:
   pattern:

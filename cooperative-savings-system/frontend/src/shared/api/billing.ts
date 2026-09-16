@@ -28,6 +28,7 @@ export async function fetchBillingPlans(cooperativeId: string): Promise<BillingP
   return {
     currency: data.currency || 'RWF',
     trialMonths: data.trialMonths,
+    cardCheckoutAvailable: Boolean(data.cardCheckoutAvailable),
     plans: (data.plans ?? []).map(mapBillingPlan),
   }
 }
@@ -87,4 +88,38 @@ export function planByCycle(
   cycle: BillingPlanQuote['billingCycle'],
 ): BillingPlanQuote | undefined {
   return plans?.find((plan) => plan.billingCycle === cycle)
+}
+
+export const BILLING_RETURN_STORAGE_KEY = 'ouwealth.billing.return'
+const TX_REF_PREFIX = 'ouwealth-sub-'
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function storeBillingReturnContext(cooperativeId: string, paymentId: string): void {
+  sessionStorage.setItem(BILLING_RETURN_STORAGE_KEY, JSON.stringify({ cooperativeId, paymentId }))
+}
+
+export function readBillingReturnContext(): { cooperativeId?: string; paymentId?: string } {
+  try {
+    const raw = sessionStorage.getItem(BILLING_RETURN_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as { cooperativeId?: string; paymentId?: string }
+    return {
+      cooperativeId: typeof parsed.cooperativeId === 'string' ? parsed.cooperativeId : undefined,
+      paymentId: typeof parsed.paymentId === 'string' ? parsed.paymentId : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+export function clearBillingReturnContext(): void {
+  sessionStorage.removeItem(BILLING_RETURN_STORAGE_KEY)
+}
+
+/** Untrusted hint from Flutterwave tx_ref. Backend verification is still required. */
+export function paymentIdFromTxRef(txRef: string | null | undefined): string | null {
+  if (!txRef?.startsWith(TX_REF_PREFIX)) return null
+  const id = txRef.slice(TX_REF_PREFIX.length)
+  return UUID_RE.test(id) ? id : null
 }

@@ -38,11 +38,18 @@ app:
     from: ""
   subscription:
     payment:
+      pending-reuse-minutes: 15
       mtn:
         enabled: false
         subscription-key: ""
         api-user: ""
         api-key: ""
+      flutterwave:
+        enabled: false
+        public-key: ""
+        secret-key: ""
+        secret-hash: ""
+        redirect-url: ""
 
 
 logging:

@@ -59,6 +59,13 @@ public class SubscriptionPayment extends BaseEntity {
     @Column(name = "external_reference", length = 128)
     private String externalReference;
 
+    /** Normalized MTN MSISDN ({@code 2507XXXXXXXX}). PII — never log. */
+    @Column(name = "payer_msisdn", length = 32)
+    private String payerMsisdn;
+
+    @Column(name = "checkout_url", length = 1024)
+    private String checkoutUrl;
+
     @Column(name = "idempotency_key", length = 128, unique = true)
     private String idempotencyKey;
 
