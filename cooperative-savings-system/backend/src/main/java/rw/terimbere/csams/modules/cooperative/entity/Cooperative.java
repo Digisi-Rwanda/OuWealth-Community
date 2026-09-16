@@ -69,6 +69,11 @@ public class Cooperative extends SoftDeletableEntity {
     @Column(name = "status", nullable = false, length = 32)
     private CooperativeStatus status = CooperativeStatus.ACTIVE;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "onboarding_state", nullable = false, length = 32)
+    private CooperativeOnboardingState onboardingState = CooperativeOnboardingState.COMPLETE;
+
     @Column(name = "registration_date")
     private LocalDate registrationDate;
 

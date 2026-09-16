@@ -22,12 +22,17 @@ import rw.terimbere.csams.modules.cooperative.dto.CooperativeStatusUpdateRequest
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeSummaryResponse;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeUpdateRequest;
 import rw.terimbere.csams.modules.cooperative.entity.Cooperative;
+import rw.terimbere.csams.modules.cooperative.entity.CooperativeOnboardingState;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
 import rw.terimbere.csams.modules.filemanagement.entity.StoredFile;
 import rw.terimbere.csams.modules.filemanagement.service.FileManagementService;
+import rw.terimbere.csams.modules.member.service.MemberService;
 import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
+import rw.terimbere.csams.modules.subscription.dto.CooperativeSubscriptionResponse;
+import rw.terimbere.csams.modules.subscription.entity.SubscriptionInitialization;
+import rw.terimbere.csams.modules.subscription.service.SubscriptionService;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
 import rw.terimbere.csams.security.UserPrincipal;
@@ -36,6 +41,7 @@ import rw.terimbere.csams.shared.common.dto.PageResponse;
 import rw.terimbere.csams.shared.exceptions.ConflictException;
 import rw.terimbere.csams.shared.exceptions.ForbiddenException;
 import rw.terimbere.csams.shared.exceptions.ResourceNotFoundException;
+import rw.terimbere.csams.shared.exceptions.ValidationException;
 import rw.terimbere.csams.shared.pagination.PageMapper;
 import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
 
@@ -48,7 +54,14 @@ public class CooperativeService {
     private final CooperativeAuthorizationService authorizationService;
     private final FileManagementService fileManagementService;
     private final AuditService auditService;
+    private final SubscriptionService subscriptionService;
+    private final MemberService memberService;
 
+    /**
+     * Super Admin create: persist cooperative, initialize subscription, optionally assign President.
+     * Nested {@code REQUIRED} transactions on {@link SubscriptionService} and {@link MemberService}
+     * join this method's transaction so a failed essential step rolls back the whole create.
+     */
     @Transactional
     public CooperativeResponse create(CooperativeCreateRequest request, HttpServletRequest httpRequest) {
         UserPrincipal principal = authorizationService.currentPrincipal();
@@ -58,6 +71,15 @@ public class CooperativeService {
         }
 
         validateRegistrationNumber(request.getRegistrationNumber(), null);
+        SubscriptionInitialization initialization = request.resolvedSubscriptionInitialization();
+        if (initialization == SubscriptionInitialization.ACTIVE_MANUAL) {
+            throw new ValidationException("ACTIVE_MANUAL subscription initialization is not supported yet");
+        }
+
+        boolean assignPresident = request.hasPresidentAssignment();
+        CooperativeOnboardingState onboardingState = assignPresident
+                ? CooperativeOnboardingState.COMPLETE
+                : CooperativeOnboardingState.AWAITING_PRESIDENT;
 
         Cooperative cooperative = Cooperative.builder()
                 .name(request.getName().trim())
@@ -77,6 +99,7 @@ public class CooperativeService {
                         request.getContributionDueDay() != null ? request.getContributionDueDay() : 1)
                 .registrationDate(request.getRegistrationDate())
                 .status(CooperativeStatus.ACTIVE)
+                .onboardingState(onboardingState)
                 .createdBy(principal.getId())
                 .build();
 
@@ -88,10 +111,16 @@ public class CooperativeService {
                 "Cooperative",
                 saved.getId(),
                 null,
-                "{\"name\":\"" + escape(saved.getName()) + "\"}",
+                "{\"name\":\"" + escape(saved.getName())
+                        + "\",\"onboardingState\":\"" + saved.getOnboardingState()
+                        + "\",\"subscriptionInitialization\":\"" + initialization + "\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
-        return toResponse(saved);
+        subscriptionService.initializeForCooperative(saved.getId(), initialization, principal.getId());
+        if (assignPresident) {
+            memberService.assignAdministrator(saved.getId(), request.getPresident(), httpRequest);
+        }
+        return toResponse(requireCooperative(saved.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -147,6 +176,15 @@ public class CooperativeService {
     public CooperativeResponse getById(UUID id) {
         authorizationService.requireMembership(id);
         return toResponse(requireCooperative(id));
+    }
+
+    @Transactional(readOnly = true)
+    public CooperativeSubscriptionResponse getSubscription(UUID id) {
+        authorizationService.requireMembership(id);
+        requireCooperative(id);
+        return subscriptionService
+                .findByCooperativeId(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscription", id));
     }
 
     @Transactional
@@ -284,6 +322,7 @@ public class CooperativeService {
                 .logoFileKey(c.getLogoFileKey())
                 .logoUrl(fileManagementService.getPublicUrl(c.getLogoFileKey()))
                 .status(c.getStatus())
+                .onboardingState(c.getOnboardingState())
                 .registrationDate(c.getRegistrationDate())
                 .createdBy(c.getCreatedBy())
                 .createdAt(c.getCreatedAt())

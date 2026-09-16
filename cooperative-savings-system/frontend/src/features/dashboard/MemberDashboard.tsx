@@ -1,6 +1,9 @@
 import { Box, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
+import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
+import { isActionNeeded } from '@/features/subscription/subscriptionAccess'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
 
@@ -11,6 +14,9 @@ interface MemberDashboardProps {
 export function MemberDashboard({ cooperativeId }: MemberDashboardProps) {
   const { t } = useTranslation()
   const user = useAppSelector((s) => s.auth.user)
+  const { subscription, effectiveStatus, daysRemaining, isSuccess } =
+    useCooperativeSubscription(cooperativeId)
+  const showCard = isSuccess && isActionNeeded(effectiveStatus, daysRemaining)
 
   return (
     <Box>
@@ -22,6 +28,8 @@ export function MemberDashboard({ cooperativeId }: MemberDashboardProps) {
           {t('dashboard.member.description')}
         </Typography>
       </Box>
+
+      {showCard ? <DashboardSubscriptionCard subscription={subscription} variant="member" /> : null}
 
       <Box sx={{ mb: 3 }}>
         <MyMemberStatusSection cooperativeId={cooperativeId} showQuickLinks />

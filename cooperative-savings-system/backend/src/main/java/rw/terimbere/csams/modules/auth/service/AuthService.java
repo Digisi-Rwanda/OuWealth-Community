@@ -567,6 +567,14 @@ public class AuthService {
         }
     }
 
+    /**
+     * Issues access and refresh tokens after membership is already persisted.
+     * JWT claims stay limited to identity, roles, permissions, and cooperative ids.
+     */
+    public AuthResult issueSession(User user, HttpServletRequest httpRequest) {
+        return issueTokens(user, clientIp(httpRequest), httpRequest.getHeader(HttpHeaders.USER_AGENT));
+    }
+
     private AuthResult issueTokens(User user, String ip, String userAgent) {
         Set<String> roles = user.getRoleCodes();
         Set<String> permissions = CustomUserDetailsService.extractPermissions(user.getRoles());

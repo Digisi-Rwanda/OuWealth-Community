@@ -1,6 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -9,12 +10,15 @@ import {
   Typography,
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import dayjs from 'dayjs'
 import { useSnackbar } from 'notistack'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import {
+  assignCooperativePresident,
   fetchCooperative,
+  fetchCooperativeSubscription,
   updateCooperative,
   updateCooperativeStatus,
   uploadCooperativeLogo,
@@ -25,9 +29,10 @@ import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { ROUTES } from '@/shared/constants/routes'
-import type { CooperativeStatus } from '@/shared/types/cooperative'
-import { COOPERATIVE_STATUSES } from '@/shared/types/cooperative'
+import type { AssignPresidentRequest, CooperativeStatus } from '@/shared/types/cooperative'
+import { COOPERATIVE_STATUSES, isOnboardingIncomplete } from '@/shared/types/cooperative'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { AssignPresidentDialog } from '@/features/cooperatives/AssignPresidentDialog'
 import { CooperativeFormDialog } from '@/features/cooperatives/CooperativeFormDialog'
 import type { CooperativeCreateRequest } from '@/shared/types/cooperative'
 
@@ -66,10 +71,17 @@ export function CooperativeDetailPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [editOpen, setEditOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState<CooperativeStatus | null>(null)
+  const [assignOpen, setAssignOpen] = useState(false)
 
   const query = useQuery({
     queryKey: ['cooperatives', id],
     queryFn: () => fetchCooperative(id),
+    enabled: Boolean(id),
+  })
+
+  const subscriptionQuery = useQuery({
+    queryKey: ['cooperatives', id, 'subscription'],
+    queryFn: () => fetchCooperativeSubscription(id),
     enabled: Boolean(id),
   })
 
@@ -108,6 +120,25 @@ export function CooperativeDetailPage() {
     },
   })
 
+  const assignMutation = useMutation({
+    mutationFn: (payload: AssignPresidentRequest) => assignCooperativePresident(id, payload),
+    onSuccess: (member) => {
+      enqueueSnackbar(
+        member.temporaryPassword
+          ? t('cooperatives.onboarding.assignSuccessWithPassword', {
+              password: member.temporaryPassword,
+            })
+          : t('cooperatives.onboarding.assignSuccess'),
+        { variant: 'success' },
+      )
+      setAssignOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['cooperatives'] })
+    },
+    onError: (error) => {
+      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+    },
+  })
+
   const coop = query.data
 
   return (
@@ -127,9 +158,16 @@ export function CooperativeDetailPage() {
         hideBack
         actions={
           coop ? (
-            <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
-              {t('common.edit')}
-            </Button>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+              {isOnboardingIncomplete(coop) ? (
+                <Button variant="outlined" onClick={() => setAssignOpen(true)}>
+                  {t('cooperatives.onboarding.assignPresident')}
+                </Button>
+              ) : null}
+              <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
+                {t('common.edit')}
+              </Button>
+            </Stack>
           ) : null
         }
       />
@@ -150,10 +188,31 @@ export function CooperativeDetailPage() {
           >
             <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
               <Chip size="small" color={statusColor(coop.status)} label={t(`status.${coop.status}`)} />
+              {isOnboardingIncomplete(coop) ? (
+                <Chip
+                  size="small"
+                  color="warning"
+                  label={t('cooperatives.onboarding.incompleteChip')}
+                />
+              ) : null}
               <Typography variant="body2" color="text.secondary">
                 {coop.currency}
               </Typography>
             </Stack>
+
+            {isOnboardingIncomplete(coop) ? (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" onClick={() => setAssignOpen(true)}>
+                    {t('cooperatives.onboarding.assignPresident')}
+                  </Button>
+                }
+              >
+                {t('cooperatives.onboarding.deferWarning')}
+              </Alert>
+            ) : null}
 
             <Stack spacing={2}>
               <InfoRow label={t('cooperatives.fields.description')} value={coop.description ?? ''} />
@@ -195,6 +254,40 @@ export function CooperativeDetailPage() {
                 />
               </Stack>
             </Stack>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{ p: { xs: 2.5, md: 3 }, border: '1px solid', borderColor: 'divider' }}
+          >
+            <Typography variant="h6" gutterBottom>
+              {t('cooperatives.onboarding.subscriptionTitle')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('cooperatives.onboarding.subscriptionHint')}
+            </Typography>
+            {subscriptionQuery.isLoading ? <LoadingState /> : null}
+            {subscriptionQuery.data?.status === 'TRIAL' ? (
+              <Alert severity="success">
+                {t('cooperatives.onboarding.trialStarted', {
+                  ends: subscriptionQuery.data.trialEndsAt
+                    ? dayjs(subscriptionQuery.data.trialEndsAt).format('YYYY-MM-DD')
+                    : '—',
+                })}
+              </Alert>
+            ) : null}
+            {subscriptionQuery.isSuccess &&
+            (subscriptionQuery.data == null || subscriptionQuery.data.status === 'NONE') ? (
+              <Alert severity="info">{t('cooperatives.onboarding.noSubscription')}</Alert>
+            ) : null}
+            {subscriptionQuery.data &&
+            subscriptionQuery.data.status !== 'TRIAL' &&
+            subscriptionQuery.data.status !== 'NONE' ? (
+              <InfoRow
+                label={t('cooperatives.onboarding.subscriptionStatus')}
+                value={subscriptionQuery.data.status}
+              />
+            ) : null}
           </Paper>
 
           <Paper
@@ -248,6 +341,13 @@ export function CooperativeDetailPage() {
           </Paper>
         </Stack>
       ) : null}
+
+      <AssignPresidentDialog
+        open={assignOpen}
+        loading={assignMutation.isPending}
+        onClose={() => setAssignOpen(false)}
+        onSubmit={(payload) => assignMutation.mutate(payload)}
+      />
 
       <CooperativeFormDialog
         open={editOpen}

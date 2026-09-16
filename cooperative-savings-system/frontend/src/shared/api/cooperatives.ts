@@ -1,14 +1,18 @@
-import { apiClient } from './client'
+import { apiClient, isNotFoundError } from './client'
 import { unwrapApiData } from './auth'
 import type { ApiResponse, PageQuery, PageResponse } from '@/shared/types/api'
 import type {
+  AssignPresidentRequest,
   Cooperative,
   CooperativeCreateRequest,
   CooperativeStatusUpdateRequest,
+  CooperativeSubscription,
   CooperativeSummary,
   CooperativeUpdateRequest,
 } from '@/shared/types/cooperative'
 import { mapCooperativeSummary } from '@/shared/types/cooperative'
+import type { Member } from '@/shared/types/member'
+import { mapMember } from '@/shared/types/member'
 
 function toParams(query: PageQuery = {}) {
   const params: Record<string, string | number> = {}
@@ -75,4 +79,29 @@ export async function uploadCooperativeLogo(id: string, file: File): Promise<Coo
     { headers: { 'Content-Type': 'multipart/form-data' } },
   )
   return unwrapApiData(response.data)
+}
+
+export async function fetchCooperativeSubscription(
+  id: string,
+): Promise<CooperativeSubscription | null> {
+  try {
+    const response = await apiClient.get<ApiResponse<CooperativeSubscription>>(
+      `/cooperatives/${id}/subscription`,
+    )
+    return unwrapApiData(response.data)
+  } catch (error) {
+    if (isNotFoundError(error)) return null
+    throw error
+  }
+}
+
+export async function assignCooperativePresident(
+  cooperativeId: string,
+  payload: AssignPresidentRequest,
+): Promise<Member> {
+  const response = await apiClient.post<ApiResponse<Member>>(
+    `/cooperatives/${cooperativeId}/administrators`,
+    payload,
+  )
+  return mapMember(unwrapApiData(response.data))
 }

@@ -19,6 +19,8 @@ import rw.terimbere.csams.shared.financial.LedgerTransactionType;
 public interface LedgerEntryRepository
         extends JpaRepository<LedgerEntry, UUID>, JpaSpecificationExecutor<LedgerEntry> {
 
+    long countByCooperativeId(UUID cooperativeId);
+
     boolean existsByIdempotencyKey(String idempotencyKey);
 
     Optional<LedgerEntry> findByIdempotencyKey(String idempotencyKey);

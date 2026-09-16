@@ -18,6 +18,7 @@ import {
   Menu,
   MenuItem,
   Typography,
+  Tooltip,
 } from '@mui/material'
 import type { SvgIconComponent } from '@mui/icons-material'
 import { useState } from 'react'
@@ -25,6 +26,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectAuthUser } from '@/app/store/authSlice'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { ROUTES } from '@/shared/constants/routes'
 import {
   hasAnyRole,
@@ -53,6 +55,8 @@ export interface QuickActionItem {
   permission?: string
   /** Required roles to show this action (e.g. members list). */
   roles?: readonly string[]
+  /** When true, keep the item available in subscription read-only mode. */
+  readNavigation?: boolean
 }
 
 export const QUICK_ACTIONS: QuickActionItem[] = [
@@ -92,6 +96,7 @@ export const QUICK_ACTIONS: QuickActionItem[] = [
     icon: AccountBalanceWalletIcon,
     path: ROUTES.loans,
     group: 'quick',
+    readNavigation: true,
   },
   {
     id: 'manage-fines',
@@ -101,6 +106,7 @@ export const QUICK_ACTIONS: QuickActionItem[] = [
     icon: GavelIcon,
     path: ROUTES.fines,
     group: 'quick',
+    readNavigation: true,
   },
   {
     id: 'fine-payment-queue',
@@ -120,6 +126,7 @@ export const QUICK_ACTIONS: QuickActionItem[] = [
     path: ROUTES.members,
     group: 'quick',
     roles: SECRETARY_ACCESS_ROLES,
+    readNavigation: true,
   },
   {
     id: 'share-out',
@@ -147,6 +154,7 @@ export const QUICK_ACTIONS: QuickActionItem[] = [
     icon: FavoriteIcon,
     path: ROUTES.socialFund,
     group: 'group',
+    readNavigation: true,
   },
 ]
 
@@ -178,31 +186,43 @@ export function QuickActionsMenu({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const user = useAppSelector(selectAuthUser)
+  const { canWrite, readOnly } = useCooperativeSubscription()
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
+  const writeBlocked = readOnly || !canWrite
 
   const quick = quickActionsForUser(user, 'quick')
   const group = quickActionsForUser(user, 'group')
 
-  const go = (path: string) => {
+  const go = (path: string, blocked: boolean) => {
+    if (blocked) return
     setAnchor(null)
     navigate(path)
   }
 
   const renderItem = (item: QuickActionItem) => {
     const Icon = item.icon
+    const blocked = writeBlocked && !item.readNavigation
     return (
-      <MenuItem key={item.id} onClick={() => go(item.path)} sx={{ py: 1.25, gap: 1 }}>
-        <ListItemIcon>
-          <Icon fontSize="small" />
-        </ListItemIcon>
-        <ListItemText primary={t(item.labelKey)} />
-        <Chip
-          size="small"
-          label={t(item.badgeKey)}
-          color={item.badgeColor}
-          sx={{ height: 22, fontSize: '0.65rem', fontWeight: 700, letterSpacing: 0.4 }}
-        />
-      </MenuItem>
+      <Tooltip key={item.id} title={blocked ? t('subscription.readOnlyAction') : ''}>
+        <span>
+          <MenuItem
+            onClick={() => go(item.path, blocked)}
+            disabled={blocked}
+            sx={{ py: 1.25, gap: 1 }}
+          >
+            <ListItemIcon>
+              <Icon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary={t(item.labelKey)} />
+            <Chip
+              size="small"
+              label={t(item.badgeKey)}
+              color={item.badgeColor}
+              sx={{ height: 22, fontSize: '0.65rem', fontWeight: 700, letterSpacing: 0.4 }}
+            />
+          </MenuItem>
+        </span>
+      </Tooltip>
     )
   }
 

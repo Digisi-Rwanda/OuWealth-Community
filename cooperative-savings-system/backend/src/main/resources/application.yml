@@ -106,6 +106,15 @@ app:
     enabled: ${MAIL_ENABLED:true}
     host: ${MAIL_HOST:}
     from: ${MAIL_FROM:}
+  subscription:
+    currency: RWF
+    timezone: Africa/Kigali
+    trial-months: 4
+    trial-warning-days: 14
+    monthly-charge: 2000.0000
+    annual-list-price: 24000.0000
+    annual-charge: 18000.0000
+    annual-discount-percent: 25
 
 logging:
   pattern:

@@ -24,6 +24,7 @@ export const ROUTES = {
   payoutDetail: (runId: string) => `/payouts/${runId}`,
   reports: '/reports',
   historicalImport: '/historical-import',
+  billing: '/billing',
   settings: '/settings',
   notifications: '/notifications',
   auditLogs: '/audit-logs',

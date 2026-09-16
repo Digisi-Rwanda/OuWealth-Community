@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Tab, Tabs } from '@mui/material'
+import { Box, Stack, Tab, Tabs } from '@mui/material'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useSearchParams } from 'react-router-dom'
@@ -19,6 +19,7 @@ import { SharePurchaseApprovalsPanel } from '@/features/shares'
 import { contributionTabsForUser } from '@/features/contributions/contributionHelpers'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
 import { ROUTES } from '@/shared/constants/routes'
 
 type ContributionTab = 'monthly' | 'submit' | 'approvals' | 'history' | 'special'
@@ -91,22 +92,22 @@ export function ContributionsPage() {
             sx={{ flexWrap: 'wrap' }}
           >
             {!isSuperAdmin ? (
-              <Button
+              <SubscriptionAwareButton
                 variant="contained"
                 size="small"
                 onClick={() => setTab(Math.max(0, tabs.indexOf('submit')))}
               >
                 {t('contributions.submit.action')}
-              </Button>
+              </SubscriptionAwareButton>
             ) : null}
             {canRecord ? (
-              <Button
+              <SubscriptionAwareButton
                 variant="outlined"
                 size="small"
                 onClick={() => setTab(Math.max(0, tabs.indexOf('approvals')))}
               >
                 {t('contributions.tabs.approvals')}
-              </Button>
+              </SubscriptionAwareButton>
             ) : null}
           </Stack>
         }

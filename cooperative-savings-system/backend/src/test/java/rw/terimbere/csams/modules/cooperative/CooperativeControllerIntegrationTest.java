@@ -91,6 +91,7 @@ class CooperativeControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value(uniqueName))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.onboardingState").value("AWAITING_PRESIDENT"))
                 .andExpect(jsonPath("$.data.currency").value("RWF"))
                 .andReturn();
 

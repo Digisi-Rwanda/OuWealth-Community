@@ -14,6 +14,8 @@ import {
   todayInKigaliIso,
 } from '@/shared/utils/rwandaCooperative'
 
+export type PresidentAssignmentMode = 'new' | 'existing'
+
 export type CooperativeFormValues = {
   name: string
   description: string
@@ -26,6 +28,16 @@ export type CooperativeFormValues = {
   monthlyContributionAmount: string
   contributionDueDay: number
   registrationDate: string
+  startTrial: boolean
+  assignPresidentNow: boolean
+  presidentMode: PresidentAssignmentMode
+  presidentUserId: string
+  presidentUsername: string
+  presidentEmail: string
+  presidentFirstName: string
+  presidentLastName: string
+  presidentPhone: string
+  presidentTemporaryPassword: string
 }
 
 export const cooperativeFormDefaults: CooperativeFormValues = {
@@ -40,6 +52,16 @@ export const cooperativeFormDefaults: CooperativeFormValues = {
   monthlyContributionAmount: '0',
   contributionDueDay: 1,
   registrationDate: '',
+  startTrial: true,
+  assignPresidentNow: false,
+  presidentMode: 'new',
+  presidentUserId: '',
+  presidentUsername: '',
+  presidentEmail: '',
+  presidentFirstName: '',
+  presidentLastName: '',
+  presidentPhone: '',
+  presidentTemporaryPassword: '',
 }
 
 export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yup.object({
@@ -98,10 +120,47 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
       `Date must be between ${MIN_REGISTRATION_DATE} and today`,
       (v) => Boolean(v && isValidRegistrationDate(v)),
     ),
+  startTrial: yup.boolean().required(),
+  assignPresidentNow: yup.boolean().required(),
+  presidentMode: yup.mixed<PresidentAssignmentMode>().oneOf(['new', 'existing']).required(),
+  presidentUserId: yup.string().trim().default(''),
+  presidentUsername: yup.string().trim().default(''),
+  presidentEmail: yup.string().trim().default(''),
+  presidentFirstName: yup.string().trim().default(''),
+  presidentLastName: yup.string().trim().default(''),
+  presidentPhone: yup.string().trim().default(''),
+  presidentTemporaryPassword: yup.string().default(''),
+}).test('president-required-when-assigning', function (values) {
+  if (!values.assignPresidentNow) return true
+  if (values.presidentMode === 'existing') {
+    if (!values.presidentUserId?.trim()) {
+      return this.createError({
+        path: 'presidentUserId',
+        message: 'Enter the existing user ID',
+      })
+    }
+    return true
+  }
+  if (!values.presidentUsername?.trim()) {
+    return this.createError({ path: 'presidentUsername', message: 'Username is required' })
+  }
+  if (!values.presidentEmail?.trim() || !isValidCooperativeEmail(values.presidentEmail)) {
+    return this.createError({ path: 'presidentEmail', message: 'Enter a valid email address' })
+  }
+  if (!values.presidentFirstName?.trim()) {
+    return this.createError({ path: 'presidentFirstName', message: 'First name is required' })
+  }
+  if (!values.presidentLastName?.trim()) {
+    return this.createError({ path: 'presidentLastName', message: 'Last name is required' })
+  }
+  return true
 })
 
-export function toCooperativePayload(values: CooperativeFormValues): CooperativeCreateRequest {
-  return {
+export function toCooperativePayload(
+  values: CooperativeFormValues,
+  mode: 'create' | 'edit' = 'create',
+): CooperativeCreateRequest {
+  const payload: CooperativeCreateRequest = {
     name: values.name.trim(),
     description: values.description.trim() || undefined,
     registrationNumber: normalizeRegistrationNumber(values.registrationNumber),
@@ -114,6 +173,24 @@ export function toCooperativePayload(values: CooperativeFormValues): Cooperative
     contributionDueDay: Number(values.contributionDueDay),
     registrationDate: values.registrationDate.trim(),
   }
+  if (mode !== 'create') {
+    return payload
+  }
+  payload.subscriptionInitialization = values.startTrial ? 'START_TRIAL' : 'NONE'
+  if (values.assignPresidentNow) {
+    payload.president =
+      values.presidentMode === 'existing'
+        ? { userId: values.presidentUserId.trim() }
+        : {
+            username: values.presidentUsername.trim(),
+            email: values.presidentEmail.trim().toLowerCase(),
+            firstName: values.presidentFirstName.trim(),
+            lastName: values.presidentLastName.trim(),
+            phone: values.presidentPhone.trim() || undefined,
+            temporaryPassword: values.presidentTemporaryPassword.trim() || undefined,
+          }
+  }
+  return payload
 }
 
 export { todayInKigaliIso }

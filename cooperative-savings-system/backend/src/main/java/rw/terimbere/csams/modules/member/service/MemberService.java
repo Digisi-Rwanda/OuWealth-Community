@@ -24,7 +24,9 @@ import rw.terimbere.csams.modules.contribution.ShareAmountCalculator;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
 import rw.terimbere.csams.modules.contribution.service.ContributionService;
 import rw.terimbere.csams.modules.cooperative.entity.Cooperative;
+import rw.terimbere.csams.modules.cooperative.entity.CooperativeOnboardingState;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
+import rw.terimbere.csams.modules.cooperative.service.CooperativeOnboardingService;
 import rw.terimbere.csams.modules.filemanagement.entity.StoredFile;
 import rw.terimbere.csams.modules.filemanagement.service.FileManagementService;
 import rw.terimbere.csams.modules.fine.entity.FineStatus;
@@ -103,6 +105,7 @@ public class MemberService {
     private final PayoutLineRepository payoutLineRepository;
     private final ShareValuationService shareValuationService;
     private final NotificationFacade notificationFacade;
+    private final CooperativeOnboardingService onboardingService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -175,6 +178,8 @@ public class MemberService {
                 "{\"username\":\"" + escape(username) + "\",\"membershipId\":\"" + membership.getId() + "\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
+
+        completeOnboardingIfPresident(cooperativeId, principal.getId(), roleInCoop, httpRequest);
 
         notifyAccount(
                 user.getId(),
@@ -434,6 +439,7 @@ public class MemberService {
                     AccountNotificationCopy.ROLE_CHANGED_TITLE,
                     AccountNotificationCopy.roleChangedBody(schemeName(cooperativeId), previousRole, nextRole));
         }
+        completeOnboardingIfPresident(cooperativeId, principal.getId(), nextRole, httpRequest);
         return toResponse(user, membership);
     }
 
@@ -583,6 +589,9 @@ public class MemberService {
         membership.setRoleInCooperative(CooperativeOfficerRoles.PRESIDENT);
         membership = membershipRepository.save(membership);
 
+        CooperativeOnboardingState onboardingState =
+                onboardingService.completeIfAwaitingPresident(cooperativeId, principal.getId(), httpRequest);
+
         auditService.record(
                 principal.getId(),
                 cooperativeId,
@@ -590,7 +599,7 @@ public class MemberService {
                 "User",
                 user.getId(),
                 null,
-                "{\"roleInCooperative\":\"PRESIDENT\"}",
+                "{\"roleInCooperative\":\"PRESIDENT\",\"onboardingState\":\"" + onboardingState + "\"}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
 
@@ -614,6 +623,13 @@ public class MemberService {
             response.setTemporaryPassword(temporaryPassword);
         }
         return response;
+    }
+
+    private void completeOnboardingIfPresident(
+            UUID cooperativeId, UUID actorUserId, String roleInCoop, HttpServletRequest httpRequest) {
+        if (CooperativeOfficerRoles.PRESIDENT.equals(CooperativeOfficerRoles.normalize(roleInCoop))) {
+            onboardingService.completeIfAwaitingPresident(cooperativeId, actorUserId, httpRequest);
+        }
     }
 
     private void requireMembershipManage(UserPrincipal principal, UUID cooperativeId) {

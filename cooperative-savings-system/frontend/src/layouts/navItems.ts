@@ -13,6 +13,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import PersonIcon from '@mui/icons-material/Person'
+import ReceiptIcon from '@mui/icons-material/Receipt'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import SavingsIcon from '@mui/icons-material/Savings'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -20,6 +21,7 @@ import ShowChartIcon from '@mui/icons-material/ShowChart'
 import type { SvgIconComponent } from '@mui/icons-material'
 import { ROUTES } from '@/shared/constants/routes'
 import {
+  BILLING_MANAGER_ROLES,
   FINANCE_ACCESS_ROLES,
   LOAN_COMMITTEE_ROLES,
   LOAN_OPS_ROLES,
@@ -157,6 +159,13 @@ export const adminModuleNavItems: NavItem[] = [
     path: ROUTES.historicalImport,
     icon: HistoryEduIcon,
     roles: LEADERSHIP_NAV_ROLES,
+    group: 'main',
+  },
+  {
+    labelKey: 'nav.billing',
+    path: ROUTES.billing,
+    icon: ReceiptIcon,
+    roles: BILLING_MANAGER_ROLES,
     group: 'main',
   },
   {

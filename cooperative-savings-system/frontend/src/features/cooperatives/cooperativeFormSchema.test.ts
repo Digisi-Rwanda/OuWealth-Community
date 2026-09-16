@@ -29,7 +29,88 @@ describe('toCooperativePayload', () => {
       monthlyContributionAmount: '5000',
       contributionDueDay: 10,
       registrationDate: '2024-06-01',
+      subscriptionInitialization: 'START_TRIAL',
     })
+  })
+
+  it('maps an unchecked trial to NONE and omits president when assigning later', () => {
+    const payload = toCooperativePayload({
+      ...cooperativeFormDefaults,
+      name: 'No Trial Coop',
+      registrationNumber: 'RCA/2024/0123',
+      contactEmail: 'info@terimbere.rw',
+      contactPhone: '0781234567',
+      registrationDate: '2024-01-15',
+      startTrial: false,
+      assignPresidentNow: false,
+    })
+
+    expect(payload.subscriptionInitialization).toBe('NONE')
+    expect(payload.president).toBeUndefined()
+  })
+
+  it('includes existing-user president when assigning now', () => {
+    const payload = toCooperativePayload({
+      ...cooperativeFormDefaults,
+      name: 'Existing Pres Coop',
+      registrationNumber: 'RCA/2024/0123',
+      contactEmail: 'info@terimbere.rw',
+      contactPhone: '0781234567',
+      registrationDate: '2024-01-15',
+      assignPresidentNow: true,
+      presidentMode: 'existing',
+      presidentUserId: ' 11111111-1111-1111-1111-111111111111 ',
+    })
+
+    expect(payload.subscriptionInitialization).toBe('START_TRIAL')
+    expect(payload.president).toEqual({ userId: '11111111-1111-1111-1111-111111111111' })
+  })
+
+  it('includes new-user president fields when assigning now', () => {
+    const payload = toCooperativePayload({
+      ...cooperativeFormDefaults,
+      name: 'New Pres Coop',
+      registrationNumber: 'RCA/2024/0123',
+      contactEmail: 'info@terimbere.rw',
+      contactPhone: '0781234567',
+      registrationDate: '2024-01-15',
+      assignPresidentNow: true,
+      presidentMode: 'new',
+      presidentUsername: 'pat.president',
+      presidentEmail: 'Pat@Example.COM',
+      presidentFirstName: 'Pat',
+      presidentLastName: 'President',
+      presidentPhone: '0781112233',
+    })
+
+    expect(payload.president).toEqual({
+      username: 'pat.president',
+      email: 'pat@example.com',
+      firstName: 'Pat',
+      lastName: 'President',
+      phone: '0781112233',
+      temporaryPassword: undefined,
+    })
+  })
+
+  it('omits onboarding fields in edit mode', () => {
+    const payload = toCooperativePayload(
+      {
+        ...cooperativeFormDefaults,
+        name: 'Edit Coop',
+        registrationNumber: 'RCA/2024/0123',
+        contactEmail: 'info@terimbere.rw',
+        contactPhone: '0781234567',
+        registrationDate: '2024-01-15',
+        startTrial: false,
+        assignPresidentNow: true,
+        presidentUserId: 'abc',
+      },
+      'edit',
+    )
+
+    expect(payload.subscriptionInitialization).toBeUndefined()
+    expect(payload.president).toBeUndefined()
   })
 })
 
@@ -67,6 +148,16 @@ describe('cooperativeFormSchema', () => {
   it('requires registration date', async () => {
     await expect(
       cooperativeFormSchema.validate({ ...valid, registrationDate: '' }),
+    ).rejects.toThrow(/required/i)
+  })
+
+  it('requires president fields when assigning now', async () => {
+    await expect(
+      cooperativeFormSchema.validate({
+        ...valid,
+        assignPresidentNow: true,
+        presidentMode: 'new',
+      }),
     ).rejects.toThrow(/required/i)
   })
 })

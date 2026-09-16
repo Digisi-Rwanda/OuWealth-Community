@@ -35,7 +35,8 @@
     "loanApprovals": "Loan Approvals",
     "contributionApprovals": "Regular Contribution Approvals",
     "socialApprovals": "Social Contribution Approvals",
-    "historicalImport": "Historical Data Import"
+    "historicalImport": "Historical Data Import",
+    "billing": "Billing"
   },
   "login": {
     "title": "Sign in",
@@ -54,17 +55,38 @@
     "createAccount": "Create account"
   },
   "signup": {
-    "title": "Create account",
-    "subtitle": "Register to access OuWealth Community.",
+    "title": "Create your Saving Scheme",
+    "subtitle": "Start with 4 months free. You become President of the new scheme.",
     "firstName": "First name",
     "lastName": "Last name",
     "username": "Username",
     "email": "Email",
+    "phone": "Phone",
+    "phoneOptional": "Optional",
     "password": "Password",
     "confirmPassword": "Confirm password",
-    "submit": "Create account",
+    "submit": "Create Saving Scheme",
+    "next": "Next",
+    "back": "Back",
     "haveAccount": "Already have an account?",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "steps": {
+      "scheme": "Saving Scheme Details",
+      "account": "Your Details",
+      "review": "Review & Create"
+    },
+    "schemeHint": "Tell us about your Saving Scheme. You will be its President.",
+    "accountHint": "Create your President account. Role is assigned automatically.",
+    "reviewScheme": "Saving Scheme",
+    "reviewAccount": "Account",
+    "reviewSubscription": "Subscription",
+    "presidentNote": "You will be the President of this Saving Scheme.",
+    "trialTitle": "4 months free",
+    "trialBody": "Your 4-month free trial starts when this Saving Scheme is created.",
+    "afterTrial": "After your free trial:",
+    "monthlyPrice": "RWF 2,000/month",
+    "annualPrice": "RWF 18,000/year — save 25%",
+    "manageLater": "You can manage your OuWealth subscription later. No payment is required now."
   },
   "forgotPassword": {
     "title": "Forgot password",
@@ -380,6 +402,36 @@
       "registrationDate": "Registration date",
       "registrationDateHint": "Cannot be in the future or before 1950.",
       "status": "Status"
+    },
+    "onboarding": {
+      "subscriptionTitle": "OuWealth platform subscription",
+      "subscriptionHint": "This is the OuWealth platform subscription or trial — not Saving Scheme financial records.",
+      "startTrial": "Start 4-month free trial",
+      "noTrial": "No platform subscription will be initialized.",
+      "presidentTitle": "President",
+      "presidentWhen": "When should the President be assigned?",
+      "assignNow": "Assign President now",
+      "assignLater": "Assign President later",
+      "deferWarning": "This Saving Scheme will remain in incomplete onboarding until a President is assigned.",
+      "presidentMode": "President source",
+      "createPresident": "Create a new President user",
+      "existingPresident": "Assign an existing user",
+      "presidentUserId": "Existing user ID",
+      "presidentUserIdHint": "UUID of the user to assign as President",
+      "presidentFirstName": "First name",
+      "presidentLastName": "Last name",
+      "presidentUsername": "Username",
+      "presidentEmail": "Email",
+      "presidentPhone": "Phone",
+      "presidentTemporaryPassword": "Temporary password",
+      "presidentTemporaryPasswordHint": "Leave blank to generate a temporary password",
+      "assignPresident": "Assign President",
+      "assignSuccess": "President assigned",
+      "assignSuccessWithPassword": "President assigned. Temporary password: {{password}}",
+      "incompleteChip": "President required",
+      "trialStarted": "Free trial started (ends {{ends}})",
+      "noSubscription": "No subscription initialized",
+      "subscriptionStatus": "Subscription status"
     }
   },
   "members": {
@@ -1649,7 +1701,8 @@
       "graceDays": "Grace days",
       "markedLines": "Marked lines",
       "signup": "Sign up",
-      "storageKey": "Storage key"
+      "storageKey": "Storage key",
+      "onboardingState": "Onboarding state"
     },
     "actions": {
       "LOGIN": "Signed in",
@@ -1680,6 +1733,7 @@
       "COOPERATIVE_CREATE": "Saving Scheme created",
       "COOPERATIVE_UPDATE": "Saving Scheme updated",
       "COOPERATIVE_STATUS_CHANGE": "Saving Scheme status changed",
+      "COOPERATIVE_ONBOARDING_CHANGE": "Onboarding state changed",
       "MEMBER_REGISTER": "Member registered",
       "MEMBER_UPDATE": "Member updated",
       "MEMBER_STATUS_CHANGE": "Member status changed",
@@ -1732,6 +1786,8 @@
       "BACKUP": "Backup created",
       "RESTORE_BACKUP": "Backup restored",
       "WHATSAPP_SHARE": "Shared on WhatsApp",
+      "SUBSCRIPTION_INIT": "Subscription initialized",
+      "SUBSCRIPTION_TRIAL_START": "Subscription trial started",
       "OTHER": "Other"
     },
     "entityTypes": {
@@ -1743,6 +1799,7 @@
       "FineSettings": "Fine settings",
       "FinePayment": "Fine payment",
       "Cooperative": "Saving Scheme",
+      "CooperativeSubscription": "Subscription",
       "User": "User",
       "StoredFile": "File",
       "IncomeExpenseTransaction": "Income/expense",
@@ -1845,6 +1902,131 @@
     "dbReachable": "Database reachable",
     "flywayVersion": "Flyway version"
   },
+  "subscription": {
+    "unknownDate": "the scheduled date",
+    "readOnlyAction": "Subscription renewal is required before making changes.",
+    "readOnlyShare": "Subscription renewal is required before sharing reports.",
+    "superAdminNote": "You can still administer this Saving Scheme. Members are in read-only mode until the subscription is renewed.",
+    "status": {
+      "NONE": "Subscription required",
+      "TRIAL": "Free Trial",
+      "ACTIVE": "Active",
+      "PAST_DUE": "Payment overdue",
+      "EXPIRED": "Subscription expired",
+      "CANCELED": "Canceled"
+    },
+    "cycle": {
+      "MONTHLY": "Monthly",
+      "ANNUAL": "Annual"
+    },
+    "trial": {
+      "title": "OuWealth Free Trial",
+      "body": "Your Saving Scheme is currently in its free trial. Trial ends on {{date}}.",
+      "remaining_one": "{{count}} day remaining.",
+      "remaining_other": "{{count}} days remaining."
+    },
+    "pastDue": {
+      "title": "Subscription payment is overdue",
+      "leadership": "Your Saving Scheme remains active until {{date}}.",
+      "member": "Your Saving Scheme subscription payment is overdue. You can keep using records until leadership renews."
+    },
+    "canceled": {
+      "title": "Subscription canceled",
+      "body": "Access remains available until {{date}}."
+    },
+    "expired": {
+      "title": "Your OuWealth subscription is inactive",
+      "leadership": "You can still view your Saving Scheme records, but new transactions and operational changes are temporarily unavailable.",
+      "member": "Your Saving Scheme's OuWealth subscription requires renewal. You can continue viewing your records. Please contact your President or authorized leadership to renew the subscription."
+    },
+    "none": {
+      "title": "Subscription required"
+    },
+    "dashboard": {
+      "trial": "Free trial ends on {{date}}. {{count}} days remaining.",
+      "active": "{{cycle}} plan. Current period ends on {{date}}.",
+      "pastDue": "Payment overdue. Usable until {{date}}.",
+      "canceled": "Canceled. Access until {{date}}.",
+      "viewPlans": "View Plans",
+      "manage": "Manage Subscription",
+      "review": "Review Billing",
+      "renew": "Renew Subscription",
+      "choosePlan": "Choose Plan",
+      "contactLeadership": "Contact your President or authorized leadership."
+    },
+    "billing": {
+      "schemeLabel": "Saving Scheme",
+      "currentTitle": "Current subscription",
+      "status": "Status",
+      "plan": "Current plan",
+      "cycle": "Billing cycle",
+      "trialStart": "Trial start",
+      "trialEnd": "Trial end",
+      "periodStart": "Current paid period start",
+      "periodEnd": "Current paid period end",
+      "pastDueUntil": "Access remains available until",
+      "canceledAt": "Canceled on",
+      "daysRemaining_one": "{{count}} day remaining",
+      "daysRemaining_other": "{{count}} days remaining",
+      "trialFree": "Your Saving Scheme is currently using OuWealth free of charge.",
+      "trialEnds": "Trial ends {{date}}",
+      "trialPlansHint": "Plans below show what happens after the trial. Choosing a plan does not start a paid subscription.",
+      "activeMonthly": "Monthly Plan",
+      "activeAnnual": "Annual Plan",
+      "perMonth": "per month",
+      "perYear": "per year",
+      "periodEnds": "Current period ends {{date}}",
+      "pastDueAccess": "Payment overdue. Access remains available until {{date}}.",
+      "expiredReadOnly": "Your Saving Scheme is currently read-only.",
+      "noneRequired": "Subscription required",
+      "savePercent": "Save {{percent}}%",
+      "youSave": "Save {{amount}}",
+      "recommended": "Recommended",
+      "equivalentMonthly": "Equivalent: {{amount}}/month",
+      "chooseMonthly": "Choose Monthly",
+      "chooseAnnual": "Choose Annual",
+      "monthlyBenefitBilling": "Monthly billing",
+      "monthlyBenefitAccess": "Full OuWealth access",
+      "annualBenefitDiscount": "{{percent}}% annual discount",
+      "annualBenefitAccess": "Full OuWealth access",
+      "memberNotice": "Subscription payments are managed by your Saving Scheme leadership.",
+      "plansTitle": "Plans",
+      "paymentMethod": "Payment Method",
+      "mtnMomo": "MTN Mobile Money",
+      "bankCard": "Bank Card",
+      "changePlan": "Change plan",
+      "reviewTitle": "Review",
+      "reviewPlan": "Plan",
+      "reviewAmount": "Amount due",
+      "reviewBilling": "Billing",
+      "reviewMethod": "Payment method",
+      "reviewListPrice": "Normal price",
+      "reviewDiscount": "Discount",
+      "reviewSavings": "You save",
+      "oneMonth": "1 month",
+      "oneYear": "12 months",
+      "continuePayment": "Continue to Payment",
+      "checkoutUnavailable": "Payment processing is not available yet. Your Saving Scheme was not charged.",
+      "momoLater": "When MTN Mobile Money checkout is enabled, we will ask for the payer's Rwandan mobile number. OuWealth never collects a MoMo PIN.",
+      "cardLater": "Bank card details will be collected by the payment provider. OuWealth does not store card numbers or CVV.",
+      "historyTitle": "Payment History",
+      "historyEmpty": "No subscription payments yet.",
+      "historyHint": "These are OuWealth platform subscription payments, not Saving Scheme member transactions.",
+      "colDate": "Date",
+      "colPlan": "Plan",
+      "colMethod": "Payment Method",
+      "colAmount": "Amount",
+      "colStatus": "Status",
+      "paymentStatus": {
+        "PENDING": "Pending",
+        "SUCCESS": "Successful",
+        "FAILED": "Failed",
+        "CANCELED": "Canceled"
+      },
+      "selectCooperativeTitle": "Select a Saving Scheme",
+      "selectCooperativeDescription": "Billing is scoped to the selected Saving Scheme."
+    }
+  },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "boundaryTitle": "Something went wrong",
@@ -1854,7 +2036,8 @@
     "unauthorized": "Please sign in to continue.",
     "notFound": "Page not found",
     "loginFailed": "Invalid username or password.",
-    "signupFailed": "Could not create the account. Try a different username or email."
+    "signupFailed": "Could not create the Saving Scheme. Try a different username, email, or registration number.",
+    "subscriptionInactive": "This Saving Scheme's OuWealth subscription is inactive."
   },
   "pages": {
     "members": {
@@ -1928,6 +2111,10 @@
     "historicalImport": {
       "title": "Historical Data Import",
       "description": "Import a Saving Scheme's existing history from Excel so CSAMS reports and the dashboard include it."
+    },
+    "billing": {
+      "title": "Billing & Subscription",
+      "description": "OuWealth subscription status, plans, and platform payment history for this Saving Scheme."
     }
   },
   "historicalImport": {

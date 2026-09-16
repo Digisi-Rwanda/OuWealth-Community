@@ -56,6 +56,22 @@ class CooperativeOfficerRolesTest {
         CooperativeOfficerRoles.requireFundAuthorize(president);
     }
 
+    @Test
+    void billingManagersIncludePresidentVicePresidentAccountantAndSuperAdmin() {
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("PRESIDENT"), Set.of()))).isTrue();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("VICE_PRESIDENT"), Set.of())))
+                .isTrue();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("ACCOUNTANT"), Set.of()))).isTrue();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("SUPER_ADMIN"), Set.of())))
+                .isTrue();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("MEMBER"), Set.of()))).isFalse();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("SECRETARY"), Set.of()))).isFalse();
+        assertThat(CooperativeOfficerRoles.canManageBilling(principal(Set.of("LOAN_OFFICER"), Set.of())))
+                .isFalse();
+        assertThatThrownBy(() -> CooperativeOfficerRoles.requireBillingManager(principal(Set.of("MEMBER"), Set.of())))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
     private static UserPrincipal principal(Set<String> roles, Set<String> permissions) {
         return UserPrincipal.builder()
                 .username("tester")

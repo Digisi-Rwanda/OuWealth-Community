@@ -1,7 +1,6 @@
 package rw.terimbere.csams.modules.loan;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -14,7 +13,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +34,9 @@ import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.membership.OpeningShareBalances;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
+import rw.terimbere.csams.modules.subscription.SubscriptionClockTestSupport;
+import rw.terimbere.csams.modules.subscription.repository.CooperativeSubscriptionRepository;
+import rw.terimbere.csams.modules.subscription.service.SubscriptionPricing;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -56,6 +57,12 @@ class LoanApprovalMaturityIntegrationTest {
 
     @Autowired
     private CooperativeMembershipRepository membershipRepository;
+
+    @Autowired
+    private CooperativeSubscriptionRepository subscriptionRepository;
+
+    @Autowired
+    private SubscriptionPricing subscriptionPricing;
 
     @MockBean
     private Clock clock;
@@ -327,9 +334,9 @@ class LoanApprovalMaturityIntegrationTest {
     }
 
     private void freezeClock(LocalDate date) {
-        Instant instant = date.atStartOfDay(ZoneOffset.UTC).toInstant();
-        when(clock.instant()).thenReturn(instant);
-        when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+        Instant instant = SubscriptionClockTestSupport.freeze(clock, date);
+        SubscriptionClockTestSupport.keepUsable(
+                subscriptionRepository, subscriptionPricing, cooperativeId, instant);
     }
 
     private String loginAccessToken(String username, String password) throws Exception {

@@ -32,6 +32,9 @@ public final class CooperativeOfficerRoles {
     public static final Set<String> LEADERSHIP_ROLE_CODES =
             Set.of(PRESIDENT, VICE_PRESIDENT, LEGACY_ADMIN);
 
+    public static final Set<String> BILLING_MANAGER_ROLE_CODES =
+            Set.of(PRESIDENT, VICE_PRESIDENT, ACCOUNTANT, LEGACY_ADMIN);
+
     private CooperativeOfficerRoles() {}
 
     public static String normalize(String roleInCooperative) {
@@ -58,6 +61,22 @@ public final class CooperativeOfficerRoles {
 
     public static boolean isOfficerRoleCode(String roleCode) {
         return roleCode != null && OFFICER_ROLE_CODES.contains(roleCode);
+    }
+
+    public static boolean canManageBilling(UserPrincipal principal) {
+        if (principal == null) {
+            return false;
+        }
+        if (principal.hasRole(CooperativeAuthorizationService.SUPER_ADMIN)) {
+            return true;
+        }
+        return BILLING_MANAGER_ROLE_CODES.stream().anyMatch(principal::hasRole);
+    }
+
+    public static void requireBillingManager(UserPrincipal principal) {
+        if (!canManageBilling(principal)) {
+            throw new ForbiddenException("Subscription payments are managed by Saving Scheme leadership");
+        }
     }
 
     public static boolean isLeadership(UserPrincipal principal) {

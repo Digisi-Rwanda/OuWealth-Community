@@ -37,6 +37,7 @@ export const AUDITABLE_ACTIONS = [
   'COOPERATIVE_CREATE',
   'COOPERATIVE_UPDATE',
   'COOPERATIVE_STATUS_CHANGE',
+  'COOPERATIVE_ONBOARDING_CHANGE',
   'MEMBER_REGISTER',
   'MEMBER_UPDATE',
   'MEMBER_STATUS_CHANGE',
@@ -89,6 +90,8 @@ export const AUDITABLE_ACTIONS = [
   'BACKUP',
   'RESTORE_BACKUP',
   'WHATSAPP_SHARE',
+  'SUBSCRIPTION_INIT',
+  'SUBSCRIPTION_TRIAL_START',
   'OTHER',
 ] as const
 
@@ -102,6 +105,7 @@ export const AUDIT_ENTITY_TYPES = [
   'FineSettings',
   'FinePayment',
   'Cooperative',
+  'CooperativeSubscription',
   'User',
   'StoredFile',
   'IncomeExpenseTransaction',

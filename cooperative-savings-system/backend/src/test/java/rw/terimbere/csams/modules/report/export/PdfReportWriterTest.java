@@ -2,10 +2,14 @@ package rw.terimbere.csams.modules.report.export;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.parser.PdfTextExtractor;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import rw.terimbere.csams.modules.report.dto.ReportHeaderMeta;
 import rw.terimbere.csams.modules.report.dto.ReportSheetData;
@@ -57,7 +61,7 @@ class PdfReportWriterTest {
     }
 
     @Test
-    void brandsPdfWithLogoCandaraAndSystemNavy() {
+    void brandsPdfWithLogoCandaraAndSystemNavy() throws IOException {
         assertThat(PdfReportStyle.hasLogo()).isTrue();
         assertThat(PdfReportStyle.hasCandara()).isTrue();
         assertThat(PdfReportStyle.BRAND_BLUE.getRGB()).isEqualTo(new java.awt.Color(0x1B, 0x4D, 0x8C).getRGB());
@@ -80,8 +84,27 @@ class PdfReportWriterTest {
         assertThat(pdf.length).isGreaterThan(200);
         assertThat(new String(pdf, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
         assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("Candara");
-        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("SAVING SCHEME");
-        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).doesNotContain("COOPERATIVE");
+
+        String text = extractPdfText(pdf).toUpperCase(Locale.ROOT);
+        assertThat(text).contains("SAVING SCHEME");
+        assertThat(text).doesNotContain("COOPERATIVE");
+    }
+
+    private static String extractPdfText(byte[] pdf) throws IOException {
+        PdfReader reader = new PdfReader(pdf);
+        try {
+            PdfTextExtractor extractor = new PdfTextExtractor(reader);
+            StringBuilder text = new StringBuilder();
+            for (int page = 1; page <= reader.getNumberOfPages(); page++) {
+                String pageText = extractor.getTextFromPage(page);
+                if (pageText != null) {
+                    text.append(pageText).append('\n');
+                }
+            }
+            return text.toString();
+        } finally {
+            reader.close();
+        }
     }
 
     @Test

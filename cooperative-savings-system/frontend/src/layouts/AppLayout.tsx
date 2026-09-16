@@ -33,6 +33,7 @@ import { OfflineBanner } from '@/shared/components/OfflineBanner'
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher'
 import { UserMenu } from '@/shared/components/UserMenu'
 import { NotificationBell, NOTIFICATION_POLL_MS } from '@/features/notifications'
+import { SubscriptionBanner } from '@/features/subscription/SubscriptionBanner'
 import { ROUTES } from '@/shared/constants/routes'
 import { getMobileNavItems } from './navItems'
 
@@ -235,6 +236,7 @@ export function AppLayout() {
         </Toolbar>
       </AppBar>
       <OfflineBanner />
+      <SubscriptionBanner />
 
       {!isMdUp ? (
         <Drawer

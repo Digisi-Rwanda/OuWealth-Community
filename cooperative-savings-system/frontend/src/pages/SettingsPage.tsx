@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -30,6 +29,7 @@ import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
 import {
   COMMON_TIMEZONES,
   SUPPORTED_LOCALES,
@@ -232,14 +232,14 @@ export function SettingsPage() {
               )}
             />
 
-            <Button
+            <SubscriptionAwareButton
               type="submit"
               variant="contained"
               disabled={!isDirty || mutation.isPending}
               sx={{ minHeight: 44, alignSelf: 'flex-start' }}
             >
               {t('common.save')}
-            </Button>
+            </SubscriptionAwareButton>
           </Stack>
         </Box>
       ) : null}

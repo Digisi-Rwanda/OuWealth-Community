@@ -1,5 +1,6 @@
 package rw.terimbere.csams.modules.cooperative.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
@@ -14,6 +15,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import rw.terimbere.csams.modules.member.dto.AssignAdministratorRequest;
+import rw.terimbere.csams.modules.subscription.entity.SubscriptionInitialization;
 import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
 import rw.terimbere.csams.shared.validation.CooperativeRegistrationNumber;
 import rw.terimbere.csams.shared.validation.RwandanPhone;
@@ -69,6 +72,16 @@ public class CooperativeCreateRequest {
     @NotNull(message = "Registration date is required")
     private LocalDate registrationDate;
 
+    /**
+     * Optional Super Admin onboarding fields. Omitted by older clients.
+     * Null {@code subscriptionInitialization} defaults to {@code START_TRIAL}.
+     * Null or unspecified {@code president} defers leadership ({@code AWAITING_PRESIDENT}).
+     */
+    private SubscriptionInitialization subscriptionInitialization;
+
+    @Valid
+    private AssignAdministratorRequest president;
+
     @AssertTrue(message = "Contact email is invalid")
     public boolean isContactEmailValid() {
         return CooperativeFieldRules.isValidEmail(contactEmail);
@@ -77,5 +90,15 @@ public class CooperativeCreateRequest {
     @AssertTrue(message = "Registration date must be between 1950-01-01 and today (Africa/Kigali)")
     public boolean isRegistrationDateReasonable() {
         return CooperativeFieldRules.isValidRegistrationDate(registrationDate);
+    }
+
+    public SubscriptionInitialization resolvedSubscriptionInitialization() {
+        return subscriptionInitialization == null
+                ? SubscriptionInitialization.START_TRIAL
+                : subscriptionInitialization;
+    }
+
+    public boolean hasPresidentAssignment() {
+        return president != null && president.isSpecified();
     }
 }

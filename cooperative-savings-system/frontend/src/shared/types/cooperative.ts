@@ -1,4 +1,7 @@
 export type CooperativeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ARCHIVED'
+export type CooperativeOnboardingState = 'COMPLETE' | 'AWAITING_PRESIDENT'
+export type SubscriptionInitialization = 'START_TRIAL' | 'NONE' | 'ACTIVE_MANUAL'
+export type SubscriptionStatus = 'NONE' | 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'EXPIRED' | 'CANCELED'
 
 export const COOPERATIVE_STATUSES: CooperativeStatus[] = [
   'ACTIVE',
@@ -30,10 +33,21 @@ export interface Cooperative {
   contributionDueDay: number
   registrationDate?: string | null
   status: CooperativeStatus
+  onboardingState?: CooperativeOnboardingState
   logoUrl?: string | null
   logoFileKey?: string | null
   createdAt?: string
   updatedAt?: string
+}
+
+export interface AssignPresidentRequest {
+  userId?: string
+  username?: string
+  email?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  temporaryPassword?: string
 }
 
 export interface CooperativeCreateRequest {
@@ -48,12 +62,37 @@ export interface CooperativeCreateRequest {
   monthlyContributionAmount: string | number
   contributionDueDay: number
   registrationDate?: string
+  subscriptionInitialization?: SubscriptionInitialization
+  president?: AssignPresidentRequest
 }
 
-export type CooperativeUpdateRequest = CooperativeCreateRequest
+export type CooperativeUpdateRequest = Omit<
+  CooperativeCreateRequest,
+  'subscriptionInitialization' | 'president'
+>
 
 export interface CooperativeStatusUpdateRequest {
   status: CooperativeStatus
+}
+
+export interface CooperativeSubscription {
+  id: string
+  cooperativeId: string
+  status: SubscriptionStatus
+  storedStatus?: SubscriptionStatus | null
+  effectiveStatus?: SubscriptionStatus | null
+  usable?: boolean
+  writeAllowed?: boolean
+  billingCycle?: string | null
+  trialStartedAt?: string | null
+  trialEndsAt?: string | null
+  currentPeriodStartedAt?: string | null
+  currentPeriodEndsAt?: string | null
+  pastDueUntil?: string | null
+  canceledAt?: string | null
+  daysRemaining?: number | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export function mapCooperativeSummary(raw: CooperativeSummary): CooperativeSummary {
@@ -64,4 +103,10 @@ export function mapCooperativeSummary(raw: CooperativeSummary): CooperativeSumma
     currency: raw.currency || 'RWF',
     logoUrl: raw.logoUrl ?? null,
   }
+}
+
+export function isOnboardingIncomplete(
+  cooperative: Pick<Cooperative, 'onboardingState'> | null | undefined,
+): boolean {
+  return cooperative?.onboardingState === 'AWAITING_PRESIDENT'
 }

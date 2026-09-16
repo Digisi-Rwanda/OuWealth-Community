@@ -10,11 +10,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer, { setSelectedCooperativeId } from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
-import { ROLE_MEMBER, ROLE_PRESIDENT, type AuthUser } from '@/shared/types/auth'
+import { ROLE_MEMBER, ROLE_PRESIDENT, ROLE_SUPER_ADMIN, type AuthUser } from '@/shared/types/auth'
 import type { Loan } from '@/shared/types/loan'
 import { lightTheme } from '@/theme/theme'
 import { LoanDetailPage } from './LoanDetailPage'
 import { RouteErrorBoundary } from '@/shared/components/RouteErrorBoundary'
+import { fetchSubscription } from '@/shared/api/subscription'
 
 vi.mock('@/shared/api/loans', () => ({
   fetchLoan: vi.fn(),
@@ -27,6 +28,11 @@ vi.mock('@/shared/api/loans', () => ({
   disburseLoan: vi.fn(),
   writeOffLoan: vi.fn(),
   createLoanRepayment: vi.fn(),
+}))
+
+vi.mock('@/shared/api/subscription', () => ({
+  cooperativeSubscriptionQueryKey: (id: string) => ['cooperatives', id, 'subscription'],
+  fetchSubscription: vi.fn(),
 }))
 
 import {
@@ -44,6 +50,7 @@ const exportLoanScheduleMock = vi.mocked(exportLoanSchedule)
 const fetchWhatsAppStatusMock = vi.mocked(fetchLoanScheduleWhatsAppStatus)
 const shareWhatsAppMock = vi.mocked(shareLoanScheduleViaWhatsApp)
 const approveLoanMock = vi.mocked(approveLoan)
+const fetchSubscriptionMock = vi.mocked(fetchSubscription)
 
 const officer: AuthUser = {
   id: 'u1',
@@ -122,9 +129,22 @@ function renderPage(
     loanResult?: Loan | null
     loanError?: unknown
     whatsappError?: unknown
+    writeAllowed?: boolean
+    effectiveStatus?: 'TRIAL' | 'ACTIVE' | 'EXPIRED' | 'NONE'
   } = {},
 ) {
   const user = options.user ?? officer
+  const writeAllowed = options.writeAllowed ?? true
+  const effectiveStatus = options.effectiveStatus ?? 'TRIAL'
+  fetchSubscriptionMock.mockResolvedValue({
+    id: 'sub-1',
+    cooperativeId: 'coop-1',
+    status: effectiveStatus,
+    storedStatus: effectiveStatus,
+    effectiveStatus,
+    writeAllowed,
+    usable: writeAllowed,
+  })
   if (options.loanError) {
     fetchLoanMock.mockRejectedValue(options.loanError)
   } else if (options.loanResult === null) {
@@ -257,6 +277,29 @@ describe('LoanDetailPage repayment schedule export', () => {
       expect(exportLoanScheduleMock).toHaveBeenCalled()
     })
     expect(shareWhatsAppMock).not.toHaveBeenCalled()
+  })
+
+  it('disables schedule WhatsApp share when the subscription is expired', async () => {
+    const user = userEvent.setup()
+    renderPage(true, { writeAllowed: false, effectiveStatus: 'EXPIRED' })
+    const share = await screen.findByRole('button', { name: 'Share via WhatsApp' })
+    expect(share).toBeDisabled()
+    await user.hover(share.parentElement ?? share)
+    expect(
+      await screen.findByText('Subscription renewal is required before sharing reports.'),
+    ).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Download PDF' }))
+    await waitFor(() => expect(exportLoanScheduleMock).toHaveBeenCalled())
+    expect(shareWhatsAppMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps SUPER_ADMIN schedule sharing enabled when expired', async () => {
+    renderPage(true, {
+      writeAllowed: false,
+      effectiveStatus: 'EXPIRED',
+      user: { ...officer, roles: [ROLE_SUPER_ADMIN] },
+    })
+    expect(await screen.findByRole('button', { name: 'Share via WhatsApp' })).toBeEnabled()
   })
 })
 

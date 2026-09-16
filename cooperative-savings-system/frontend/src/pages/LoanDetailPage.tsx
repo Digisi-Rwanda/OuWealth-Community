@@ -74,6 +74,7 @@ import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { ResponsiveTable, type TableColumn } from '@/shared/components/ResponsiveTable'
 import { ROUTES } from '@/shared/constants/routes'
 import type { LoanRepayment, LoanRepaymentCreateRequest } from '@/shared/types/loan'
@@ -103,6 +104,8 @@ export function LoanDetailPage() {
   const canRecordLoans = useAppSelector(selectCanRecordLoans)
   const canAuthorizeFunds = useAppSelector(selectCanAuthorizeFunds)
   const currentUserId = useAppSelector(selectAuthUser)?.id
+  const { canWrite, readOnly } = useCooperativeSubscription(cooperativeId)
+  const shareBlocked = readOnly || !canWrite
 
   const [confirmAction, setConfirmAction] = useState<
     'approve' | 'disburse' | 'writeOff' | null
@@ -311,6 +314,10 @@ export function LoanDetailPage() {
   })
 
   const openShare = () => {
+    if (shareBlocked) {
+      enqueueSnackbar(t('subscription.readOnlyShare'), { variant: 'warning' })
+      return
+    }
     if (!whatsappConfigured) {
       enqueueSnackbar(t('reports.whatsapp.notConfigured'), { variant: 'warning' })
       return
@@ -684,7 +691,8 @@ export function LoanDetailPage() {
                           disabled={
                             downloadMutation.isPending ||
                             shareMutation.isPending ||
-                            !whatsappConfigured
+                            !whatsappConfigured ||
+                            shareBlocked
                           }
                           onClick={openShare}
                         >
@@ -693,9 +701,14 @@ export function LoanDetailPage() {
                             : t('loans.schedule.shareWhatsApp')}
                         </Button>
                       )
-                      if (whatsappConfigured) return shareButton
+                      const tooltip = shareBlocked
+                        ? t('subscription.readOnlyShare')
+                        : !whatsappConfigured
+                          ? t('reports.whatsapp.notConfigured')
+                          : ''
+                      if (!tooltip) return shareButton
                       return (
-                        <Tooltip title={t('reports.whatsapp.notConfigured')}>
+                        <Tooltip title={tooltip}>
                           <span>{shareButton}</span>
                         </Tooltip>
                       )
@@ -878,7 +891,10 @@ export function LoanDetailPage() {
         sendingLabel={t('loans.schedule.whatsappSending')}
         onPhoneChange={setRecipientPhone}
         onClose={() => setShareOpen(false)}
-        onSend={() => shareMutation.mutate(recipientPhone)}
+        onSend={() => {
+          if (shareBlocked) return
+          shareMutation.mutate(recipientPhone)
+        }}
       />
     </Box>
   )

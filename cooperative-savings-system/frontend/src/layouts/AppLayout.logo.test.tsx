@@ -24,6 +24,18 @@ vi.mock('@/shared/api/cooperatives', () => ({
   fetchMyCooperatives: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('@/shared/api/subscription', () => ({
+  cooperativeSubscriptionQueryKey: (id: string) => ['cooperatives', id, 'subscription'],
+  fetchSubscription: vi.fn().mockResolvedValue({
+    id: 'sub-1',
+    cooperativeId: 'coop-1',
+    status: 'TRIAL',
+    effectiveStatus: 'TRIAL',
+    writeAllowed: true,
+    usable: true,
+  }),
+}))
+
 function stubMatchMedia(mdUp: boolean) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

@@ -26,6 +26,7 @@ import {
   shareReportViaWhatsApp,
 } from '@/shared/api/reports'
 import { LoadingState } from '@/shared/components/LoadingState'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { CONTRIBUTION_STATUSES } from '@/shared/types/contribution'
 import { LEDGER_TRANSACTION_TYPES } from '@/shared/types/ledger'
 import { memberDisplayName } from '@/shared/types/member'
@@ -54,6 +55,8 @@ export function ReportsExportPanel({
 }: ReportsExportPanelProps) {
   const { t } = useTranslation()
   const { enqueueSnackbar } = useSnackbar()
+  const { canWrite, readOnly } = useCooperativeSubscription(cooperativeId)
+  const shareBlocked = readOnly || !canWrite
   const today = dayjs()
   const todayIso = today.format('YYYY-MM-DD')
 
@@ -180,6 +183,10 @@ export function ReportsExportPanel({
   const actionsBusy = exportMutation.isPending || shareMutation.isPending
 
   const openShare = (type: string, includeFilters: boolean) => {
+    if (shareBlocked) {
+      enqueueSnackbar(t('subscription.readOnlyShare'), { variant: 'warning' })
+      return
+    }
     if (!timelineValid) {
       enqueueSnackbar(t(`reports.export.validation.${timelineIssue}`), { variant: 'warning' })
       return
@@ -225,22 +232,28 @@ export function ReportsExportPanel({
     disabled: boolean,
     size: 'small' | 'medium' = 'small',
   ) => {
+    const blocked = disabled || actionsBusy || !whatsappConfigured || shareBlocked
     const button = (
       <Button
         type="button"
         variant="outlined"
         size={size}
         onClick={() => openShare(type, includeFilters)}
-        disabled={disabled || actionsBusy || !whatsappConfigured}
+        disabled={blocked}
       >
         {shareMutation.isPending
           ? t('reports.whatsapp.sending')
           : t('reports.whatsapp.share')}
       </Button>
     )
-    if (whatsappConfigured) return button
+    const tooltip = shareBlocked
+      ? t('subscription.readOnlyShare')
+      : !whatsappConfigured
+        ? t('reports.whatsapp.notConfigured')
+        : ''
+    if (!tooltip) return button
     return (
-      <Tooltip title={t('reports.whatsapp.notConfigured')}>
+      <Tooltip title={tooltip}>
         <span>{button}</span>
       </Tooltip>
     )
@@ -538,7 +551,9 @@ export function ReportsExportPanel({
           <Button
             variant="contained"
             disabled={
-              shareMutation.isPending || !isValidReportWhatsAppRecipient(recipientPhone)
+              shareBlocked ||
+              shareMutation.isPending ||
+              !isValidReportWhatsAppRecipient(recipientPhone)
             }
             onClick={() =>
               shareMutation.mutate({

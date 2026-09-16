@@ -1,26 +1,14 @@
 import { CssBaseline, ThemeProvider } from '@mui/material'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { SnackbarProvider } from 'notistack'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { Provider } from 'react-redux'
+import { queryClient } from '@/app/queryClient'
 import { store } from '@/app/store/store'
 import { useAppSelector } from '@/app/store/hooks'
 import { resolveThemeMode } from '@/app/store/uiSlice'
 import { PwaUpdateBanner } from '@/pwa/PwaUpdateBanner'
 import { darkTheme, lightTheme } from '@/theme/theme'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    },
-    mutations: {
-      retry: 0,
-    },
-  },
-})
 
 function ThemedApp({ children }: { children: ReactNode }) {
   const preference = useAppSelector((s) => s.ui.themePreference)

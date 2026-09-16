@@ -27,6 +27,8 @@ import { ErrorState } from '@/shared/components/ErrorState'
 import { MetricCard } from '@/shared/components/MetricCard'
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu'
 import { ReportsMenu } from '@/shared/components/ReportsMenu'
+import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { ROUTES } from '@/shared/constants/routes'
 import type { DashboardSummary } from '@/shared/types/dashboard'
 import {
@@ -150,6 +152,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
   const userRoles = useAppSelector((s) => s.auth.user?.roles ?? [])
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
   const canManageMembers = useAppSelector(selectCanManageMembers)
+  const { subscription, isSuccess: subscriptionLoaded } = useCooperativeSubscription(cooperativeId)
   const officeRole = primaryRole(userRoles)
   const primaryKeys = rolePrimaryMetrics(officeRole)
   const obligationKeys = roleObligationMetrics(officeRole)
@@ -402,6 +405,10 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
           <ReportsMenu />
         </Stack>
       </Box>
+
+      {subscriptionLoaded ? (
+        <DashboardSubscriptionCard subscription={subscription} variant="leadership" />
+      ) : null}
 
       {summaryQuery.isError ? (
         <Box sx={{ mb: 2 }}>

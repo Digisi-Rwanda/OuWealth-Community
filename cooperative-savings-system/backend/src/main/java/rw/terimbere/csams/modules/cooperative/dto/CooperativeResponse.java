@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import rw.terimbere.csams.modules.cooperative.entity.CooperativeOnboardingState;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
 
 @Data
@@ -30,6 +31,7 @@ public class CooperativeResponse {
     private String logoFileKey;
     private String logoUrl;
     private CooperativeStatus status;
+    private CooperativeOnboardingState onboardingState;
     private LocalDate registrationDate;
     private UUID createdBy;
     private Instant createdAt;

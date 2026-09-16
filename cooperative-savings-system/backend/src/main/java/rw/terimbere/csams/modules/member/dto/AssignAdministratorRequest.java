@@ -36,4 +36,18 @@ public class AssignAdministratorRequest {
 
     @Size(min = 8, max = 128)
     private String temporaryPassword;
+
+    public boolean isSpecified() {
+        return userId != null
+                || hasText(username)
+                || hasText(email)
+                || hasText(firstName)
+                || hasText(lastName)
+                || hasText(phone)
+                || hasText(temporaryPassword);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
 }

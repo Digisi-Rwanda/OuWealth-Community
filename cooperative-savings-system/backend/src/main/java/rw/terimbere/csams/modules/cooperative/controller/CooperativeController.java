@@ -31,6 +31,7 @@ import rw.terimbere.csams.modules.cooperative.dto.CooperativeSummaryResponse;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeUpdateRequest;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
 import rw.terimbere.csams.modules.cooperative.service.CooperativeService;
+import rw.terimbere.csams.modules.subscription.dto.CooperativeSubscriptionResponse;
 import rw.terimbere.csams.shared.common.dto.ApiResponse;
 import rw.terimbere.csams.shared.common.dto.PageResponse;
 
@@ -76,6 +77,18 @@ public class CooperativeController {
     @Operation(summary = "Get cooperative by id")
     public ResponseEntity<ApiResponse<CooperativeResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(cooperativeService.getById(id)));
+    }
+
+    @GetMapping("/{id}/subscription")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Get platform subscription for a cooperative",
+            description =
+                    "Minimal read of the current OuWealth platform subscription (NONE, TRIAL, ACTIVE, etc.). "
+                            + "Authenticated members of the cooperative may call it; SUPER_ADMIN bypasses membership. "
+                            + "This is not a billing, checkout, or payment API.")
+    public ResponseEntity<ApiResponse<CooperativeSubscriptionResponse>> getSubscription(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(cooperativeService.getSubscription(id)));
     }
 
     @PutMapping("/{id}")

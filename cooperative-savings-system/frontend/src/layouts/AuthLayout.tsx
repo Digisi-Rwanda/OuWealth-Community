@@ -1,12 +1,15 @@
 import { Box, Container, useTheme } from '@mui/material'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher'
+import { ROUTES } from '@/shared/constants/routes'
 import { AuthSurfaceContext } from './authSurface'
 
 export function AuthLayout() {
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
+  const location = useLocation()
+  const wide = location.pathname === ROUTES.signup
 
   return (
     <AuthSurfaceContext.Provider value={{ onDark: dark }}>
@@ -35,7 +38,7 @@ export function AuthLayout() {
           <LanguageSwitcher onDark={dark} />
           <ThemeSwitcher onDark={dark} />
         </Box>
-        <Container maxWidth="sm" sx={{ py: { xs: 8, md: 6 } }}>
+        <Container maxWidth={wide ? 'md' : 'sm'} sx={{ py: { xs: 8, md: 6 } }}>
           <Outlet />
         </Container>
       </Box>

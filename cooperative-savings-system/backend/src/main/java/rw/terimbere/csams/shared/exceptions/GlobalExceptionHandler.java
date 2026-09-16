@@ -2,7 +2,9 @@ package rw.terimbere.csams.shared.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -46,6 +48,44 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
     public ResponseEntity<ErrorResponse> handleAuth(AuthenticationException ex, HttpServletRequest request) {
         return build(HttpStatus.UNAUTHORIZED, "Authentication required", request, null);
+    }
+
+    @ExceptionHandler(SubscriptionInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleSubscriptionInactive(
+            SubscriptionInactiveException ex, HttpServletRequest request) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("cooperativeId", ex.getCooperativeId());
+        details.put(
+                "subscriptionStatus",
+                ex.getSubscriptionStatus() == null ? null : ex.getSubscriptionStatus().name());
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.PAYMENT_REQUIRED.value())
+                .error(HttpStatus.PAYMENT_REQUIRED.getReasonPhrase())
+                .success(false)
+                .code(SubscriptionInactiveException.CODE)
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .requestId(requestId())
+                .details(details)
+                .build();
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(body);
+    }
+
+    @ExceptionHandler(PaymentIntegrationUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentIntegrationUnavailable(
+            PaymentIntegrationUnavailableException ex, HttpServletRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.NOT_IMPLEMENTED.value())
+                .error(HttpStatus.NOT_IMPLEMENTED.getReasonPhrase())
+                .success(false)
+                .code(PaymentIntegrationUnavailableException.CODE)
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .requestId(requestId())
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
     }
 
     @ExceptionHandler({ForbiddenException.class, AccessDeniedException.class})

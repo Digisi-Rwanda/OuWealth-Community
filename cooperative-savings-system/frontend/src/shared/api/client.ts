@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { queryClient } from '@/app/queryClient'
 import { clearAuth, setCredentials } from '@/app/store/authSlice'
 import { store } from '@/app/store/store'
 import type { ApiErrorBody, ApiResponse } from '@/shared/types/api'
@@ -28,7 +29,11 @@ function createRequestId(): string {
 }
 
 function isLoginUrl(url?: string): boolean {
-  return Boolean(url?.includes('/auth/login') || url?.includes('/auth/signup'))
+  return Boolean(
+    url?.includes('/auth/login') ||
+      url?.includes('/auth/signup') ||
+      url?.includes('/onboarding/signup'),
+  )
 }
 
 function isRefreshUrl(url?: string): boolean {
@@ -112,6 +117,16 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as RetryConfig | undefined
     const status = error.response?.status
 
+    if (isSubscriptionInactiveError(error)) {
+      const cooperativeId = subscriptionCooperativeId(error, originalRequest?.url)
+      if (cooperativeId) {
+        void queryClient.invalidateQueries({
+          queryKey: ['cooperatives', cooperativeId, 'subscription'],
+        })
+      }
+      return Promise.reject(error)
+    }
+
     if (status !== 401 || !originalRequest) {
       return Promise.reject(error)
     }
@@ -156,6 +171,20 @@ export function isForbiddenError(error: unknown): boolean {
 
 export function isUnauthorizedError(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 401
+}
+
+export function isSubscriptionInactiveError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  const data = error.response?.data as ApiErrorBody | undefined
+  return error.response?.status === 402 || data?.code === 'SUBSCRIPTION_INACTIVE'
+}
+
+function subscriptionCooperativeId(error: AxiosError, url?: string): string | null {
+  const data = error.response?.data as ApiErrorBody | undefined
+  const details = data?.details as { cooperativeId?: string } | undefined
+  if (details?.cooperativeId) return details.cooperativeId
+  const match = url?.match(/cooperatives\/([0-9a-fA-F-]{36})/i)
+  return match?.[1] ?? null
 }
 
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {

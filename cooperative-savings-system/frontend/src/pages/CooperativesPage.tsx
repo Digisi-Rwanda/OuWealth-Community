@@ -25,7 +25,7 @@ import { ResponsiveTable, type TableColumn } from '@/shared/components/Responsiv
 import { ROUTES } from '@/shared/constants/routes'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import type { Cooperative, CooperativeCreateRequest, CooperativeStatus } from '@/shared/types/cooperative'
-import { COOPERATIVE_STATUSES } from '@/shared/types/cooperative'
+import { COOPERATIVE_STATUSES, isOnboardingIncomplete } from '@/shared/types/cooperative'
 import { formatMoney } from '@/shared/utils/formatMoney'
 
 function statusColor(
@@ -94,7 +94,16 @@ export function CooperativesPage() {
         id: 'status',
         label: t('cooperatives.fields.status'),
         render: (row) => (
-          <Chip size="small" color={statusColor(row.status)} label={t(`status.${row.status}`)} />
+          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Chip size="small" color={statusColor(row.status)} label={t(`status.${row.status}`)} />
+            {isOnboardingIncomplete(row) ? (
+              <Chip
+                size="small"
+                color="warning"
+                label={t('cooperatives.onboarding.incompleteChip')}
+              />
+            ) : null}
+          </Stack>
         ),
       },
       {

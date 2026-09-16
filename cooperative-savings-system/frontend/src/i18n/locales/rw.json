@@ -35,7 +35,8 @@
     "loanApprovals": "Kwemeza inguzanyo",
     "contributionApprovals": "Kwemeza amafaranga y'ukwezi",
     "socialApprovals": "Kwemeza amafaranga y'imibereho",
-    "historicalImport": "Kwinjiza amateka"
+    "historicalImport": "Kwinjiza amateka",
+    "billing": "Kwishyura"
   },
   "login": {
     "title": "Injira",
@@ -54,17 +55,38 @@
     "createAccount": "Fungura konti"
   },
   "signup": {
-    "title": "Fungura konti",
-    "subtitle": "Iyandikishe kugira ngo ukoreshe OuWealth Community.",
+    "title": "Fungura Ikimina",
+    "subtitle": "Tangira n'amezi 4 ku buntu. Uba Perezida w'ikimina gishya.",
     "firstName": "Izina",
     "lastName": "Izina ry'umuryango",
     "username": "Izina ry'ukoresha",
     "email": "Imeri",
+    "phone": "Telefoni",
+    "phoneOptional": "Bitari ngombwa",
     "password": "Ijambo ry'ibanga",
     "confirmPassword": "Emeza ijambo ry'ibanga",
-    "submit": "Fungura konti",
+    "submit": "Fungura Ikimina",
+    "next": "Komeza",
+    "back": "Subira",
     "haveAccount": "Usanzwe ufite konti?",
-    "signIn": "Injira"
+    "signIn": "Injira",
+    "steps": {
+      "scheme": "Ibisobanuro by'Ikimina",
+      "account": "Umwirondoro wawe",
+      "review": "Suzuma hanyuma ufungure"
+    },
+    "schemeHint": "Sobanura Ikimina cyawe. Uzaba Perezida wacyo.",
+    "accountHint": "Fungura konti ya Perezida. Inshingano itangwa ubwayo.",
+    "reviewScheme": "Ikimina",
+    "reviewAccount": "Konti",
+    "reviewSubscription": "Kwiyandikisha",
+    "presidentNote": "Uzaba Perezida w'iki Kimina.",
+    "trialTitle": "Amezi 4 ku buntu",
+    "trialBody": "Igihe cyo kugerageza cy'amezi 4 gitangira Ikimina gifunguwe.",
+    "afterTrial": "Nyuma y'igihe cyo kugerageza:",
+    "monthlyPrice": "RWF 2,000/ukwezi",
+    "annualPrice": "RWF 18,000/umwaka — kuzigama 25%",
+    "manageLater": "Ushobora gucunga kwiyandikisha kwa OuWealth nyuma. Nta kwishyura bisabwa none."
   },
   "forgotPassword": {
     "title": "Wibagiwe ijambo ry'ibanga",
@@ -376,6 +398,36 @@
       "registrationDate": "Itariki yo kwiyandikisha",
       "registrationDateHint": "Ntishobora kuba mu gihe kizaza cyangwa mbere ya 1950.",
       "status": "Imiterere"
+    },
+    "onboarding": {
+      "subscriptionTitle": "Kwiyandikisha kwa OuWealth",
+      "subscriptionHint": "Iyi ni kwiyandikisha/igerageza rya OuWealth — si imari y'ikimina.",
+      "startTrial": "Tangira amezi 4 y'ubuntu",
+      "noTrial": "Nta kwiyandikisha kwa OuWealth kuzatangizwa.",
+      "presidentTitle": "Perezida",
+      "presidentWhen": "Perezida agomba gushyirwaho ryari?",
+      "assignNow": "Shyira Perezida noneho",
+      "assignLater": "Shyira Perezida nyuma",
+      "deferWarning": "Iki kimina kizaguma kitarangiza kwiyandikisha kugeza Perezida ashyizweho.",
+      "presidentMode": "Inkomoko ya Perezida",
+      "createPresident": "Kora umukoresha mushya wa Perezida",
+      "existingPresident": "Shyira umukoresha usanzwe",
+      "presidentUserId": "ID y'umukoresha usanzwe",
+      "presidentUserIdHint": "UUID y'umukoresha ushyirwa nk'umuperezida",
+      "presidentFirstName": "Izina rya mbere",
+      "presidentLastName": "Izina rya nyuma",
+      "presidentUsername": "Izina ry'umukoresha",
+      "presidentEmail": "Imeri",
+      "presidentPhone": "Telefone",
+      "presidentTemporaryPassword": "Ijambobanga ry'agateganyo",
+      "presidentTemporaryPasswordHint": "Siga ubusa niba ushaka ko ryakora",
+      "assignPresident": "Shyira Perezida",
+      "assignSuccess": "Perezida yashyizweho",
+      "assignSuccessWithPassword": "Perezida yashyizweho. Ijambobanga ry'agateganyo: {{password}}",
+      "incompleteChip": "Perezida arakenewe",
+      "trialStarted": "Igihe cy'ubuntu cyatangijwe (kirangira {{ends}})",
+      "noSubscription": "Nta kwiyandikisha kwatangijwe",
+      "subscriptionStatus": "Imiterere y'iyiyandikisha"
     }
   },
   "members": {
@@ -1634,7 +1686,8 @@
       "graceDays": "Iminsi y'imbabazi",
       "markedLines": "Imirongo yashyizweho",
       "signup": "Kwiyandikisha",
-      "storageKey": "Urufunguzo rw'ububiko"
+      "storageKey": "Urufunguzo rw'ububiko",
+      "onboardingState": "Imiterere yo kwiyandikisha"
     },
     "actions": {
       "LOGIN": "Yinjiye",
@@ -1665,6 +1718,7 @@
       "COOPERATIVE_CREATE": "Ikimina cyaremwe",
       "COOPERATIVE_UPDATE": "Ikimina cyahinduwe",
       "COOPERATIVE_STATUS_CHANGE": "Imiterere y'ikimina yahinduwe",
+      "COOPERATIVE_ONBOARDING_CHANGE": "Imiterere yo kwiyandikisha yahinduwe",
       "MEMBER_REGISTER": "Umuyamuryango yiyandikishije",
       "MEMBER_UPDATE": "Umuyamuryango yahinduwe",
       "MEMBER_STATUS_CHANGE": "Imiterere y'umuyamuryango yahinduwe",
@@ -1717,6 +1771,8 @@
       "BACKUP": "Ubufasha bwabitswe",
       "RESTORE_BACKUP": "Ubufasha bwasubijwe",
       "WHATSAPP_SHARE": "Byasangijwe kuri WhatsApp",
+      "SUBSCRIPTION_INIT": "Kwiyandikisha byatangijwe",
+      "SUBSCRIPTION_TRIAL_START": "Igihe cy'ubuntu cyatangijwe",
       "OTHER": "Ibindi"
     },
     "entityTypes": {
@@ -1728,6 +1784,7 @@
       "FineSettings": "Igenamiterere ry'amahane",
       "FinePayment": "Kwishyura ihane",
       "Cooperative": "Ikimina",
+      "CooperativeSubscription": "Kwiyandikisha",
       "User": "Ukoresha",
       "StoredFile": "Dosiye",
       "IncomeExpenseTransaction": "Amafaranga yinjira/asohoka",
@@ -1830,6 +1887,131 @@
     "dbReachable": "Database irahari",
     "flywayVersion": "Verisiyo ya Flyway"
   },
+  "subscription": {
+    "unknownDate": "itariki yagenwe",
+    "readOnlyAction": "Ugomba kuvugurura kwiyandikisha mbere yo gukora impinduka.",
+    "readOnlyShare": "Ugomba kuvugurura kwiyandikisha mbere yo gusangira raporo.",
+    "superAdminNote": "Ushobora gukomeza gucunga iki Kimina. Abanyamuryango bari mu buryo bwo gusoma gusa kugeza kwiyandikisha kuvugururwa.",
+    "status": {
+      "NONE": "Kwiyandikisha birakenewe",
+      "TRIAL": "Igihe cyo kugerageza",
+      "ACTIVE": "Gikora",
+      "PAST_DUE": "Kwishyura byarenze igihe",
+      "EXPIRED": "Kwiyandikisha byarengeje",
+      "CANCELED": "Byahagaritswe"
+    },
+    "cycle": {
+      "MONTHLY": "Buri kwezi",
+      "ANNUAL": "Buri mwaka"
+    },
+    "trial": {
+      "title": "Igihe cyo kugerageza kwa OuWealth",
+      "body": "Ikimina cyawe kiri mu gihe cyo kugerageza. Kirangira ku {{date}}.",
+      "remaining_one": "Hasigaye umunsi {{count}}.",
+      "remaining_other": "Hasigaye iminsi {{count}}."
+    },
+    "pastDue": {
+      "title": "Kwishyura kwiyandikisha byarenze igihe",
+      "leadership": "Ikimina cyawe gikomeza gukora kugeza {{date}}.",
+      "member": "Kwishyura kwiyandikisha byarenze igihe. Ushobora gukomeza kubona amakuru kugeza ubuyobozi buvugurura."
+    },
+    "canceled": {
+      "title": "Kwiyandikisha byahagaritswe",
+      "body": "Ushobora gukomeza kugeza {{date}}."
+    },
+    "expired": {
+      "title": "Kwiyandikisha kwa OuWealth ntigikora",
+      "leadership": "Ushobora gukomeza kubona amakuru y'Ikimina, ariko ibikorwa bishya ntibishoboka none.",
+      "member": "Kwiyandikisha kwa OuWealth bisaba kuvugururwa. Ushobora gukomeza kubona amakuru. Vugana na Perezida cyangwa ubuyobozi kugira ngo bivugururwe."
+    },
+    "none": {
+      "title": "Kwiyandikisha birakenewe"
+    },
+    "dashboard": {
+      "trial": "Igihe cyo kugerageza kirangira ku {{date}}. Hasigaye iminsi {{count}}.",
+      "active": "Gahunda ya {{cycle}}. Igihe kiriho kirangira ku {{date}}.",
+      "pastDue": "Kwishyura byarenze igihe. Gikora kugeza {{date}}.",
+      "canceled": "Byahagaritswe. Bikora kugeza {{date}}.",
+      "viewPlans": "Reba gahunda",
+      "manage": "Gucunga kwiyandikisha",
+      "review": "Suzuma kwishyura",
+      "renew": "Vugurura kwiyandikisha",
+      "choosePlan": "Hitamo gahunda",
+      "contactLeadership": "Vugana na Perezida cyangwa ubuyobozi."
+    },
+    "billing": {
+      "schemeLabel": "Ikimina",
+      "currentTitle": "Kwiyandikisha biriho",
+      "status": "Imiterere",
+      "plan": "Gahunda iriho",
+      "cycle": "Igihe cyo kwishyura",
+      "trialStart": "Itangira ryo kugerageza",
+      "trialEnd": "Irangira ryo kugerageza",
+      "periodStart": "Itangira ry'igihe cyishyuwe",
+      "periodEnd": "Irangira ry'igihe cyishyuwe",
+      "pastDueUntil": "Bikora kugeza",
+      "canceledAt": "Byahagaritswe ku",
+      "daysRemaining_one": "Hasigaye umunsi {{count}}",
+      "daysRemaining_other": "Hasigaye iminsi {{count}}",
+      "trialFree": "Ikimina cyawe gikoresha OuWealth ubuntu.",
+      "trialEnds": "Igihe cyo kugerageza kirangira {{date}}",
+      "trialPlansHint": "Gahunda zikurikira zerekana icyabaho nyuma y'igihe cyo kugerageza. Guhitamo gahunda ntibitangira kwishyura.",
+      "activeMonthly": "Gahunda y'ukwezi",
+      "activeAnnual": "Gahunda y'umwaka",
+      "perMonth": "buri kwezi",
+      "perYear": "buri mwaka",
+      "periodEnds": "Igihe kiriho kirangira {{date}}",
+      "pastDueAccess": "Kwishyura byarenze igihe. Bikora kugeza {{date}}.",
+      "expiredReadOnly": "Ikimina cyawe kiri mu buryo bwo gusoma gusa.",
+      "noneRequired": "Kwiyandikisha birakenewe",
+      "savePercent": "Kugabanya {{percent}}%",
+      "youSave": "Ugabanya {{amount}}",
+      "recommended": "Iyemejwe",
+      "equivalentMonthly": "Bihwanye na {{amount}}/ukwezi",
+      "chooseMonthly": "Hitamo ukwezi",
+      "chooseAnnual": "Hitamo umwaka",
+      "monthlyBenefitBilling": "Kwishyura buri kwezi",
+      "monthlyBenefitAccess": "Koresha OuWealth yuzuye",
+      "annualBenefitDiscount": "Kugabanya {{percent}}% ku mwaka",
+      "annualBenefitAccess": "Koresha OuWealth yuzuye",
+      "memberNotice": "Kwishyura kwiyandikisha bikorerwa n'ubuyobozi bw'Ikimina.",
+      "plansTitle": "Gahunda",
+      "paymentMethod": "Uburyo bwo kwishyura",
+      "mtnMomo": "MTN Mobile Money",
+      "bankCard": "Ikarita ya banki",
+      "changePlan": "Hindura gahunda",
+      "reviewTitle": "Isubiramo",
+      "reviewPlan": "Gahunda",
+      "reviewAmount": "Amafaranga asabwa",
+      "reviewBilling": "Igihe",
+      "reviewMethod": "Uburyo bwo kwishyura",
+      "reviewListPrice": "Igiciro gisanzwe",
+      "reviewDiscount": "Kugabanya",
+      "reviewSavings": "Ugabanya",
+      "oneMonth": "ukwezi 1",
+      "oneYear": "amezi 12",
+      "continuePayment": "Komeza kwishyura",
+      "checkoutUnavailable": "Kwishyura ntibishoboka none. Ikimina cyawe nticyishyuwe.",
+      "momoLater": "Iyo MTN Mobile Money izashyirwaho, tuzasaba numero ya telefoni. OuWealth ntikumbura PIN ya MoMo.",
+      "cardLater": "Amakuru y'ikarita azakusanywa n'uwakira amafaranga. OuWealth ntabika numero y'ikarita cyangwa CVV.",
+      "historyTitle": "Amateka y'kwishyura",
+      "historyEmpty": "Nta kwishyura kwiyandikisha birahari.",
+      "historyHint": "Aya ni amafaranga y'OuWealth, si ibikorwa by'abanyamuryango.",
+      "colDate": "Itariki",
+      "colPlan": "Gahunda",
+      "colMethod": "Uburyo",
+      "colAmount": "Amafaranga",
+      "colStatus": "Imiterere",
+      "paymentStatus": {
+        "PENDING": "Bitegereje",
+        "SUCCESS": "Byagenze neza",
+        "FAILED": "Byanze",
+        "CANCELED": "Byahagaritswe"
+      },
+      "selectCooperativeTitle": "Hitamo Ikimina",
+      "selectCooperativeDescription": "Kwishyura bishingiye ku Kimina wahisemo."
+    }
+  },
   "errors": {
     "generic": "Habaye ikosa. Ongera ugerageze.",
     "boundaryTitle": "Habaye ikosa",
@@ -1839,7 +2021,8 @@
     "unauthorized": "Injira kugira ngo ukomeze.",
     "notFound": "Urupapuro ntirubonetse",
     "loginFailed": "Izina cyangwa ijambo ry'ibanga ntabwo ari byo.",
-    "signupFailed": "Konti ntiyashoboye gufungurwa. Gerageza irindi zina cyangwa imeri."
+    "signupFailed": "Ikimina nticyashoboye gufungurwa. Gerageza irindi zina, imeri, cyangwa numero y'iyandikishwa.",
+    "subscriptionInactive": "Kwiyandikisha kwa OuWealth kw'iki Kimina ntigikora."
   },
   "pages": {
     "members": {
@@ -1913,6 +2096,10 @@
     "historicalImport": {
       "title": "Kwinjiza amateka",
       "description": "Injiza amateka y'ikimina kuvanaho Excel kugira ngo raporo n'imbonerahamwe byerekane amateka yose."
+    },
+    "billing": {
+      "title": "Kwishyura n'kwiyandikisha",
+      "description": "Imiterere y'kwiyandikisha kwa OuWealth, gahunda, n'amateka y'kwishyura kw'iki Kimina."
     }
   },
   "historicalImport": {

@@ -1,7 +1,6 @@
 import AddIcon from '@mui/icons-material/Add'
 import {
   Box,
-  Button,
   Chip,
   MenuItem,
   Stack,
@@ -21,6 +20,7 @@ import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
 import { ResponsiveTable, type TableColumn } from '@/shared/components/ResponsiveTable'
 import { ROUTES } from '@/shared/constants/routes'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
@@ -160,9 +160,9 @@ export function MembersPage() {
         title={t('pages.members.title')}
         description={t('pages.members.description')}
         actions={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+          <SubscriptionAwareButton variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
             {t('members.register')}
-          </Button>
+          </SubscriptionAwareButton>
         }
       />
 

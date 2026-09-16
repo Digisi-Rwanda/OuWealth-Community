@@ -1,4 +1,4 @@
-import { Box, Button, Grid, Tab, Tabs } from '@mui/material'
+import { Box, Grid, Tab, Tabs } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,7 @@ import { fetchLoans } from '@/shared/api/loans'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { MetricCard } from '@/shared/components/MetricCard'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
 
 type LoanTab = 'mine' | 'approvals' | 'all' | 'issue' | 'guarantor' | 'settings'
 
@@ -91,21 +92,21 @@ export function LoansPage() {
         description={t('pages.loans.description')}
         actions={
           isAdmin ? (
-            <Button
+            <SubscriptionAwareButton
               variant="outlined"
               size="small"
               onClick={() => setTab(Math.max(0, tabs.indexOf('issue')))}
             >
               {t('loans.tabs.issue')}
-            </Button>
+            </SubscriptionAwareButton>
           ) : (
-            <Button
+            <SubscriptionAwareButton
               variant="contained"
               size="small"
               onClick={() => setTab(Math.max(0, tabs.indexOf('issue')))}
             >
               {t('loans.request.apply')}
-            </Button>
+            </SubscriptionAwareButton>
           )
         }
       />

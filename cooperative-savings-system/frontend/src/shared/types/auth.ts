@@ -111,6 +111,9 @@ export const FINANCE_ACCESS_ROLES = [
   ROLE_SUPER_ADMIN,
 ]
 
+/** Who may initiate/manage OuWealth subscription payments for a Saving Scheme. */
+export const BILLING_MANAGER_ROLES = FINANCE_ACCESS_ROLES
+
 export const LOAN_COMMITTEE_ROLES = [
   ROLE_PRESIDENT,
   ROLE_VICE_PRESIDENT,

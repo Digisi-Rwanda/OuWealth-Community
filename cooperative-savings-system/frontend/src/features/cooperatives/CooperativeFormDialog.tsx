@@ -2,11 +2,18 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import {
   Alert,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
@@ -57,6 +64,16 @@ function fromCooperative(coop: Cooperative): CooperativeFormValues {
     monthlyContributionAmount: String(coop.monthlyContributionAmount ?? '0'),
     contributionDueDay: coop.contributionDueDay ?? 1,
     registrationDate: coop.registrationDate ?? '',
+    startTrial: true,
+    assignPresidentNow: false,
+    presidentMode: 'new',
+    presidentUserId: '',
+    presidentUsername: '',
+    presidentEmail: '',
+    presidentFirstName: '',
+    presidentLastName: '',
+    presidentPhone: '',
+    presidentTemporaryPassword: '',
   }
 }
 
@@ -75,11 +92,15 @@ export function CooperativeFormDialog({
     control,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CooperativeFormValues>({
     resolver: yupResolver(cooperativeFormSchema),
     defaultValues: cooperativeFormDefaults,
   })
+  const startTrial = watch('startTrial')
+  const assignPresidentNow = watch('assignPresidentNow')
+  const presidentMode = watch('presidentMode')
 
   useEffect(() => {
     if (!open) return
@@ -87,12 +108,12 @@ export function CooperativeFormDialog({
   }, [open, initial, reset])
 
   return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth={mode === 'create' ? 'md' : 'sm'}>
       <DialogTitle>
         {mode === 'create' ? t('cooperatives.createTitle') : t('cooperatives.editTitle')}
       </DialogTitle>
       <form
-        onSubmit={handleSubmit((values) => onSubmit(toCooperativePayload(values)))}
+        onSubmit={handleSubmit((values) => onSubmit(toCooperativePayload(values, mode)))}
         noValidate
       >
         <DialogContent>
@@ -251,6 +272,143 @@ export function CooperativeFormDialog({
               helperText={errors.monthlyContributionAmount?.message}
               {...register('monthlyContributionAmount')}
             />
+            {mode === 'create' ? (
+              <>
+                <Divider />
+                <Typography variant="subtitle2">{t('cooperatives.onboarding.subscriptionTitle')}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('cooperatives.onboarding.subscriptionHint')}
+                </Typography>
+                <Controller
+                  name="startTrial"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label={t('cooperatives.onboarding.startTrial')}
+                    />
+                  )}
+                />
+                {!startTrial ? (
+                  <Alert severity="info">{t('cooperatives.onboarding.noTrial')}</Alert>
+                ) : null}
+
+                <Typography variant="subtitle2">{t('cooperatives.onboarding.presidentTitle')}</Typography>
+                <Controller
+                  name="assignPresidentNow"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl>
+                      <FormLabel>{t('cooperatives.onboarding.presidentWhen')}</FormLabel>
+                      <RadioGroup
+                        value={field.value ? 'now' : 'later'}
+                        onChange={(e) => field.onChange(e.target.value === 'now')}
+                      >
+                        <FormControlLabel
+                          value="now"
+                          control={<Radio />}
+                          label={t('cooperatives.onboarding.assignNow')}
+                        />
+                        <FormControlLabel
+                          value="later"
+                          control={<Radio />}
+                          label={t('cooperatives.onboarding.assignLater')}
+                        />
+                      </RadioGroup>
+                    </FormControl>
+                  )}
+                />
+                {!assignPresidentNow ? (
+                  <Alert severity="warning">{t('cooperatives.onboarding.deferWarning')}</Alert>
+                ) : (
+                  <Stack spacing={2}>
+                    <Controller
+                      name="presidentMode"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          select
+                          label={t('cooperatives.onboarding.presidentMode')}
+                          fullWidth
+                        >
+                          <MenuItem value="new">{t('cooperatives.onboarding.createPresident')}</MenuItem>
+                          <MenuItem value="existing">{t('cooperatives.onboarding.existingPresident')}</MenuItem>
+                        </TextField>
+                      )}
+                    />
+                    {presidentMode === 'existing' ? (
+                      <TextField
+                        label={t('cooperatives.onboarding.presidentUserId')}
+                        fullWidth
+                        error={Boolean(errors.presidentUserId)}
+                        helperText={
+                          errors.presidentUserId?.message ?? t('cooperatives.onboarding.presidentUserIdHint')
+                        }
+                        {...register('presidentUserId')}
+                      />
+                    ) : (
+                      <>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                          <TextField
+                            label={t('cooperatives.onboarding.presidentFirstName')}
+                            required
+                            fullWidth
+                            error={Boolean(errors.presidentFirstName)}
+                            helperText={errors.presidentFirstName?.message}
+                            {...register('presidentFirstName')}
+                          />
+                          <TextField
+                            label={t('cooperatives.onboarding.presidentLastName')}
+                            required
+                            fullWidth
+                            error={Boolean(errors.presidentLastName)}
+                            helperText={errors.presidentLastName?.message}
+                            {...register('presidentLastName')}
+                          />
+                        </Stack>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                          <TextField
+                            label={t('cooperatives.onboarding.presidentUsername')}
+                            required
+                            fullWidth
+                            error={Boolean(errors.presidentUsername)}
+                            helperText={errors.presidentUsername?.message}
+                            {...register('presidentUsername')}
+                          />
+                          <TextField
+                            label={t('cooperatives.onboarding.presidentEmail')}
+                            required
+                            fullWidth
+                            type="email"
+                            error={Boolean(errors.presidentEmail)}
+                            helperText={errors.presidentEmail?.message}
+                            {...register('presidentEmail')}
+                          />
+                        </Stack>
+                        <TextField
+                          label={t('cooperatives.onboarding.presidentPhone')}
+                          fullWidth
+                          {...register('presidentPhone')}
+                        />
+                        <TextField
+                          label={t('cooperatives.onboarding.presidentTemporaryPassword')}
+                          fullWidth
+                          type="password"
+                          helperText={t('cooperatives.onboarding.presidentTemporaryPasswordHint')}
+                          {...register('presidentTemporaryPassword')}
+                        />
+                      </>
+                    )}
+                  </Stack>
+                )}
+              </>
+            ) : null}
             {mode === 'create' ? (
               <Typography variant="caption" color="text.secondary">
                 {t('cooperatives.createWelcomeFooter')}

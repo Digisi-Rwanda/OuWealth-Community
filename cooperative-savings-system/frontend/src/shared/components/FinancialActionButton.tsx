@@ -1,4 +1,6 @@
 import { Button, Tooltip, type ButtonProps } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import {
   useFinancialSubmitGuard,
   type FinancialSubmitGuard,
@@ -12,7 +14,8 @@ type FinancialActionButtonProps = ButtonProps & {
 }
 
 /**
- * Submit/action button that disables when offline (and optionally when the server is unreachable).
+ * Submit/action button that disables when offline, the server is unreachable,
+ * or the selected cooperative subscription is read-only.
  */
 export function FinancialActionButton({
   requireServerReachable = false,
@@ -21,10 +24,17 @@ export function FinancialActionButton({
   children,
   ...rest
 }: FinancialActionButtonProps) {
+  const { t } = useTranslation()
   const localGuard = useFinancialSubmitGuard({ requireServerReachable })
   const guard = guardProp ?? localGuard
-  const blocked = !guard.canSubmit
-  const title = blocked ? (guard.reason ?? undefined) : undefined
+  const { readOnly, canWrite } = useCooperativeSubscription()
+  const subscriptionBlocked = readOnly || !canWrite
+  const blocked = !guard.canSubmit || subscriptionBlocked
+  const title = subscriptionBlocked
+    ? t('subscription.readOnlyAction')
+    : blocked
+      ? (guard.reason ?? undefined)
+      : undefined
 
   const button = (
     <Button {...rest} disabled={disabled || blocked}>
