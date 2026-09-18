@@ -145,7 +145,16 @@
     "contributionApprovals": "Kwemeza amafaranga y'ukwezi",
     "socialApprovals": "Kwemeza amafaranga y'imibereho",
     "historicalImport": "Kwinjiza amateka",
-    "billing": "Kwishyura"
+    "billing": "Kwishyura",
+    "sidebarAria": "Aho ugenda",
+    "group": {
+      "overview": "Incamake",
+      "operations": "Ibikorwa",
+      "finance": "Imari",
+      "governance": "Ubuyobozi",
+      "platform": "Urubuga",
+      "account": "Konti"
+    }
   },
   "login": {
     "title": "Injira",

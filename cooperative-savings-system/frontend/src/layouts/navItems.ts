@@ -31,14 +31,42 @@ import {
   isOfficerRole,
 } from '@/shared/types/auth'
 
+export type SidebarGroupId =
+  | 'overview'
+  | 'operations'
+  | 'finance'
+  | 'governance'
+  | 'platform'
+  | 'account'
+
 export interface NavItem {
   labelKey: string
   path: string
   icon: SvgIconComponent
   /** If set, user must have at least one of these roles to see the item. */
   roles?: string[]
-  /** Optional grouping for Admin menus. */
+  /** Legacy AdminNavMenu grouping (kept for compatibility). */
   group?: 'main' | 'advanced' | 'super'
+  /** Authenticated sidebar section. */
+  sidebarGroup: SidebarGroupId
+}
+
+export const SIDEBAR_GROUP_ORDER: SidebarGroupId[] = [
+  'overview',
+  'operations',
+  'finance',
+  'governance',
+  'platform',
+  'account',
+]
+
+export const SIDEBAR_GROUP_LABEL_KEYS: Record<SidebarGroupId, string> = {
+  overview: 'nav.group.overview',
+  operations: 'nav.group.operations',
+  finance: 'nav.group.finance',
+  governance: 'nav.group.governance',
+  platform: 'nav.group.platform',
+  account: 'nav.group.account',
 }
 
 const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
@@ -54,33 +82,69 @@ export const dashboardNavItem: NavItem = {
   labelKey: 'nav.dashboard',
   path: ROUTES.dashboard,
   icon: DashboardIcon,
+  sidebarGroup: 'overview',
+}
+
+const profileNavItem: NavItem = {
+  labelKey: 'nav.profile',
+  path: ROUTES.profile,
+  icon: PersonIcon,
+  sidebarGroup: 'account',
 }
 
 /**
- * MEMBER-facing primary navigation (mobile drawer + simplified menus).
+ * MEMBER-facing primary navigation (mobile drawer + sidebar).
  * Labels use member-oriented wording where possible.
  */
 export const memberNavItems: NavItem[] = [
   dashboardNavItem,
-  { labelKey: 'nav.myContributions', path: ROUTES.contributions, icon: SavingsIcon },
-  { labelKey: 'nav.myLoans', path: ROUTES.loans, icon: AccountBalanceWalletIcon },
-  { labelKey: 'nav.myFines', path: ROUTES.fines, icon: GavelIcon },
-  { labelKey: 'nav.mySocial', path: ROUTES.socialFund, icon: FavoriteIcon },
-  { labelKey: 'nav.shareOut', path: ROUTES.payouts, icon: PaymentsIcon },
-  { labelKey: 'nav.reports', path: ROUTES.reports, icon: AssessmentIcon },
-  { labelKey: 'nav.notifications', path: ROUTES.notifications, icon: NotificationsIcon },
-  { labelKey: 'nav.profile', path: ROUTES.profile, icon: PersonIcon },
+  {
+    labelKey: 'nav.myContributions',
+    path: ROUTES.contributions,
+    icon: SavingsIcon,
+    sidebarGroup: 'operations',
+  },
+  {
+    labelKey: 'nav.myLoans',
+    path: ROUTES.loans,
+    icon: AccountBalanceWalletIcon,
+    sidebarGroup: 'operations',
+  },
+  { labelKey: 'nav.myFines', path: ROUTES.fines, icon: GavelIcon, sidebarGroup: 'operations' },
+  {
+    labelKey: 'nav.mySocial',
+    path: ROUTES.socialFund,
+    icon: FavoriteIcon,
+    sidebarGroup: 'operations',
+  },
+  { labelKey: 'nav.shareOut', path: ROUTES.payouts, icon: PaymentsIcon, sidebarGroup: 'finance' },
+  { labelKey: 'nav.reports', path: ROUTES.reports, icon: AssessmentIcon, sidebarGroup: 'finance' },
+  {
+    labelKey: 'nav.notifications',
+    path: ROUTES.notifications,
+    icon: NotificationsIcon,
+    sidebarGroup: 'account',
+  },
+  profileNavItem,
 ]
 
-/** Officer modules shown under Manage ▼ (and in the mobile drawer). */
+/** Officer modules shown in the authenticated sidebar / mobile drawer. */
 export const adminModuleNavItems: NavItem[] = [
-  { labelKey: 'nav.members', path: ROUTES.members, icon: GroupsIcon, roles: SECRETARY_ACCESS_ROLES, group: 'main' },
+  {
+    labelKey: 'nav.members',
+    path: ROUTES.members,
+    icon: GroupsIcon,
+    roles: SECRETARY_ACCESS_ROLES,
+    group: 'main',
+    sidebarGroup: 'operations',
+  },
   {
     labelKey: 'nav.contributions',
     path: ROUTES.contributions,
     icon: SavingsIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
   {
     labelKey: 'nav.contributionApprovals',
@@ -88,22 +152,39 @@ export const adminModuleNavItems: NavItem[] = [
     icon: AssignmentTurnedInIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
-  { labelKey: 'nav.loans', path: ROUTES.loans, icon: AccountBalanceWalletIcon, roles: LOAN_OPS_ROLES, group: 'main' },
+  {
+    labelKey: 'nav.loans',
+    path: ROUTES.loans,
+    icon: AccountBalanceWalletIcon,
+    roles: LOAN_OPS_ROLES,
+    group: 'main',
+    sidebarGroup: 'operations',
+  },
   {
     labelKey: 'nav.loanApprovals',
     path: `${ROUTES.loans}?tab=approvals`,
     icon: AssignmentTurnedInIcon,
     roles: LOAN_COMMITTEE_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
-  { labelKey: 'nav.fines', path: ROUTES.fines, icon: GavelIcon, roles: FINANCE_ACCESS_ROLES, group: 'main' },
+  {
+    labelKey: 'nav.fines',
+    path: ROUTES.fines,
+    icon: GavelIcon,
+    roles: FINANCE_ACCESS_ROLES,
+    group: 'main',
+    sidebarGroup: 'operations',
+  },
   {
     labelKey: 'nav.finePaymentQueue',
     path: ROUTES.finePayments,
     icon: GavelIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
   {
     labelKey: 'nav.socialDashboard',
@@ -111,6 +192,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: FavoriteIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
   {
     labelKey: 'nav.socialApprovals',
@@ -118,6 +200,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: AssignmentTurnedInIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'operations',
   },
   {
     labelKey: 'nav.investments',
@@ -125,6 +208,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: ShowChartIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'finance',
   },
   {
     labelKey: 'nav.shareOut',
@@ -132,6 +216,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: PaymentsIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'finance',
   },
   {
     labelKey: 'nav.transactions',
@@ -139,6 +224,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: ReceiptLongIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
+    sidebarGroup: 'finance',
   },
   {
     labelKey: 'nav.reports',
@@ -146,34 +232,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: AssessmentIcon,
     roles: STAFF_ROLES,
     group: 'main',
-  },
-  {
-    labelKey: 'nav.notifications',
-    path: ROUTES.notifications,
-    icon: NotificationsIcon,
-    roles: STAFF_ROLES,
-    group: 'main',
-  },
-  {
-    labelKey: 'nav.historicalImport',
-    path: ROUTES.historicalImport,
-    icon: HistoryEduIcon,
-    roles: LEADERSHIP_NAV_ROLES,
-    group: 'main',
-  },
-  {
-    labelKey: 'nav.billing',
-    path: ROUTES.billing,
-    icon: ReceiptIcon,
-    roles: BILLING_MANAGER_ROLES,
-    group: 'main',
-  },
-  {
-    labelKey: 'nav.settings',
-    path: ROUTES.settings,
-    icon: SettingsIcon,
-    roles: LEADERSHIP_NAV_ROLES,
-    group: 'main',
+    sidebarGroup: 'finance',
   },
   {
     labelKey: 'nav.ledger',
@@ -181,6 +240,39 @@ export const adminModuleNavItems: NavItem[] = [
     icon: MenuBookIcon,
     roles: FINANCE_ACCESS_ROLES,
     group: 'advanced',
+    sidebarGroup: 'finance',
+  },
+  {
+    labelKey: 'nav.notifications',
+    path: ROUTES.notifications,
+    icon: NotificationsIcon,
+    roles: STAFF_ROLES,
+    group: 'main',
+    sidebarGroup: 'account',
+  },
+  {
+    labelKey: 'nav.historicalImport',
+    path: ROUTES.historicalImport,
+    icon: HistoryEduIcon,
+    roles: LEADERSHIP_NAV_ROLES,
+    group: 'main',
+    sidebarGroup: 'governance',
+  },
+  {
+    labelKey: 'nav.billing',
+    path: ROUTES.billing,
+    icon: ReceiptIcon,
+    roles: BILLING_MANAGER_ROLES,
+    group: 'main',
+    sidebarGroup: 'governance',
+  },
+  {
+    labelKey: 'nav.settings',
+    path: ROUTES.settings,
+    icon: SettingsIcon,
+    roles: LEADERSHIP_NAV_ROLES,
+    group: 'main',
+    sidebarGroup: 'governance',
   },
   {
     labelKey: 'nav.auditLogs',
@@ -188,6 +280,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: HistoryIcon,
     roles: SECRETARY_ACCESS_ROLES,
     group: 'advanced',
+    sidebarGroup: 'governance',
   },
   {
     labelKey: 'nav.cooperatives',
@@ -195,6 +288,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: AccountBalanceIcon,
     roles: SUPER_ADMIN_ROLES,
     group: 'super',
+    sidebarGroup: 'platform',
   },
   {
     labelKey: 'nav.system',
@@ -202,6 +296,7 @@ export const adminModuleNavItems: NavItem[] = [
     icon: HealthAndSafetyIcon,
     roles: SUPER_ADMIN_ROLES,
     group: 'super',
+    sidebarGroup: 'platform',
   },
 ]
 
@@ -212,7 +307,7 @@ export const adminModuleNavItems: NavItem[] = [
 export const mainNavItems: NavItem[] = [
   dashboardNavItem,
   ...adminModuleNavItems.filter((i) => i.group === 'main' || !i.group),
-  { labelKey: 'nav.profile', path: ROUTES.profile, icon: PersonIcon },
+  profileNavItem,
 ]
 
 export const adminNavItems: NavItem[] = adminModuleNavItems.filter(
@@ -236,12 +331,13 @@ export function isAdminUser(userRoles: string[]): boolean {
   return isCooperativeAdminUser(userRoles) || isSuperAdminUser(userRoles)
 }
 
+/** Flat role-filtered list used by mobile drawer and as the sidebar source. */
 export function getMobileNavItems(userRoles: string[]): NavItem[] {
   if (isAdminUser(userRoles)) {
     const items: NavItem[] = [
       dashboardNavItem,
       ...adminModuleNavItems.filter((item) => canAccessNavItem(item, userRoles)),
-      { labelKey: 'nav.profile', path: ROUTES.profile, icon: PersonIcon },
+      profileNavItem,
     ]
     const seen = new Set<string>()
     return items.filter((item) => {
@@ -251,4 +347,53 @@ export function getMobileNavItems(userRoles: string[]): NavItem[] {
     })
   }
   return memberNavItems.filter((item) => canAccessNavItem(item, userRoles))
+}
+
+export interface SidebarNavGroup {
+  id: SidebarGroupId
+  labelKey: string
+  items: NavItem[]
+}
+
+/** Role-filtered items grouped for the authenticated sidebar. */
+export function getSidebarNavGroups(userRoles: string[]): SidebarNavGroup[] {
+  const items = getMobileNavItems(userRoles)
+  return SIDEBAR_GROUP_ORDER.map((id) => ({
+    id,
+    labelKey: SIDEBAR_GROUP_LABEL_KEYS[id],
+    items: items.filter((item) => item.sidebarGroup === id),
+  })).filter((group) => group.items.length > 0)
+}
+
+export function navItemPathBase(path: string): string {
+  return path.split('?')[0]
+}
+
+/**
+ * Active-state helper for sidebar/drawer items.
+ * Query-bearing items (e.g. ?tab=approvals) win when the search matches;
+ * otherwise the parent module stays active for detail routes.
+ */
+export function isNavItemActive(pathname: string, search: string, itemPath: string): boolean {
+  const [base, query] = itemPath.split('?')
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+
+  if (query) {
+    const expected = new URLSearchParams(query)
+    for (const [key, value] of expected.entries()) {
+      if (params.get(key) !== value) return false
+    }
+    return pathname === base
+  }
+
+  if (pathname.startsWith(`${base}/`)) {
+    return true
+  }
+
+  if (pathname === base) {
+    // Leave the base module inactive when a tabbed sibling owns the URL.
+    return !params.has('tab')
+  }
+
+  return false
 }

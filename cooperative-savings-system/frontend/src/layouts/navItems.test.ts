@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   canAccessNavItem,
   getMobileNavItems,
+  getSidebarNavGroups,
   isAdminUser,
   isCooperativeAdminUser,
+  isNavItemActive,
   isSuperAdminUser,
   type NavItem,
 } from '@/layouts/navItems'
@@ -14,6 +16,7 @@ const memberItem: NavItem = {
   labelKey: 'nav.dashboard',
   path: '/dashboard',
   icon: DashboardIcon,
+  sidebarGroup: 'overview',
 }
 
 const adminItem: NavItem = {
@@ -21,6 +24,7 @@ const adminItem: NavItem = {
   path: '/members',
   icon: DashboardIcon,
   roles: [ROLE_PRESIDENT, ROLE_SUPER_ADMIN],
+  sidebarGroup: 'operations',
 }
 
 const superItem: NavItem = {
@@ -28,6 +32,7 @@ const superItem: NavItem = {
   path: '/cooperatives',
   icon: DashboardIcon,
   roles: [ROLE_SUPER_ADMIN],
+  sidebarGroup: 'platform',
 }
 
 describe('canAccessNavItem', () => {
@@ -97,5 +102,33 @@ describe('getMobileNavItems', () => {
     expect(accountant.some((i) => i.path === '/historical-import')).toBe(false)
     expect(accountant.some((i) => i.path === '/members')).toBe(false)
     expect(accountant.some((i) => i.path === '/audit-logs')).toBe(false)
+  })
+})
+
+describe('getSidebarNavGroups', () => {
+  it('groups the same role-filtered items used by the mobile drawer', () => {
+    const flat = getMobileNavItems([ROLE_PRESIDENT])
+    const groups = getSidebarNavGroups([ROLE_PRESIDENT])
+    const grouped = groups.flatMap((g) => g.items)
+    expect(grouped.map((i) => i.path).sort()).toEqual(flat.map((i) => i.path).sort())
+    expect(groups.some((g) => g.id === 'operations')).toBe(true)
+    expect(groups.some((g) => g.id === 'finance')).toBe(true)
+    expect(groups.some((g) => g.id === 'governance')).toBe(true)
+  })
+})
+
+describe('isNavItemActive', () => {
+  it('marks parent modules active for detail routes', () => {
+    expect(isNavItemActive('/loans/abc', '', '/loans')).toBe(true)
+    expect(isNavItemActive('/members/1', '', '/members')).toBe(true)
+    expect(isNavItemActive('/cooperatives/c1', '', '/cooperatives')).toBe(true)
+  })
+
+  it('prefers tabbed siblings over the base module path', () => {
+    expect(isNavItemActive('/contributions', '?tab=approvals', '/contributions')).toBe(false)
+    expect(isNavItemActive('/contributions', '?tab=approvals', '/contributions?tab=approvals')).toBe(
+      true,
+    )
+    expect(isNavItemActive('/contributions', '', '/contributions')).toBe(true)
   })
 })

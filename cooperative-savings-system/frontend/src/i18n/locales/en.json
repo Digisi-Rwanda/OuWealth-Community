@@ -145,7 +145,16 @@
     "contributionApprovals": "Regular Contribution Approvals",
     "socialApprovals": "Social Contribution Approvals",
     "historicalImport": "Historical Data Import",
-    "billing": "Billing"
+    "billing": "Billing",
+    "sidebarAria": "Main navigation",
+    "group": {
+      "overview": "Overview",
+      "operations": "Operations",
+      "finance": "Finance",
+      "governance": "Administration",
+      "platform": "Platform",
+      "account": "Account"
+    }
   },
   "login": {
     "title": "Sign in",

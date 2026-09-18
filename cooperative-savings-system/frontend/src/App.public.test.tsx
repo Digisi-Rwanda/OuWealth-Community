@@ -156,6 +156,29 @@ describe('App public site', () => {
     expect(screen.queryByTestId('payment-history')).not.toBeInTheDocument()
   })
 
+  it('does not render the authenticated app sidebar on public marketing pages', async () => {
+    render(<App />)
+    await screen.findByTestId('landing-page')
+    expect(screen.queryByTestId('app-sidebar')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('app-top-bar')).not.toBeInTheDocument()
+  })
+
+  it('does not render the authenticated app sidebar on login or signup', async () => {
+    go('/login')
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('heading', { name: /Sign in/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('app-top-bar')).not.toBeInTheDocument()
+    unmount()
+
+    go('/signup')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: /Create/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('app-top-bar')).not.toBeInTheDocument()
+  })
+
   it('keeps dashboard behind authentication', async () => {
     go('/dashboard')
     render(<App />)

@@ -92,30 +92,28 @@ function renderAppLayout(mode: 'light' | 'dark', mdUp = false) {
   )
 }
 
-function appBarLogo() {
-  return within(screen.getByRole('banner')).getByRole('img', { name: BRAND_LOGO_ALT })
-}
-
 describe('AppLayout logo surfaces', () => {
   beforeEach(() => {
     stubMatchMedia(false)
   })
 
-  it('uses the orange/white mark lockup in the AppBar in Light Mode', () => {
+  it('uses the brand lockup in the desktop sidebar in Light Mode', () => {
     renderAppLayout('light', true)
-    expect(appBarLogo()).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).getByText('Wealth')).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).getByText('COMMUNITY')).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).queryByRole('img', { name: BRAND_LOGO_ALT })?.getAttribute('src')).toBeNull()
+    const sidebar = screen.getByTestId('app-sidebar-desktop')
+    expect(within(sidebar).getByRole('img', { name: BRAND_LOGO_ALT })).toBeInTheDocument()
+    expect(within(sidebar).getByText('Wealth')).toBeInTheDocument()
+    expect(within(sidebar).getByText('COMMUNITY')).toBeInTheDocument()
+    expect(within(screen.getByRole('banner')).queryByText('Wealth')).not.toBeInTheDocument()
   })
 
-  it('uses the orange/white mark lockup in the AppBar in Dark Mode', () => {
+  it('uses the brand lockup in the desktop sidebar in Dark Mode', () => {
     renderAppLayout('dark', true)
-    expect(appBarLogo()).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).getByText('COMMUNITY')).toBeInTheDocument()
+    const sidebar = screen.getByTestId('app-sidebar-desktop')
+    expect(within(sidebar).getByRole('img', { name: BRAND_LOGO_ALT })).toBeInTheDocument()
+    expect(within(sidebar).getByText('COMMUNITY')).toBeInTheDocument()
   })
 
-  it('uses the lockup in the Light Mode drawer', async () => {
+  it('uses the lockup in the Light Mode top bar and drawer', async () => {
     const user = userEvent.setup()
     renderAppLayout('light', false)
     expect(within(screen.getByRole('banner')).getByText('COMMUNITY')).toBeInTheDocument()
