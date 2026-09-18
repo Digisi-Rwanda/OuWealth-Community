@@ -39,17 +39,24 @@ app:
   subscription:
     payment:
       pending-reuse-minutes: 15
+      pending-abandon-hours: 48
+      reconciliation:
+        enabled: false
       mtn:
         enabled: false
         subscription-key: ""
         api-user: ""
         api-key: ""
+        target-environment: sandbox
+        callback-url: ""
       flutterwave:
         enabled: false
+        mode: test
         public-key: ""
         secret-key: ""
         secret-hash: ""
         redirect-url: ""
+        webhook-url: ""
 
 
 logging:

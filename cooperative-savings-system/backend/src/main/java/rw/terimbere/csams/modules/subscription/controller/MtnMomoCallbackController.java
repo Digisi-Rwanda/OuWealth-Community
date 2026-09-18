@@ -20,7 +20,7 @@ import rw.terimbere.csams.modules.subscription.service.BillingService;
 /**
  * Unauthenticated MTN Collection callback. The payload is never trusted; BillingService
  * re-queries MTN before changing entitlement. Always returns 200 so MTN does not retry
- * storms against unknown references.
+ * storms against unknown references. Malformed bodies never expose stack traces.
  */
 @RestController
 @RequestMapping("/api/v1/public/billing/mtn")
@@ -35,8 +35,7 @@ public class MtnMomoCallbackController {
     @PostMapping("/callback")
     @Operation(summary = "MTN MoMo collection callback")
     public ResponseEntity<Void> callback(@RequestBody(required = false) CallbackBody body) {
-        String reference = body == null ? null : body.reference();
-        billingService.handleMtnCallback(reference);
+        accept(body == null ? null : body.reference());
         return ResponseEntity.ok().build();
     }
 
@@ -47,9 +46,17 @@ public class MtnMomoCallbackController {
         String reference = StringUtils.hasText(referenceId)
                 ? referenceId
                 : (body == null ? null : body.reference());
-        log.info("MTN MoMo callback received for reference {}", reference);
-        billingService.handleMtnCallback(reference);
+        accept(reference);
         return ResponseEntity.ok().build();
+    }
+
+    private void accept(String reference) {
+        try {
+            log.info("MTN MoMo callback received");
+            billingService.handleMtnCallback(reference);
+        } catch (RuntimeException ex) {
+            log.warn("MTN MoMo callback processing failed: {}", ex.getClass().getSimpleName());
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

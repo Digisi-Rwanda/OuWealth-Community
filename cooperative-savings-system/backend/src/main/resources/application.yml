@@ -116,21 +116,32 @@ app:
     annual-charge: 18000.0000
     annual-discount-percent: 25
     payment:
-      # Reuse a PENDING checkout only inside this window (same plan, channel, and payer
-      # identity). 15 minutes covers double-clicks and in-flight approval without
-      # blocking a later legitimate retry. Stale PENDING rows are canceled and replaced.
+      # Checkout retry eligibility (same plan/channel/payer). Not provider final status.
+      # Expiry of this window does NOT mark a payment FAILED.
       pending-reuse-minutes: ${SUBSCRIPTION_PENDING_REUSE_MINUTES:15}
+      # PENDING older than this are skipped by reconciliation sweeps (still PENDING until
+      # callback/webhook, status poll, or a new checkout replaces them).
+      pending-abandon-hours: ${SUBSCRIPTION_PENDING_ABANDON_HOURS:48}
+      reconciliation:
+        enabled: ${SUBSCRIPTION_RECONCILIATION_ENABLED:false}
+        fixed-delay-ms: ${SUBSCRIPTION_RECONCILIATION_FIXED_DELAY_MS:300000}
+        initial-delay-ms: ${SUBSCRIPTION_RECONCILIATION_INITIAL_DELAY_MS:60000}
+        min-age-minutes: ${SUBSCRIPTION_RECONCILIATION_MIN_AGE_MINUTES:2}
+        batch-size: ${SUBSCRIPTION_RECONCILIATION_BATCH_SIZE:50}
       mtn:
         enabled: ${MTN_MOMO_ENABLED:false}
         base-url: ${MTN_MOMO_BASE_URL:https://sandbox.momodeveloper.mtn.com}
         subscription-key: ${MTN_MOMO_SUBSCRIPTION_KEY:}
         api-user: ${MTN_MOMO_API_USER:}
         api-key: ${MTN_MOMO_API_KEY:}
+        # Explicit: sandbox | mtnrwanda (etc). Never inferred from base-url.
         target-environment: ${MTN_MOMO_TARGET_ENVIRONMENT:sandbox}
         callback-url: ${MTN_MOMO_CALLBACK_URL:}
       flutterwave:
         enabled: ${FLUTTERWAVE_ENABLED:false}
         base-url: ${FLUTTERWAVE_BASE_URL:https://api.flutterwave.com/v3}
+        # Explicit: test | live. Never inferred from secret-key contents.
+        mode: ${FLUTTERWAVE_MODE:test}
         public-key: ${FLUTTERWAVE_PUBLIC_KEY:}
         secret-key: ${FLUTTERWAVE_SECRET_KEY:}
         secret-hash: ${FLUTTERWAVE_SECRET_HASH:}

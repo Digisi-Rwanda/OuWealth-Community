@@ -14,7 +14,7 @@ import org.springframework.util.StringUtils;
 import rw.terimbere.csams.modules.cooperative.entity.Cooperative;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
 import rw.terimbere.csams.modules.report.whatsapp.WhatsAppPhone;
-import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveWebhookPayload;
+import rw.terimbere.csams.modules.subscription.config.SubscriptionProperties;
 import rw.terimbere.csams.modules.subscription.dto.BillingCheckoutRequest;
 import rw.terimbere.csams.modules.subscription.dto.BillingCheckoutResponse;
 import rw.terimbere.csams.modules.subscription.dto.BillingPlanQuote;
@@ -26,21 +26,22 @@ import rw.terimbere.csams.modules.subscription.entity.SubscriptionPaymentStatus;
 import rw.terimbere.csams.modules.subscription.payment.PaymentInitiationCommand;
 import rw.terimbere.csams.modules.subscription.payment.PaymentInitiationResult;
 import rw.terimbere.csams.modules.subscription.payment.PaymentVerification;
+import rw.terimbere.csams.modules.subscription.payment.ProviderErrorClass;
 import rw.terimbere.csams.modules.subscription.payment.ProviderPaymentStatus;
 import rw.terimbere.csams.modules.subscription.payment.SubscriptionPaymentProvider;
 import rw.terimbere.csams.modules.subscription.payment.SubscriptionPaymentProviderRegistry;
 import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveCardSubscriptionPaymentProvider;
+import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveWebhookPayload;
 import rw.terimbere.csams.modules.subscription.payment.flutterwave.FlutterwaveWebhookSignatures;
 import rw.terimbere.csams.modules.subscription.payment.mtn.MtnMomoSubscriptionPaymentProvider;
-import rw.terimbere.csams.modules.subscription.config.SubscriptionProperties;
 import rw.terimbere.csams.modules.subscription.repository.SubscriptionPaymentRepository;
 import rw.terimbere.csams.modules.user.entity.User;
 import rw.terimbere.csams.modules.user.repository.UserRepository;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
 import rw.terimbere.csams.security.UserPrincipal;
-import rw.terimbere.csams.shared.exceptions.UnauthorizedException;
 import rw.terimbere.csams.shared.exceptions.ResourceNotFoundException;
+import rw.terimbere.csams.shared.exceptions.UnauthorizedException;
 import rw.terimbere.csams.shared.exceptions.ValidationException;
 import rw.terimbere.csams.shared.utilities.MoneyUtils;
 import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
@@ -50,6 +51,13 @@ import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
 public class BillingService {
 
     private static final Logger log = LoggerFactory.getLogger(BillingService.class);
+
+    public static final String VERIFY_UNAVAILABLE_MESSAGE =
+            "We couldn't verify your payment right now. Please try checking the status again.";
+    public static final String PENDING_STATUS_MESSAGE = "Your payment is still being processed.";
+    public static final String SUCCESS_STATUS_MESSAGE = "Payment successful. Your subscription is active.";
+    public static final String FAILED_STATUS_MESSAGE = "Payment was not completed.";
+    public static final String CANCELED_STATUS_MESSAGE = "Payment was canceled.";
 
     private final CooperativeAuthorizationService authorizationService;
     private final SubscriptionPricing pricing;
@@ -68,10 +76,12 @@ public class BillingService {
     }
 
     public BillingPlansResponse catalog() {
+        SubscriptionPaymentProvider mtn = providerRegistry.find(SubscriptionPaymentChannel.MTN_MOMO);
         SubscriptionPaymentProvider card = providerRegistry.find(SubscriptionPaymentChannel.CARD);
         return BillingPlansResponse.builder()
                 .currency(pricing.currency())
                 .trialMonths(pricing.trialMonths())
+                .mtnCheckoutAvailable(mtn != null && mtn.available())
                 .cardCheckoutAvailable(card != null && card.available())
                 .plans(List.of(toQuote(pricing.monthly()), toQuote(pricing.annual())))
                 .build();
@@ -138,11 +148,14 @@ public class BillingService {
         SubscriptionPayment payment = paymentRepository
                 .findByIdAndCooperativeId(paymentId, cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("SubscriptionPayment", paymentId));
-        return toPayment(synchronizeWithProvider(payment, actorId(authorizationService.currentPrincipal()), null));
+        SyncOutcome outcome =
+                synchronizeWithProvider(payment, actorId(authorizationService.currentPrincipal()), null);
+        return toPayment(outcome);
     }
 
     /**
      * MTN Collection callback. Payload status is ignored; provider status is re-queried.
+     * Temporary provider outages leave the payment PENDING.
      */
     public void handleMtnCallback(String referenceId) {
         if (!StringUtils.hasText(referenceId)) {
@@ -154,6 +167,11 @@ public class BillingService {
                 .or(() -> parseUuid(referenceId).flatMap(paymentRepository::findById))
                 .orElse(null);
         if (payment == null) {
+            log.info("MTN MoMo callback for unknown payment reference");
+            return;
+        }
+        if (payment.getPaymentChannel() != SubscriptionPaymentChannel.MTN_MOMO) {
+            log.warn("MTN MoMo callback ignored for non-MTN payment {}", payment.getId());
             return;
         }
         synchronizeWithProvider(payment, null, null);
@@ -161,6 +179,7 @@ public class BillingService {
 
     /**
      * Flutterwave webhook. Hash is authenticated first; payload amounts/status are never trusted.
+     * Invalid signatures never reach provider verification or activation.
      */
     public void handleFlutterwaveWebhook(String verifHash, FlutterwaveWebhookPayload body) {
         String secretHash = subscriptionProperties.getPayment().getFlutterwave().getSecretHash();
@@ -176,45 +195,65 @@ public class BillingService {
             log.info("Flutterwave webhook for unknown payment reference");
             return;
         }
+        if (payment.getPaymentChannel() != SubscriptionPaymentChannel.CARD) {
+            log.warn("Flutterwave webhook ignored for non-CARD payment {}", payment.getId());
+            return;
+        }
         synchronizeWithProvider(payment, null, transactionId);
     }
 
     SubscriptionPayment synchronizeWithProvider(SubscriptionPayment payment, UUID actorUserId) {
-        return synchronizeWithProvider(payment, actorUserId, null);
+        return synchronizeWithProvider(payment, actorUserId, null).payment();
     }
 
-    SubscriptionPayment synchronizeWithProvider(
+    SyncOutcome synchronizeWithProvider(
             SubscriptionPayment payment, UUID actorUserId, String providerTransactionId) {
         if (payment.getStatus() == SubscriptionPaymentStatus.SUCCESS
                 || payment.getStatus() == SubscriptionPaymentStatus.CANCELED) {
-            return payment;
+            return SyncOutcome.of(payment);
         }
         SubscriptionPaymentProvider provider = providerRegistry.find(payment.getPaymentChannel());
         if (provider == null || !provider.available()) {
-            return payment;
+            return SyncOutcome.temporary(payment);
         }
-        if (payment.getPaymentChannel() == SubscriptionPaymentChannel.CARD) {
-            return synchronizeCard(payment, actorUserId, provider, providerTransactionId);
+        try {
+            if (payment.getPaymentChannel() == SubscriptionPaymentChannel.CARD) {
+                return synchronizeCard(payment, actorUserId, provider, providerTransactionId);
+            }
+            if (payment.getPaymentChannel() != SubscriptionPaymentChannel.MTN_MOMO) {
+                return SyncOutcome.of(payment);
+            }
+            return synchronizeMtn(payment, actorUserId, provider);
+        } catch (RuntimeException ex) {
+            log.warn(
+                    "Provider verification temporary failure for payment {}: {}",
+                    payment.getId(),
+                    ex.getClass().getSimpleName());
+            return SyncOutcome.temporary(payment);
         }
-        if (payment.getPaymentChannel() != SubscriptionPaymentChannel.MTN_MOMO) {
-            return payment;
-        }
+    }
+
+    private SyncOutcome synchronizeMtn(
+            SubscriptionPayment payment, UUID actorUserId, SubscriptionPaymentProvider provider) {
         String reference = StringUtils.hasText(payment.getExternalReference())
                 ? payment.getExternalReference()
                 : payment.getId().toString();
         ProviderPaymentStatus providerStatus = provider.verify(reference);
-        return switch (providerStatus) {
-            case SUCCESS -> {
+        return switch (ProviderErrorClass.of(providerStatus)) {
+            case CONFIRMED_SUCCESS -> {
                 activationService.applySuccessfulPayment(payment.getId(), actorUserId);
-                yield paymentRepository.findById(payment.getId()).orElse(payment);
+                yield SyncOutcome.of(paymentRepository.findById(payment.getId()).orElse(payment));
             }
-            case FAILED -> attemptService.markFailed(payment.getId(), actorUserId);
-            case CANCELED -> attemptService.markCanceled(payment.getId(), actorUserId);
-            case PENDING, UNKNOWN -> payment;
+            case CONFIRMED_FAILURE -> SyncOutcome.of(
+                    providerStatus == ProviderPaymentStatus.CANCELED
+                            ? attemptService.markCanceled(payment.getId(), actorUserId)
+                            : attemptService.markFailed(payment.getId(), actorUserId));
+            case TEMPORARY -> SyncOutcome.temporary(payment);
+            case IN_FLIGHT -> SyncOutcome.of(payment);
         };
     }
 
-    private SubscriptionPayment synchronizeCard(
+    private SyncOutcome synchronizeCard(
             SubscriptionPayment payment,
             UUID actorUserId,
             SubscriptionPaymentProvider provider,
@@ -222,7 +261,7 @@ public class BillingService {
         PaymentVerification verification = provider.inspect(payment.getExternalReference(), providerTransactionId);
         if (verification.verifiedSuccess(payment)) {
             activationService.applySuccessfulPayment(payment.getId(), actorUserId);
-            return paymentRepository.findById(payment.getId()).orElse(payment);
+            return SyncOutcome.of(paymentRepository.findById(payment.getId()).orElse(payment));
         }
         if (verification.status() == ProviderPaymentStatus.SUCCESS) {
             log.warn(
@@ -231,12 +270,15 @@ public class BillingService {
                     verification.mismatchReason(payment) == null
                             ? "incomplete provider payload"
                             : verification.mismatchReason(payment));
-            return payment;
+            return SyncOutcome.of(payment);
         }
-        return switch (verification.status()) {
-            case FAILED -> attemptService.markFailed(payment.getId(), actorUserId);
-            case CANCELED -> attemptService.markCanceled(payment.getId(), actorUserId);
-            case SUCCESS, PENDING, UNKNOWN -> payment;
+        return switch (ProviderErrorClass.of(verification.status())) {
+            case CONFIRMED_FAILURE -> SyncOutcome.of(
+                    verification.status() == ProviderPaymentStatus.CANCELED
+                            ? attemptService.markCanceled(payment.getId(), actorUserId)
+                            : attemptService.markFailed(payment.getId(), actorUserId));
+            case TEMPORARY -> SyncOutcome.temporary(payment);
+            case CONFIRMED_SUCCESS, IN_FLIGHT -> SyncOutcome.of(payment);
         };
     }
 
@@ -355,6 +397,11 @@ public class BillingService {
     }
 
     private SubscriptionPaymentResponse toPayment(SubscriptionPayment payment) {
+        return toPayment(SyncOutcome.of(payment));
+    }
+
+    private SubscriptionPaymentResponse toPayment(SyncOutcome outcome) {
+        SubscriptionPayment payment = outcome.payment();
         return SubscriptionPaymentResponse.builder()
                 .id(payment.getId())
                 .billingCycle(payment.getBillingCycle())
@@ -367,8 +414,35 @@ public class BillingService {
                 .initiatedAt(payment.getInitiatedAt())
                 .paidAt(payment.getPaidAt())
                 .failedAt(payment.getFailedAt())
+                .message(customerMessage(payment.getStatus(), outcome.verificationUnavailable()))
+                .verificationUnavailable(outcome.verificationUnavailable())
                 .build();
     }
 
+    static String customerMessage(SubscriptionPaymentStatus status, boolean verificationUnavailable) {
+        if (verificationUnavailable && status == SubscriptionPaymentStatus.PENDING) {
+            return VERIFY_UNAVAILABLE_MESSAGE;
+        }
+        if (status == null) {
+            return PENDING_STATUS_MESSAGE;
+        }
+        return switch (status) {
+            case PENDING -> PENDING_STATUS_MESSAGE;
+            case SUCCESS -> SUCCESS_STATUS_MESSAGE;
+            case FAILED -> FAILED_STATUS_MESSAGE;
+            case CANCELED -> CANCELED_STATUS_MESSAGE;
+        };
+    }
+
     private record CardCustomer(String email, String name, String phone) {}
+
+    record SyncOutcome(SubscriptionPayment payment, boolean verificationUnavailable) {
+        static SyncOutcome of(SubscriptionPayment payment) {
+            return new SyncOutcome(payment, false);
+        }
+
+        static SyncOutcome temporary(SubscriptionPayment payment) {
+            return new SyncOutcome(payment, true);
+        }
+    }
 }

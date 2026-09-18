@@ -63,6 +63,7 @@ const fetchCoopsMock = vi.mocked(fetchMyCooperatives)
 const plans: BillingPlansResponse = {
   currency: 'RWF',
   trialMonths: 4,
+  mtnCheckoutAvailable: true,
   cardCheckoutAvailable: true,
   plans: [
     {
@@ -293,7 +294,7 @@ describe('BillingPage', () => {
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
     expect(screen.getByTestId('plan-card-MONTHLY')).toHaveAttribute('aria-pressed', 'true')
-    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.click(screen.getByLabelText(/MTN Mobile Money/))
     expect(screen.getByLabelText(/MTN Mobile Money number/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/PIN/i)).not.toBeInTheDocument()
     await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
@@ -321,7 +322,7 @@ describe('BillingPage', () => {
     const user = userEvent.setup({ delay: null })
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
-    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.click(screen.getByLabelText(/MTN Mobile Money/))
     await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '123')
     await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
     expect(await screen.findByText(/valid Rwandan mobile number/i)).toBeInTheDocument()
@@ -343,7 +344,7 @@ describe('BillingPage', () => {
     }))
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
-    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.click(screen.getByLabelText(/MTN Mobile Money/))
     await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
     const subCalls = fetchSubscriptionMock.mock.calls.length
     const historyCalls = fetchPaymentsMock.mock.calls.length
@@ -403,7 +404,7 @@ describe('BillingPage', () => {
       },
     )
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
-    await user.click(screen.getByLabelText('MTN Mobile Money'))
+    await user.click(screen.getByLabelText(/MTN Mobile Money/))
     await user.type(screen.getByLabelText(/MTN Mobile Money number/i), '0781234567')
     await user.click(screen.getByRole('button', { name: 'Pay with MTN MoMo' }))
     expect(await screen.findByTestId('payment-failed')).toHaveTextContent('Payment was not completed.')
@@ -428,7 +429,7 @@ describe('BillingPage', () => {
     renderPage([ROLE_PRESIDENT])
     await user.click(await screen.findByRole('button', { name: 'Choose Annual' }))
     expect(screen.getByTestId('plan-card-ANNUAL')).toHaveAttribute('aria-pressed', 'true')
-    await user.click(screen.getByLabelText('Bank Card'))
+    await user.click(screen.getByLabelText(/Bank Card/))
     const review = screen.getByTestId('billing-review-card')
     expect(review).toHaveTextContent('Annual')
     expect(review).toHaveTextContent('24,000')
@@ -456,12 +457,110 @@ describe('BillingPage', () => {
 
   it('shows card unavailable when Flutterwave is disabled', async () => {
     const user = userEvent.setup({ delay: null })
-    renderPage([ROLE_PRESIDENT], trial, emptyPayments(), { ...plans, cardCheckoutAvailable: false })
+    renderPage([ROLE_PRESIDENT], trial, emptyPayments(), {
+      ...plans,
+      cardCheckoutAvailable: false,
+    })
     await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
-    await user.click(screen.getByLabelText('Bank Card'))
-    expect(screen.getByTestId('card-coming-soon')).toHaveTextContent('Card processing is not yet available')
-    expect(screen.getByRole('button', { name: 'Continue to Payment' })).toBeDisabled()
+    expect(screen.getByLabelText(/Bank Card/)).toBeDisabled()
+    expect(screen.getByText(/Bank Card — Temporarily unavailable/)).toBeInTheDocument()
     expect(checkoutMock).not.toHaveBeenCalled()
+  }, 15_000)
+
+  it('disables MTN when backend reports it unavailable', async () => {
+    renderPage([ROLE_PRESIDENT], trial, emptyPayments(), {
+      ...plans,
+      mtnCheckoutAvailable: false,
+    })
+    const user = userEvent.setup({ delay: null })
+    await user.click(await screen.findByRole('button', { name: 'Choose Monthly' }))
+    expect(screen.getByLabelText(/MTN Mobile Money/)).toBeDisabled()
+    expect(screen.getByText(/MTN Mobile Money — Temporarily unavailable/)).toBeInTheDocument()
+  }, 15_000)
+
+  it('shows pending payment recovery with check status', async () => {
+    const user = userEvent.setup({ delay: null })
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-pending',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      status: 'PENDING',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-16T12:35:00Z',
+      verificationUnavailable: false,
+    })
+    renderPage(
+      [ROLE_PRESIDENT],
+      trial,
+      {
+        content: [
+          {
+            id: 'pay-pending',
+            billingCycle: 'MONTHLY',
+            paymentChannel: 'MTN_MOMO',
+            status: 'PENDING',
+            currency: 'RWF',
+            amount: '2000.0000',
+            initiatedAt: '2026-09-16T12:35:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
+      },
+    )
+    expect(await screen.findByTestId('pending-payment-recovery')).toHaveTextContent('Payment pending')
+    expect(screen.getByTestId('pending-payment-recovery')).toHaveTextContent('2,000')
+    expect(screen.getByTestId('pending-payment-recovery')).toHaveTextContent('MTN Mobile Money')
+    const checkBtn = await screen.findByTestId('check-pending-status')
+    await vi.waitFor(() => expect(checkBtn).not.toBeDisabled())
+    await user.click(checkBtn)
+    expect(fetchPaymentMock).toHaveBeenCalledWith('coop-1', 'pay-pending')
+  }, 15_000)
+
+  it('does not treat temporary verification failure as payment failed', async () => {
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-pending',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'MTN_MOMO',
+      status: 'PENDING',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-16T12:35:00Z',
+      verificationUnavailable: true,
+      message: "We couldn't verify your payment right now. Please try checking the status again.",
+    })
+    renderPage(
+      [ROLE_PRESIDENT],
+      trial,
+      {
+        content: [
+          {
+            id: 'pay-pending',
+            billingCycle: 'MONTHLY',
+            paymentChannel: 'MTN_MOMO',
+            status: 'PENDING',
+            currency: 'RWF',
+            amount: '2000.0000',
+            initiatedAt: '2026-09-16T12:35:00Z',
+          },
+        ],
+        page: 0,
+        size: 20,
+        totalElements: 1,
+        totalPages: 1,
+        first: true,
+        last: true,
+      },
+    )
+    expect(await screen.findByTestId('verification-unavailable')).toHaveTextContent(
+      "couldn't verify your payment right now",
+    )
+    expect(screen.queryByTestId('payment-failed')).not.toBeInTheDocument()
   }, 15_000)
 
   it('hides payment controls for members', async () => {
@@ -471,7 +570,7 @@ describe('BillingPage', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Choose Monthly' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Choose Annual' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('MTN Mobile Money')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/MTN Mobile Money/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Continue to Payment' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pay with MTN MoMo' })).not.toBeInTheDocument()
     expect(screen.getByTestId('plan-card-MONTHLY')).toHaveTextContent('2,000')

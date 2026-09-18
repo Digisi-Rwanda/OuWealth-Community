@@ -121,9 +121,22 @@ class BillingServiceTest {
 
     @Test
     void catalogMarksCardAvailableWhenFlutterwaveIsConfigured() {
+        when(providerRegistry.find(SubscriptionPaymentChannel.MTN_MOMO)).thenReturn(null);
         when(providerRegistry.find(SubscriptionPaymentChannel.CARD)).thenReturn(cardProvider);
         when(cardProvider.available()).thenReturn(true);
-        assertThat(billingService.catalog().isCardCheckoutAvailable()).isTrue();
+        BillingPlansResponse catalog = billingService.catalog();
+        assertThat(catalog.isCardCheckoutAvailable()).isTrue();
+        assertThat(catalog.isMtnCheckoutAvailable()).isFalse();
+    }
+
+    @Test
+    void catalogMarksMtnAvailableWhenConfigured() {
+        when(providerRegistry.find(SubscriptionPaymentChannel.MTN_MOMO)).thenReturn(mtnProvider);
+        when(providerRegistry.find(SubscriptionPaymentChannel.CARD)).thenReturn(null);
+        when(mtnProvider.available()).thenReturn(true);
+        BillingPlansResponse catalog = billingService.catalog();
+        assertThat(catalog.isMtnCheckoutAvailable()).isTrue();
+        assertThat(catalog.isCardCheckoutAvailable()).isFalse();
     }
 
     @Test

@@ -28,6 +28,7 @@ export async function fetchBillingPlans(cooperativeId: string): Promise<BillingP
   return {
     currency: data.currency || 'RWF',
     trialMonths: data.trialMonths,
+    mtnCheckoutAvailable: Boolean(data.mtnCheckoutAvailable),
     cardCheckoutAvailable: Boolean(data.cardCheckoutAvailable),
     plans: (data.plans ?? []).map(mapBillingPlan),
   }

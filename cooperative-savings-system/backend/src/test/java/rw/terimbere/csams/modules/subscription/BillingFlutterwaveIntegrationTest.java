@@ -60,10 +60,13 @@ import rw.terimbere.csams.shared.exceptions.PaymentIntegrationUnavailableExcepti
         properties = {
             "app.subscription.payment.flutterwave.enabled=true",
             "app.subscription.payment.flutterwave.base-url=https://api.flutterwave.com/v3",
+            "app.subscription.payment.flutterwave.mode=test",
             "app.subscription.payment.flutterwave.secret-key=flw-test-secret-key",
             "app.subscription.payment.flutterwave.secret-hash=flw-test-secret-hash",
             "app.subscription.payment.flutterwave.redirect-url=http://localhost:5173/billing/payment-return",
-            "app.subscription.payment.pending-reuse-minutes=15"
+            "app.subscription.payment.flutterwave.webhook-url=http://localhost:8080/api/v1/public/billing/flutterwave/webhook",
+            "app.subscription.payment.pending-reuse-minutes=15",
+            "app.subscription.payment.reconciliation.enabled=false"
         })
 class BillingFlutterwaveIntegrationTest {
 

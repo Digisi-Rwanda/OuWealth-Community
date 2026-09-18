@@ -35,10 +35,11 @@ export function PaymentReturnPage() {
   }, [searchParams, stored.paymentId])
 
   const cooperativeId = useMemo(() => {
-    const fromQuery = searchParams.get('cooperativeId')
-    if (fromQuery) return fromQuery
+    // Prefer the authenticated selected cooperative so a crafted return URL cannot
+    // silently switch verification into another cooperative context in the UI.
+    if (selectedCooperativeId) return selectedCooperativeId
     if (stored.cooperativeId) return stored.cooperativeId
-    return selectedCooperativeId ?? null
+    return searchParams.get('cooperativeId')
   }, [searchParams, selectedCooperativeId, stored.cooperativeId])
 
   const verifyQuery = useQuery({
@@ -84,13 +85,24 @@ export function PaymentReturnPage() {
           <Alert severity="error">{getErrorMessage(verifyQuery.error, t('errors.generic'))}</Alert>
         ) : null}
         {!missing && !verifyQuery.isLoading && !verifyQuery.isError && status === 'PENDING' ? (
-          <Alert severity="info" data-testid="payment-return-pending">
+          <Alert
+            severity={verifyQuery.data?.verificationUnavailable ? 'warning' : 'info'}
+            data-testid={
+              verifyQuery.data?.verificationUnavailable
+                ? 'payment-return-verify-unavailable'
+                : 'payment-return-pending'
+            }
+          >
             <Typography component="span" display="block">
-              {t('subscription.billing.verifyingPayment')}
+              {verifyQuery.data?.verificationUnavailable
+                ? t('subscription.billing.verificationUnavailable')
+                : t('subscription.billing.verifyingPayment')}
             </Typography>
-            <Typography component="span" display="block" sx={{ mt: 1 }}>
-              {t('subscription.billing.paymentPending')}
-            </Typography>
+            {!verifyQuery.data?.verificationUnavailable ? (
+              <Typography component="span" display="block" sx={{ mt: 1 }}>
+                {t('subscription.billing.paymentPending')}
+              </Typography>
+            ) : null}
           </Alert>
         ) : null}
         {status === 'SUCCESS' ? (
@@ -98,9 +110,14 @@ export function PaymentReturnPage() {
             {t('subscription.billing.paymentSuccess')}
           </Alert>
         ) : null}
-        {status === 'FAILED' || status === 'CANCELED' ? (
+        {status === 'FAILED' ? (
           <Alert severity="error" data-testid="payment-return-failed">
             {t('subscription.billing.paymentFailed')}
+          </Alert>
+        ) : null}
+        {status === 'CANCELED' ? (
+          <Alert severity="error" data-testid="payment-return-canceled">
+            {t('subscription.billing.paymentCanceled')}
           </Alert>
         ) : null}
         <Button component={RouterLink} to={ROUTES.billing} variant="contained">

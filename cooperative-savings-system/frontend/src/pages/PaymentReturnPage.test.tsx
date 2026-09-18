@@ -121,6 +121,40 @@ describe('PaymentReturnPage', () => {
     expect(await screen.findByTestId('payment-return-failed')).toHaveTextContent('Payment was not completed')
   })
 
+  it('shows temporary verification failure without claiming payment failed', async () => {
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-1',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'CARD',
+      status: 'PENDING',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-01T10:00:00Z',
+      verificationUnavailable: true,
+    })
+    renderReturn('/billing/payment-return?paymentId=pay-1&cooperativeId=coop-1&status=successful')
+    expect(await screen.findByTestId('payment-return-verify-unavailable')).toHaveTextContent(
+      "couldn't verify your payment right now",
+    )
+    expect(screen.queryByTestId('payment-return-success')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('payment-return-failed')).not.toBeInTheDocument()
+  })
+
+  it('prefers selected cooperative over a crafted cooperativeId query', async () => {
+    fetchPaymentMock.mockResolvedValue({
+      id: 'pay-1',
+      billingCycle: 'MONTHLY',
+      paymentChannel: 'CARD',
+      status: 'PENDING',
+      currency: 'RWF',
+      amount: '2000.0000',
+      initiatedAt: '2026-09-01T10:00:00Z',
+    })
+    renderReturn('/billing/payment-return?paymentId=pay-1&cooperativeId=coop-other&status=successful')
+    expect(await screen.findByTestId('payment-return-pending')).toBeInTheDocument()
+    expect(fetchPaymentMock).toHaveBeenCalledWith('coop-1', 'pay-1')
+  })
+
   it('resolves paymentId from stored context and tx_ref hint', async () => {
     sessionStorage.setItem(
       BILLING_RETURN_STORAGE_KEY,

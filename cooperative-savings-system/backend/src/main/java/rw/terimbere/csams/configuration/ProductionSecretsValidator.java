@@ -13,9 +13,11 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import rw.terimbere.csams.modules.subscription.config.SubscriptionProperties;
+import rw.terimbere.csams.modules.subscription.payment.ProviderPublicUrlRules;
 
 /**
- * Fail-fast production guard: refuse to start with blank or local-default JWT/DB secrets.
+ * Fail-fast production guard: refuse to start with blank or local-default JWT/DB secrets,
+ * incomplete payment provider config, sandbox/test providers, or unsafe public URLs.
  * Active only for the {@code production} profile — local/test/staging are unaffected.
  */
 @Component
@@ -40,20 +42,8 @@ public class ProductionSecretsValidator implements ApplicationRunner {
         requireEnv("POSTGRES_PASSWORD", failures);
         requireEnv("POSTGRES_DB", failures);
 
-        if (subscriptionProperties.getPayment().getMtn().isEnabled()) {
-            requireEnv("MTN_MOMO_SUBSCRIPTION_KEY", failures);
-            requireEnv("MTN_MOMO_API_USER", failures);
-            requireEnv("MTN_MOMO_API_KEY", failures);
-            requireEnv("MTN_MOMO_BASE_URL", failures);
-            requireEnv("MTN_MOMO_TARGET_ENVIRONMENT", failures);
-        }
-
-        if (subscriptionProperties.getPayment().getFlutterwave().isEnabled()) {
-            requireEnv("FLUTTERWAVE_BASE_URL", failures);
-            requireEnv("FLUTTERWAVE_SECRET_KEY", failures);
-            requireEnv("FLUTTERWAVE_SECRET_HASH", failures);
-            requireEnv("FLUTTERWAVE_REDIRECT_URL", failures);
-        }
+        validateMtn(failures);
+        validateFlutterwave(failures);
 
         if (!failures.isEmpty()) {
             String message = "Production secrets validation failed:\n - " + String.join("\n - ", failures);
@@ -62,6 +52,61 @@ public class ProductionSecretsValidator implements ApplicationRunner {
         }
 
         log.info("Production secrets validation passed");
+    }
+
+    private void validateMtn(List<String> failures) {
+        SubscriptionProperties.Payment.Mtn mtn = subscriptionProperties.getPayment().getMtn();
+        if (!mtn.isEnabled()) {
+            return;
+        }
+        requireEnv("MTN_MOMO_SUBSCRIPTION_KEY", failures);
+        requireEnv("MTN_MOMO_API_USER", failures);
+        requireEnv("MTN_MOMO_API_KEY", failures);
+        requireEnv("MTN_MOMO_BASE_URL", failures);
+        requireEnv("MTN_MOMO_TARGET_ENVIRONMENT", failures);
+        requireEnv("MTN_MOMO_CALLBACK_URL", failures);
+
+        if (mtn.isSandboxEnvironment()) {
+            failures.add(
+                    "MTN_MOMO_TARGET_ENVIRONMENT must not be 'sandbox' when the production profile is active "
+                            + "(set a production Collection environment such as mtnrwanda)");
+        }
+        if (!ProviderPublicUrlRules.isSafeProductionUrl(mtn.getCallbackUrl())) {
+            failures.add(
+                    "MTN_MOMO_CALLBACK_URL must be a public HTTPS URL (not localhost / private hosts) "
+                            + "when MTN MoMo is enabled in production");
+        }
+    }
+
+    private void validateFlutterwave(List<String> failures) {
+        SubscriptionProperties.Payment.Flutterwave flw = subscriptionProperties.getPayment().getFlutterwave();
+        if (!flw.isEnabled()) {
+            return;
+        }
+        requireEnv("FLUTTERWAVE_BASE_URL", failures);
+        requireEnv("FLUTTERWAVE_SECRET_KEY", failures);
+        requireEnv("FLUTTERWAVE_SECRET_HASH", failures);
+        requireEnv("FLUTTERWAVE_REDIRECT_URL", failures);
+        requireEnv("FLUTTERWAVE_WEBHOOK_URL", failures);
+        requireEnv("FLUTTERWAVE_MODE", failures);
+
+        if (flw.isTestMode()) {
+            failures.add(
+                    "FLUTTERWAVE_MODE must be 'live' when the production profile is active "
+                            + "(do not use Flutterwave test mode in production)");
+        } else if (!flw.isLiveMode()) {
+            failures.add("FLUTTERWAVE_MODE must be 'test' or 'live'");
+        }
+        if (!ProviderPublicUrlRules.isSafeProductionUrl(flw.getRedirectUrl())) {
+            failures.add(
+                    "FLUTTERWAVE_REDIRECT_URL must be a public HTTPS URL (not localhost / private hosts) "
+                            + "when Flutterwave is enabled in production");
+        }
+        if (!ProviderPublicUrlRules.isSafeProductionUrl(flw.getWebhookUrl())) {
+            failures.add(
+                    "FLUTTERWAVE_WEBHOOK_URL must be a public HTTPS URL (not localhost / private hosts) "
+                            + "when Flutterwave is enabled in production");
+        }
     }
 
     private void validateJwtSecret(String name, String value, List<String> failures) {

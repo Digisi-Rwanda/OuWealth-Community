@@ -16,13 +16,14 @@ import {
   Typography,
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getErrorMessage } from '@/shared/api/client'
 import {
   billingPaymentQueryKey,
   billingPaymentsQueryKey,
   fetchSubscriptionPayment,
+  fetchSubscriptionPayments,
   isPaymentIntegrationUnavailableError,
   startBillingCheckout,
   storeBillingReturnContext,
@@ -34,12 +35,14 @@ import type {
   BillingPaymentChannel,
   BillingPlanQuote,
   BillingPlansResponse,
+  SubscriptionPaymentRecord,
   SubscriptionPaymentStatus,
 } from '@/shared/types/billing'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { isValidRwandanPhone, normalizeRwandanPhone } from '@/shared/utils/rwandaCooperative'
 import { equivalentMonthlyAmount } from './billingAccess'
 import { redirectToExternalUrl } from '@/shared/utils/browserNavigation'
+import { formatSubscriptionDate } from '@/features/subscription/subscriptionAccess'
 
 interface BillingPlansAndCheckoutProps {
   cooperativeId: string
@@ -62,15 +65,38 @@ export function BillingPlansAndCheckout({
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
   const [activeCheckout, setActiveCheckout] = useState<BillingCheckoutResponse | null>(null)
+  const [recoveredPaymentId, setRecoveredPaymentId] = useState<string | null>(null)
 
   const monthly = plans.plans.find((plan) => plan.billingCycle === 'MONTHLY')
   const annual = plans.plans.find((plan) => plan.billingCycle === 'ANNUAL')
   const selectedPlan = plans.plans.find((plan) => plan.billingCycle === selectedCycle)
   const currency = plans.currency || 'RWF'
-  const pendingPaymentId = activeCheckout?.paymentId
+  const pendingPaymentId = activeCheckout?.paymentId ?? recoveredPaymentId
   const cardSelected = paymentChannel === 'CARD'
   const mtnSelected = paymentChannel === 'MTN_MOMO'
   const cardAvailable = Boolean(plans.cardCheckoutAvailable)
+  const mtnAvailable = Boolean(plans.mtnCheckoutAvailable)
+
+  const historyQuery = useQuery({
+    queryKey: billingPaymentsQueryKey(cooperativeId, { page: 0, size: 20 }),
+    queryFn: () =>
+      fetchSubscriptionPayments(cooperativeId, {
+        page: 0,
+        size: 20,
+        sort: 'initiatedAt,desc',
+      }),
+    enabled: canManage,
+  })
+
+  const openPending = useMemo(() => {
+    const rows = historyQuery.data?.content ?? []
+    return rows.find((row) => row.status === 'PENDING') ?? null
+  }, [historyQuery.data])
+
+  useEffect(() => {
+    if (!openPending || activeCheckout) return
+    setRecoveredPaymentId(openPending.id)
+  }, [openPending, activeCheckout])
 
   const paymentQuery = useQuery({
     queryKey: pendingPaymentId
@@ -85,7 +111,9 @@ export function BillingPlansAndCheckout({
   })
 
   const paymentStatus: SubscriptionPaymentStatus | undefined =
-    paymentQuery.data?.status ?? activeCheckout?.status
+    paymentQuery.data?.status ?? activeCheckout?.status ?? openPending?.status
+  const trackedPayment: SubscriptionPaymentRecord | null =
+    paymentQuery.data ?? openPending ?? null
 
   useEffect(() => {
     if (!paymentStatus || paymentStatus === 'PENDING') return
@@ -113,6 +141,7 @@ export function BillingPlansAndCheckout({
     onSuccess: (data) => {
       setCheckoutNotice(null)
       setActiveCheckout(data)
+      setRecoveredPaymentId(data.paymentId)
       void queryClient.invalidateQueries({ queryKey: billingPaymentsQueryKey(cooperativeId, { page: 0, size: 20 }) })
       void queryClient.invalidateQueries({
         queryKey: ['cooperatives', cooperativeId, 'billing', 'payments'],
@@ -132,6 +161,10 @@ export function BillingPlansAndCheckout({
   })
 
   const startMtnCheckout = () => {
+    if (!mtnAvailable) {
+      setCheckoutNotice(t('subscription.billing.mtnUnavailable'))
+      return
+    }
     if (!isValidRwandanPhone(payerPhone)) {
       setPhoneError(t('subscription.billing.payerPhoneInvalid'))
       return
@@ -150,8 +183,12 @@ export function BillingPlansAndCheckout({
 
   const retryCheckout = () => {
     setActiveCheckout(null)
+    setRecoveredPaymentId(null)
     setCheckoutNotice(null)
   }
+
+  const channelLabel = (channel: BillingPaymentChannel) =>
+    channel === 'MTN_MOMO' ? t('subscription.billing.mtnMomo') : t('subscription.billing.bankCard')
 
   return (
     <Stack spacing={2} data-testid="billing-plans">
@@ -163,6 +200,50 @@ export function BillingPlansAndCheckout({
       ) : null}
       {!canManage ? (
         <Alert severity="info">{t('subscription.billing.memberNotice')}</Alert>
+      ) : null}
+
+      {canManage && trackedPayment?.status === 'PENDING' && !activeCheckout ? (
+        <Card variant="outlined" data-testid="pending-payment-recovery">
+          <CardContent>
+            <Typography variant="h6" component="h3" gutterBottom>
+              {t('subscription.billing.paymentPendingTitle')}
+            </Typography>
+            <ReviewRow
+              label={t('subscription.billing.reviewAmount')}
+              value={formatMoney(trackedPayment.amount, { currency: trackedPayment.currency })}
+            />
+            <ReviewRow
+              label={t('subscription.billing.reviewMethod')}
+              value={channelLabel(trackedPayment.paymentChannel)}
+            />
+            <ReviewRow
+              label={t('subscription.billing.startedAt')}
+              value={formatSubscriptionDate(trackedPayment.initiatedAt) || '—'}
+            />
+            {paymentQuery.data?.verificationUnavailable ? (
+              <Alert severity="warning" sx={{ mt: 2 }} data-testid="verification-unavailable">
+                {t('subscription.billing.verificationUnavailable')}
+              </Alert>
+            ) : (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                {t('subscription.billing.paymentPending')}
+              </Alert>
+            )}
+          </CardContent>
+          <CardActions sx={{ px: 2, pb: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => void paymentQuery.refetch()}
+              disabled={paymentQuery.isFetching}
+              data-testid="check-pending-status"
+            >
+              {t('subscription.billing.checkPaymentStatus')}
+            </Button>
+            <Button variant="text" onClick={retryCheckout} data-testid="retry-pending-payment">
+              {t('subscription.billing.tryAgain')}
+            </Button>
+          </CardActions>
+        </Card>
       ) : null}
 
       <Box
@@ -220,12 +301,22 @@ export function BillingPlansAndCheckout({
                 <FormControlLabel
                   value="MTN_MOMO"
                   control={<Radio />}
-                  label={t('subscription.billing.mtnMomo')}
+                  disabled={!mtnAvailable}
+                  label={
+                    mtnAvailable
+                      ? `${t('subscription.billing.mtnMomo')} — ${t('subscription.billing.methodAvailable')}`
+                      : `${t('subscription.billing.mtnMomo')} — ${t('subscription.billing.methodUnavailable')}`
+                  }
                 />
                 <FormControlLabel
                   value="CARD"
                   control={<Radio />}
-                  label={t('subscription.billing.bankCard')}
+                  disabled={!cardAvailable}
+                  label={
+                    cardAvailable
+                      ? `${t('subscription.billing.bankCard')} — ${t('subscription.billing.methodAvailable')}`
+                      : `${t('subscription.billing.bankCard')} — ${t('subscription.billing.methodUnavailable')}`
+                  }
                 />
               </RadioGroup>
             </FormControl>
@@ -252,6 +343,11 @@ export function BillingPlansAndCheckout({
                   ? t('subscription.billing.cardHostedHint')
                   : t('subscription.billing.cardComingSoon')}
               </Typography>
+            ) : null}
+            {!mtnAvailable && !cardAvailable ? (
+              <Alert severity="warning" sx={{ mt: 2 }} data-testid="all-methods-unavailable">
+                {t('subscription.billing.allMethodsUnavailable')}
+              </Alert>
             ) : null}
             <Button sx={{ mt: 1 }} onClick={() => setSelectedCycle(null)}>
               {t('subscription.billing.changePlan')}
@@ -295,14 +391,7 @@ export function BillingPlansAndCheckout({
                   : t('subscription.billing.oneMonth')
               }
             />
-            <ReviewRow
-              label={t('subscription.billing.reviewMethod')}
-              value={
-                paymentChannel === 'MTN_MOMO'
-                  ? t('subscription.billing.mtnMomo')
-                  : t('subscription.billing.bankCard')
-              }
-            />
+            <ReviewRow label={t('subscription.billing.reviewMethod')} value={channelLabel(paymentChannel)} />
             {mtnSelected && payerPhone ? (
               <ReviewRow label={t('subscription.billing.payerPhone')} value={normalizeRwandanPhone(payerPhone)} />
             ) : null}
@@ -316,12 +405,20 @@ export function BillingPlansAndCheckout({
                 {t('subscription.billing.cardHostedHint')}
               </Alert>
             ) : null}
+            {mtnSelected && !mtnAvailable ? (
+              <Alert severity="warning" sx={{ mt: 2 }} data-testid="mtn-unavailable">
+                {t('subscription.billing.mtnUnavailable')}
+              </Alert>
+            ) : null}
             {checkoutNotice ? (
               <Alert severity="info" sx={{ mt: 2 }} data-testid="checkout-unavailable">
                 {checkoutNotice}
               </Alert>
             ) : null}
-            {activeCheckout && paymentStatus === 'PENDING' && mtnSelected ? (
+            {activeCheckout &&
+            paymentStatus === 'PENDING' &&
+            mtnSelected &&
+            !paymentQuery.data?.verificationUnavailable ? (
               <Stack spacing={1} sx={{ mt: 2 }} data-testid="mtn-pending-status">
                 <Alert severity="info">{t('subscription.billing.momoSent')}</Alert>
                 <Alert severity="info">{t('subscription.billing.momoApprove')}</Alert>
@@ -330,23 +427,33 @@ export function BillingPlansAndCheckout({
                 </Typography>
               </Stack>
             ) : null}
+            {paymentStatus === 'PENDING' && paymentQuery.data?.verificationUnavailable ? (
+              <Alert severity="warning" sx={{ mt: 2 }} data-testid="verification-unavailable-review">
+                {t('subscription.billing.verificationUnavailable')}
+              </Alert>
+            ) : null}
             {paymentStatus === 'SUCCESS' ? (
               <Alert severity="success" sx={{ mt: 2 }} data-testid="payment-success">
                 {t('subscription.billing.paymentSuccess')}
               </Alert>
             ) : null}
-            {paymentStatus === 'FAILED' || paymentStatus === 'CANCELED' ? (
+            {paymentStatus === 'FAILED' ? (
               <Alert severity="error" sx={{ mt: 2 }} data-testid="payment-failed">
                 {t('subscription.billing.paymentFailed')}
               </Alert>
             ) : null}
+            {paymentStatus === 'CANCELED' ? (
+              <Alert severity="error" sx={{ mt: 2 }} data-testid="payment-canceled">
+                {t('subscription.billing.paymentCanceled')}
+              </Alert>
+            ) : null}
           </CardContent>
           <CardActions sx={{ px: 2, pb: 2 }}>
-            {cardSelected && !cardAvailable ? (
+            {(cardSelected && !cardAvailable) || (mtnSelected && !mtnAvailable) ? (
               <Button variant="contained" disabled>
                 {t('subscription.billing.continuePayment')}
               </Button>
-            ) : paymentStatus === 'PENDING' && pendingPaymentId && mtnSelected ? (
+            ) : paymentStatus === 'PENDING' && pendingPaymentId ? (
               <Button
                 variant="outlined"
                 onClick={() => void paymentQuery.refetch()}
@@ -355,8 +462,8 @@ export function BillingPlansAndCheckout({
                 {t('subscription.billing.checkPaymentStatus')}
               </Button>
             ) : paymentStatus === 'FAILED' || paymentStatus === 'CANCELED' ? (
-              <Button variant="contained" onClick={retryCheckout}>
-                {t('subscription.billing.retryPayment')}
+              <Button variant="contained" onClick={retryCheckout} data-testid="retry-payment">
+                {t('subscription.billing.tryAgain')}
               </Button>
             ) : paymentStatus === 'SUCCESS' ? null : cardSelected ? (
               <Button
@@ -369,7 +476,7 @@ export function BillingPlansAndCheckout({
             ) : (
               <Button
                 variant="contained"
-                disabled={checkout.isPending}
+                disabled={checkout.isPending || !mtnAvailable}
                 onClick={startMtnCheckout}
               >
                 {t('subscription.billing.payWithMtn')}

@@ -28,4 +28,11 @@ public class SubscriptionPaymentResponse {
     private Instant initiatedAt;
     private Instant paidAt;
     private Instant failedAt;
+    /** Safe customer-facing status message. Never includes secrets or MSISDN. */
+    private String message;
+    /**
+     * True when the latest provider verification could not complete (timeout/outage).
+     * Status remains PENDING; UI must not treat this as a confirmed payment failure.
+     */
+    private boolean verificationUnavailable;
 }

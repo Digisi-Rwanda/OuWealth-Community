@@ -42,4 +42,23 @@ public interface SubscriptionPaymentRepository extends JpaRepository<Subscriptio
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "5000"))
     @Query("select p from SubscriptionPayment p where p.id = :id")
     Optional<SubscriptionPayment> findByIdForUpdate(@Param("id") UUID id);
+
+    /**
+     * PENDING payments eligible for reconciliation: initiated between {@code minInitiated}
+     * (abandon floor) and {@code maxInitiated} (min-age ceiling), oldest first.
+     * Pass a {@link org.springframework.data.domain.Pageable} to cap the batch size.
+     */
+    @Query(
+            """
+            select p.id from SubscriptionPayment p
+            where p.status = :status
+              and p.initiatedAt >= :minInitiated
+              and p.initiatedAt <= :maxInitiated
+            order by p.initiatedAt asc
+            """)
+    List<UUID> findPendingIdsForReconciliation(
+            @Param("status") SubscriptionPaymentStatus status,
+            @Param("minInitiated") java.time.Instant minInitiated,
+            @Param("maxInitiated") java.time.Instant maxInitiated,
+            org.springframework.data.domain.Pageable pageable);
 }

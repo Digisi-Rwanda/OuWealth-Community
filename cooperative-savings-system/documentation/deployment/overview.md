@@ -35,6 +35,10 @@ cd frontend && npm ci && npm run build
 
 VPS, AWS, Azure, Google Cloud, Render, Railway, DigitalOcean — choose based on client preference. Use `docker-compose.yml` for local integration; production may use Compose (`docker-compose.prod.example.yml`), Kubernetes, or managed services.
 
+## OuWealth subscription payments
+
+See [Subscription payments (sandbox & production)](./subscription-payments.md) for MTN MoMo and Flutterwave environment variables, callback/webhook URLs, reconciliation, and the go-live checklist.
+
 ## Production checklist
 
 Complete before go-live:

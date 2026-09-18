@@ -14,6 +14,7 @@ export interface BillingPlanQuote {
 export interface BillingPlansResponse {
   currency: string
   trialMonths: number
+  mtnCheckoutAvailable?: boolean
   cardCheckoutAvailable?: boolean
   plans: BillingPlanQuote[]
 }
@@ -47,6 +48,8 @@ export interface SubscriptionPaymentRecord {
   initiatedAt: string
   paidAt?: string | null
   failedAt?: string | null
+  message?: string | null
+  verificationUnavailable?: boolean
 }
 
 export function mapBillingPlan(raw: BillingPlanQuote): BillingPlanQuote {
@@ -73,5 +76,7 @@ export function mapSubscriptionPayment(raw: SubscriptionPaymentRecord): Subscrip
     initiatedAt: raw.initiatedAt,
     paidAt: raw.paidAt ?? null,
     failedAt: raw.failedAt ?? null,
+    message: raw.message ?? null,
+    verificationUnavailable: Boolean(raw.verificationUnavailable),
   }
 }

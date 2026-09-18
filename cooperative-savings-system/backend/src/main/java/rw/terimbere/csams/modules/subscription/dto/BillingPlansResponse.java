@@ -14,6 +14,9 @@ public class BillingPlansResponse {
 
     private String currency;
     private int trialMonths;
+    /** True when MTN MoMo Collection is enabled and configured (no secrets exposed). */
+    private boolean mtnCheckoutAvailable;
+    /** True when Flutterwave hosted checkout is enabled and configured (no secrets exposed). */
     private boolean cardCheckoutAvailable;
     private List<BillingPlanQuote> plans;
 }
