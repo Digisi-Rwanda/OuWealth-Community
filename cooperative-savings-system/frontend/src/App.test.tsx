@@ -16,6 +16,7 @@ vi.mock('@/shared/api/auth', async (importOriginal) => {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.history.pushState({}, '', '/login')
   })
 
   it('renders the OuWealth Community brand on the login route', async () => {
@@ -37,5 +38,12 @@ describe('App', () => {
       BRAND_LOGO_ON_DARK_SRC,
     )
     store.dispatch(setThemePreference('light'))
+  })
+
+  it('renders the public landing page at /', async () => {
+    window.history.pushState({}, '', '/')
+    store.dispatch(setThemePreference('light'))
+    render(<App />)
+    expect(await screen.findByTestId('landing-page')).toBeInTheDocument()
   })
 })

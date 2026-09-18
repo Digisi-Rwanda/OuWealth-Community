@@ -4,6 +4,115 @@
     "fullName": "OuWealth Community",
     "tagline": "Accumulate your wealth in an instant"
   },
+  "public": {
+    "nav": {
+      "aria": "Urubuga rw'abashyitsi",
+      "home": "Ahabanza",
+      "about": "Abo turi bo",
+      "contact": "Twandikire",
+      "privacy": "Politiki y'ibanga",
+      "terms": "Amabwiriza n'amasezerano",
+      "login": "Injira",
+      "createScheme": "Kora Ikimina"
+    },
+    "footer": {
+      "tagline": "Porogaramu y'ibimina — gucunga abanyamuryango, amafaranga, inguzanyo, n'ibikorwa by'amafaranga mu buryo bworoshye.",
+      "navAria": "Amahuza yo hepfo",
+      "copyright": "© {{year}} OuWealth Community"
+    },
+    "landing": {
+      "hero": {
+        "title": "Gucunga Ikimina cyawe mu buryo bwizewe.",
+        "subtitle": "OuWealth Community ifasha ibimina gucunga abanyamuryango, kwandika amafaranga ashyizweho, gucunga inguzanyo n'uko wishyurwa, gukurikirana ishoramari, no gukora raporo — ahantu hamwe.",
+        "visualTitle": "Imiryango yubaka ubukungu hamwe",
+        "visualSubtitle": "Ahantu h'ikirango cy'ikimina — amafoto yemewe ashobora kongerwaho nyuma."
+      },
+      "how": {
+        "title": "Uko OuWealth ikora",
+        "subtitle": "Inzira yumvikana kuva ku gukora ikimina kugeza ku bikorwa bya buri munsi.",
+        "stepLabel": "Intambwe {{step}}",
+        "step1": "Kora Ikimina cyawe",
+        "step2": "Ongeraho unacunge abanyamuryango",
+        "step3": "Andika amafaranga n'ibikorwa by'amafaranga",
+        "step4": "Cunga inguzanyo n'uko wishyurwa",
+        "step5": "Kurikirana ishoramari n'imikorere yacyo",
+        "step6": "Kora raporo maze ugume utegekanijwe"
+      },
+      "capabilities": {
+        "title": "Ibyo ushobora gucunga",
+        "subtitle": "Byubatswe ku bikorwa nyakuri by'ikimina.",
+        "members": "Gucunga abanyamuryango",
+        "membersDesc": "Andikisha abanyamuryango kandi ugumane inyandiko zabo.",
+        "contributions": "Amafaranga ashyizweho",
+        "contributionsDesc": "Andika amafaranga y'ukwezi n'ayihariye hamwe n'uko bimeze.",
+        "loans": "Inguzanyo n'uko wishyurwa",
+        "loansDesc": "Tanga inguzanyo, kurikirana kwishyura, n'amafaranga asigaye.",
+        "fines": "Amahane",
+        "finesDesc": "Andika amahane kandi ukurikirane uko wishyurwa.",
+        "social": "Ikigega cy'imibereho",
+        "socialDesc": "Cunga amafaranga n'ubufasha bw'imibereho mu kimina.",
+        "investments": "Ishoramari",
+        "investmentsDesc": "Kurikirana ishoramari, umutungo, n'inyungu zagarutse.",
+        "payouts": "Imigabane / kwishyura",
+        "payoutsDesc": "Teganya kandi wemeze kwishyura abanyamuryango.",
+        "reports": "Raporo",
+        "reportsDesc": "Sohora raporo z'amafaranga n'ibikorwa igihe ubikeneye.",
+        "ledger": "Ibikorwa / ibitabo",
+        "ledgerDesc": "Gumana inyandiko zisobanutse z'ibikorwa by'amafaranga.",
+        "billing": "Kwishyura porogaramu",
+        "billingDesc": "Cunga ubwiyunge bwa OuWealth Community bw'ikimina."
+      },
+      "value": {
+        "title": "Ubunyangamugayo ku kimina cyose",
+        "body": "OuWealth Community yagenewe gufasha ubuyobozi n'abanyamuryango kureba ibibera mu kimina — nta guhahiriza icyemezo ku nguzanyo cyangwa ishoramari.",
+        "organize": "Tegura inyandiko z'abanyamuryango n'amafaranga mu sisitemu imwe",
+        "visibility": "Menya ibikorwa by'abanyamuryango n'inshingano z'ikimina",
+        "obligations": "Kurikirana amafaranga, inguzanyo, amahane, n'ubufasha bw'imibereho",
+        "position": "Ongera ubumenyi ku miterere y'amafaranga y'ikimina",
+        "visual": "Inyandiko zisangiwe. Inshingano zisangiwe. Ibyemezo bisobanutse."
+      },
+      "aboutTeaser": {
+        "title": "Abo turi bo — OuWealth Community",
+        "body": "Yubatswe ku bikimina n'imiryango y'amafaranga ikeneye ibikoresho byoroshye mu bikorwa bya buri munsi.",
+        "cta": "Menya byinshi"
+      },
+      "contactTeaser": {
+        "title": "Ukeneye ubufasha cyangwa ushaka kumenya byinshi?",
+        "body": "Twandikire igihe ufite ibibazo ku OuWealth Community.",
+        "cta": "Twandikire"
+      }
+    },
+    "about": {
+      "title": "Abo turi bo",
+      "intro": "OuWealth Community ni porogaramu yagenewe ibimina n'imiryango y'amafaranga.",
+      "purpose": "Intego yayo ni ugorora imicungire, kongera ubumenyi, no gufasha ibikorwa by'amafaranga bya buri munsi — kuva ku bunyamuryango n'amafaranga ashyizweho kugeza ku nguzanyo, ubufasha bw'imibereho, ishoramari, na raporo.",
+      "areasTitle": "Ibice by'ingenzi bya porogaramu",
+      "areas": {
+        "members": "Gucunga abanyamuryango n'inyandiko zabo",
+        "contributions": "Amafaranga ashyizweho n'uko byemezwa",
+        "loans": "Inguzanyo, kwishyura, n'ibikorwa bijyanye",
+        "social": "Amafaranga n'ubufasha bw'imibereho",
+        "investments": "Ishoramari n'inyungu zagarutse",
+        "reports": "Raporo n'ubumenyi bw'ibikorwa"
+      },
+      "closing": "OuWealth Community ntisimbura ubuyobozi bw'ikimina cyawe. Ifasha kugumana inyandiko zinyuze n'uko amafaranga yanyu asangiwe aboneka neza."
+    },
+    "contact": {
+      "title": "Twandikire OuWealth Community",
+      "intro": "Twakiriye ibibazo ku porogaramu n'uko ishobora gufasha ikimina cyawe.",
+      "placeholder": "Amakuru yo kutwandikira azaboneka hano vuba."
+    },
+    "privacy": {
+      "title": "Politiki y'ibanga",
+      "effective": "Itariki itangira gukurikizwa: izatangazwa hamwe na politiki yemewe.",
+      "placeholder": "Politiki yacu y'ibanga irategurwa kandi izatangazwa hano."
+    },
+    "terms": {
+      "title": "Amabwiriza n'amasezerano",
+      "effective": "Itariki itangira gukurikizwa: izatangazwa hamwe n'amabwiriza yemewe.",
+      "placeholder": "Amabwiriza n'amasezerano yacu arategurwa kandi azatangazwa hano."
+    }
+  },
   "nav": {
     "dashboard": "Imbonerahamwe",
     "members": "Abanyamuryango",

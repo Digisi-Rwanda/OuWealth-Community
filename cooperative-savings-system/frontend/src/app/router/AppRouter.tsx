@@ -1,6 +1,12 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AppLayout } from '@/layouts/AppLayout'
+import { PublicLayout } from '@/layouts/PublicLayout'
+import { LandingPage } from '@/pages/LandingPage'
+import { AboutPage } from '@/pages/AboutPage'
+import { ContactPage } from '@/pages/ContactPage'
+import { PrivacyPage } from '@/pages/PrivacyPage'
+import { TermsPage } from '@/pages/TermsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { LoginSuccessSplashPage } from '@/pages/LoginSuccessSplashPage'
 import { SignupPage } from '@/pages/SignupPage'
@@ -51,6 +57,14 @@ export function AppRouter() {
     <BrowserRouter>
       <AuthBootstrap>
         <Routes>
+          <Route element={<PublicLayout />}>
+            <Route path={ROUTES.home} element={<LandingPage />} />
+            <Route path={ROUTES.about} element={<AboutPage />} />
+            <Route path={ROUTES.contact} element={<ContactPage />} />
+            <Route path={ROUTES.privacy} element={<PrivacyPage />} />
+            <Route path={ROUTES.terms} element={<TermsPage />} />
+          </Route>
+
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.login} element={<LoginPage />} />
             <Route path={ROUTES.signup} element={<SignupPage />} />
@@ -62,35 +76,23 @@ export function AppRouter() {
             <Route path={ROUTES.loginSuccess} element={<LoginSuccessSplashPage />} />
             <Route element={<AppLayout />}>
               <Route path={ROUTES.dashboard} element={<DashboardPage />} />
-              <Route
-                element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}
-              >
+              <Route element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}>
                 <Route path={ROUTES.members} element={<MembersPage />} />
                 <Route path="/members/:userId" element={<MemberDetailPage />} />
               </Route>
               <Route path={ROUTES.contributions} element={<ContributionsPage />} />
-              <Route
-                path="/contributions/special/:campaignId"
-                element={<ContributionsPage />}
-              />
+              <Route path="/contributions/special/:campaignId" element={<ContributionsPage />} />
               <Route path={ROUTES.loans} element={<LoansPage />} />
               <Route path="/loans/:loanId" element={<LoanDetailRoute />} />
               <Route path={ROUTES.fines} element={<FinesPage />} />
               <Route path="/fines/:fineId" element={<FineDetailPage />} />
-              <Route
-                element={<RoleRoute roles={FINANCE_ACCESS_ROLES} />}
-              >
+              <Route element={<RoleRoute roles={FINANCE_ACCESS_ROLES} />}>
                 <Route path={ROUTES.finePayments} element={<FinePaymentQueuePage />} />
               </Route>
               <Route path={ROUTES.socialFund} element={<SocialFundPage />} />
-              <Route
-                element={<RoleRoute roles={FINANCE_ACCESS_ROLES} />}
-              >
+              <Route element={<RoleRoute roles={FINANCE_ACCESS_ROLES} />}>
                 <Route path={ROUTES.investments} element={<InvestmentsPage />} />
-                <Route
-                  path="/investments/:investmentId"
-                  element={<InvestmentDetailPage />}
-                />
+                <Route path="/investments/:investmentId" element={<InvestmentDetailPage />} />
                 <Route path={ROUTES.transactions} element={<TransactionsPage />} />
                 <Route path={ROUTES.ledger} element={<LedgerPage />} />
               </Route>
@@ -99,22 +101,16 @@ export function AppRouter() {
               <Route path={ROUTES.reports} element={<ReportsPage />} />
               <Route path={ROUTES.billing} element={<BillingPage />} />
               <Route path={ROUTES.billingPaymentReturn} element={<PaymentReturnPage />} />
-              <Route
-                element={<RoleRoute roles={[...LEADERSHIP_ROLES]} />}
-              >
+              <Route element={<RoleRoute roles={[...LEADERSHIP_ROLES]} />}>
                 <Route path={ROUTES.historicalImport} element={<HistoricalImportPage />} />
               </Route>
               <Route path={ROUTES.notifications} element={<NotificationsPage />} />
               <Route path={ROUTES.profile} element={<ProfilePage />} />
               <Route path={ROUTES.changePassword} element={<ChangePasswordPage />} />
-              <Route
-                element={<RoleRoute roles={[...LEADERSHIP_ROLES]} />}
-              >
+              <Route element={<RoleRoute roles={[...LEADERSHIP_ROLES]} />}>
                 <Route path={ROUTES.settings} element={<SettingsPage />} />
               </Route>
-              <Route
-                element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}
-              >
+              <Route element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}>
                 <Route path={ROUTES.auditLogs} element={<AuditLogsPage />} />
               </Route>
               <Route element={<RoleRoute roles={[ROLE_SUPER_ADMIN]} />}>
@@ -125,7 +121,6 @@ export function AppRouter() {
             </Route>
           </Route>
 
-          <Route path="/" element={<Navigate to={ROUTES.login} replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthBootstrap>

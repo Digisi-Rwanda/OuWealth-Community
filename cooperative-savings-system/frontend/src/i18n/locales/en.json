@@ -4,6 +4,115 @@
     "fullName": "OuWealth Community",
     "tagline": "Accumulate your wealth in an instant"
   },
+  "public": {
+    "nav": {
+      "aria": "Public site navigation",
+      "home": "Home",
+      "about": "About",
+      "contact": "Contact",
+      "privacy": "Privacy Policy",
+      "terms": "Terms & Conditions",
+      "login": "Login",
+      "createScheme": "Create Saving Scheme"
+    },
+    "footer": {
+      "tagline": "Software for Saving Schemes — organize members, contributions, loans, and shared financial operations.",
+      "navAria": "Footer links",
+      "copyright": "© {{year}} OuWealth Community"
+    },
+    "landing": {
+      "hero": {
+        "title": "Manage your Saving Scheme with confidence.",
+        "subtitle": "OuWealth Community helps Saving Schemes organize members, record contributions, manage loans and repayments, track investments, and stay clear with reports — in one place.",
+        "visualTitle": "Communities building wealth together",
+        "visualSubtitle": "A branded space for your Saving Scheme story — approved photography can be added here later."
+      },
+      "how": {
+        "title": "How OuWealth Works",
+        "subtitle": "A clear path from creating your scheme to day-to-day financial operations.",
+        "stepLabel": "Step {{step}}",
+        "step1": "Create your Saving Scheme",
+        "step2": "Add and manage members",
+        "step3": "Record contributions and financial activity",
+        "step4": "Manage loans and repayments",
+        "step5": "Track investments and performance",
+        "step6": "Generate reports and stay organized"
+      },
+      "capabilities": {
+        "title": "What you can manage",
+        "subtitle": "Built around the real operations of a Saving Scheme.",
+        "members": "Member management",
+        "membersDesc": "Register members and keep membership records organized.",
+        "contributions": "Contributions",
+        "contributionsDesc": "Record regular and special contributions with clear status.",
+        "loans": "Loans & repayments",
+        "loansDesc": "Issue loans, track repayments, and monitor outstanding balances.",
+        "fines": "Fines / penalties",
+        "finesDesc": "Record penalties and follow payment progress.",
+        "social": "Social fund",
+        "socialDesc": "Manage social contributions and disbursements for the scheme.",
+        "investments": "Investments",
+        "investmentsDesc": "Track scheme investments, capital, and returned profits.",
+        "payouts": "Shares / payouts",
+        "payoutsDesc": "Plan and confirm share-out payouts for members.",
+        "reports": "Reports",
+        "reportsDesc": "Export financial and operational reports when you need them.",
+        "ledger": "Transactions / ledger",
+        "ledgerDesc": "Keep a clear record of scheme financial movements.",
+        "billing": "Subscription / billing",
+        "billingDesc": "Manage your OuWealth Community subscription for the scheme."
+      },
+      "value": {
+        "title": "Clarity for every Saving Scheme",
+        "body": "OuWealth Community is designed to help leadership and members see what is happening in the scheme — without replacing human judgment on loans or investments.",
+        "organize": "Organize member and financial records in one system",
+        "visibility": "Understand member activity and scheme obligations",
+        "obligations": "Keep track of contributions, loans, fines, and social support",
+        "position": "Improve visibility into the scheme’s overall financial position",
+        "visual": "Shared records. Shared responsibility. Clearer decisions."
+      },
+      "aboutTeaser": {
+        "title": "About OuWealth Community",
+        "body": "Built for Saving Schemes and community financial groups that need practical tools for everyday operations.",
+        "cta": "Learn more"
+      },
+      "contactTeaser": {
+        "title": "Need help or want to learn more?",
+        "body": "Reach out when you have questions about OuWealth Community.",
+        "cta": "Contact Us"
+      }
+    },
+    "about": {
+      "title": "About Us",
+      "intro": "OuWealth Community is software designed for Saving Schemes and community financial groups.",
+      "purpose": "Its purpose is to simplify organization, improve visibility, and support everyday financial operations — from membership and contributions to loans, social support, investments, and reporting.",
+      "areasTitle": "Major product areas",
+      "areas": {
+        "members": "Member management and membership records",
+        "contributions": "Contributions and related approvals",
+        "loans": "Loans, repayments, and related workflows",
+        "social": "Social fund contributions and disbursements",
+        "investments": "Scheme investments and returned profits",
+        "reports": "Reports and operational visibility"
+      },
+      "closing": "OuWealth Community does not replace the leadership of your Saving Scheme. It helps you keep accurate records and a clearer view of your shared finances."
+    },
+    "contact": {
+      "title": "Contact OuWealth Community",
+      "intro": "We welcome questions about the product and how it can support your Saving Scheme.",
+      "placeholder": "Contact details will be available here shortly."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "effective": "Effective date: to be published with the approved policy.",
+      "placeholder": "Our Privacy Policy is being finalized and will be published here."
+    },
+    "terms": {
+      "title": "Terms & Conditions",
+      "effective": "Effective date: to be published with the approved terms.",
+      "placeholder": "Our Terms & Conditions are being finalized and will be published here."
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "members": "Members",
