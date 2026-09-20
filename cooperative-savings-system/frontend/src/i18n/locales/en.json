@@ -400,7 +400,44 @@
     },
     "charts": {
       "monthlyContributions": "Monthly contributions",
+      "monthlyContributionsEmpty": "No contribution payments recorded for this year yet.",
       "paid": "Paid"
+    },
+    "insights": {
+      "thisMonthTitle": "This month",
+      "thisMonthHint": "Operational activity for the current calendar month.",
+      "thisMonthSubtitle": "Activity for {{month}}/{{year}} compared with the previous month.",
+      "contributions": "Contributions",
+      "loansIssued": "Loans issued",
+      "loansIssuedCount": "{{count}} loans",
+      "loanRepayments": "Loan repayments",
+      "outstandingLoans": "Outstanding loans",
+      "finesCollected": "Fines collected",
+      "finesIssued": "Fines issued",
+      "finesIssuedValue": "{{count}} · {{amount}}",
+      "fineActivityTitle": "Fine activity",
+      "issuedVsRepaidTitle": "Loans issued vs repaid",
+      "issuedVsRepaidEmpty": "No loans issued or repaid this month yet.",
+      "loansRepaid": "Loans repaid",
+      "amount": "Amount",
+      "vsLastMonth": "{{value}} vs last month",
+      "noChange": "No change vs last month",
+      "noBaseline": "No prior-month baseline"
+    },
+    "memberInsights": {
+      "title": "Member Insights",
+      "subtitle": "Year-to-date operational follow-up for authorized officers.",
+      "topContributors": "Top Contributors",
+      "topContributorsHint": "Highest contribution amounts recorded this year.",
+      "topContributorsEmpty": "No contribution activity yet this year.",
+      "fineFollowUp": "Highest Outstanding Fines",
+      "fineFollowUpHint": "Members with the highest unpaid fine balances this year.",
+      "fineFollowUpEmpty": "No fine balances require follow-up.",
+      "fineFollowUpMeta": "{{count}} fines · issued {{issued}}",
+      "overdueLoans": "Loan Follow-up",
+      "overdueLoansHint": "Members with overdue loan balances that may require follow-up.",
+      "overdueLoansEmpty": "No overdue loans.",
+      "overdueLoansMeta": "{{count}} overdue loans"
     }
   },
   "common": {

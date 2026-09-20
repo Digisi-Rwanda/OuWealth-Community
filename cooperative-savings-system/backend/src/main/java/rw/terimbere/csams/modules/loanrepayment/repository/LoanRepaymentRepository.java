@@ -7,6 +7,8 @@ import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepayment;
 
 public interface LoanRepaymentRepository
@@ -26,4 +28,17 @@ public interface LoanRepaymentRepository
                 LoanRepaymentSpecs.filtered(cooperativeId, memberUserId, fromDate, toDate),
                 Sort.by(Sort.Direction.DESC, "paymentDate").and(Sort.by(Sort.Direction.DESC, "createdAt")));
     }
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(r.amountTotal), 0)
+            FROM LoanRepayment r
+            WHERE r.cooperativeId = :cooperativeId
+              AND r.paymentDate >= :fromDate
+              AND r.paymentDate <= :toDate
+            """)
+    BigDecimal sumAmountTotalInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

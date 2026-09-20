@@ -97,6 +97,13 @@ export function MonthlyContributionsChart({
         <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography color="text.secondary">{t('common.loading')}</Typography>
         </Box>
+      ) : chartData.every((d) => d.totalPaid === 0) ? (
+        <Box
+          sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          data-testid="monthly-contributions-empty"
+        >
+          <Typography color="text.secondary">{t('dashboard.charts.monthlyContributionsEmpty')}</Typography>
+        </Box>
       ) : (
         <Box sx={{ width: '100%', height: 280 }}>
           <ResponsiveContainer>

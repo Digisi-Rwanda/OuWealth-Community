@@ -1,6 +1,7 @@
 package rw.terimbere.csams.modules.fine.repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -102,4 +103,69 @@ public interface FineRepository extends JpaRepository<Fine, UUID> {
             """)
     BigDecimal sumOutstandingByStatuses(
             @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<FineStatus> statuses);
+
+    @Query(
+            """
+            SELECT COUNT(f)
+            FROM Fine f
+            WHERE f.cooperativeId = :cooperativeId
+              AND f.issuedDate >= :fromDate
+              AND f.issuedDate <= :toDate
+              AND f.status NOT IN (
+                  rw.terimbere.csams.modules.fine.entity.FineStatus.CANCELLED
+              )
+            """)
+    long countIssuedInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(f.totalAmount), 0)
+            FROM Fine f
+            WHERE f.cooperativeId = :cooperativeId
+              AND f.issuedDate >= :fromDate
+              AND f.issuedDate <= :toDate
+              AND f.status NOT IN (
+                  rw.terimbere.csams.modules.fine.entity.FineStatus.CANCELLED
+              )
+            """)
+    BigDecimal sumIssuedAmountInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    /**
+     * YTD fine follow-up ranking by authoritative outstanding balance.
+     *
+     * <p>Only UNPAID / PARTIALLY_PAID fines (still-owed statuses used by FineService unpaid counts).
+     * Excludes PAID, WAIVED, and CANCELLED so waived/cancelled obligations never rank as outstanding.
+     * Columns: memberUserId, issuedAmount, paidAmount, outstandingAmount, fineCount
+     */
+    @Query(
+            """
+            SELECT f.memberUserId,
+                   COALESCE(SUM(f.totalAmount), 0),
+                   COALESCE(SUM(f.paidAmount), 0),
+                   COALESCE(SUM(f.outstandingAmount), 0),
+                   COUNT(f)
+            FROM Fine f
+            WHERE f.cooperativeId = :cooperativeId
+              AND f.issuedDate >= :fromDate
+              AND f.issuedDate <= :toDate
+              AND f.status IN (
+                  rw.terimbere.csams.modules.fine.entity.FineStatus.UNPAID,
+                  rw.terimbere.csams.modules.fine.entity.FineStatus.PARTIALLY_PAID
+              )
+              AND f.outstandingAmount > 0
+            GROUP BY f.memberUserId
+            HAVING COALESCE(SUM(f.outstandingAmount), 0) > 0
+            ORDER BY COALESCE(SUM(f.outstandingAmount), 0) DESC
+            """)
+    List<Object[]> sumFineFollowUpGroupedByMemberOrdered(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable);
 }

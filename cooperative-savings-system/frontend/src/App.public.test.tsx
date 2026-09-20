@@ -162,6 +162,7 @@ describe('App public site', () => {
     expect(screen.queryByTestId('app-sidebar')).not.toBeInTheDocument()
     expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
     expect(screen.queryByTestId('app-top-bar')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('member-insights')).not.toBeInTheDocument()
   })
 
   it('does not render the authenticated app sidebar on login or signup', async () => {

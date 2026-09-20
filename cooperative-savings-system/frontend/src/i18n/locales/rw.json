@@ -396,7 +396,44 @@
     },
     "charts": {
       "monthlyContributions": "Amafaranga ya buri kwezi",
+      "monthlyContributionsEmpty": "Nta mafaranga yishyuwe muri uyu mwaka.",
       "paid": "Byishyuwe"
+    },
+    "insights": {
+      "thisMonthTitle": "Uku kwezi",
+      "thisMonthHint": "Ibikorwa by'uku kwezi.",
+      "thisMonthSubtitle": "Ibikorwa bya {{month}}/{{year}} ugereranije n'ukwezi gushize.",
+      "contributions": "Amafaranga ashyizweho",
+      "loansIssued": "Inguzanyo zatanzwe",
+      "loansIssuedCount": "Inguzanyo {{count}}",
+      "loanRepayments": "Kwishyura inguzanyo",
+      "outstandingLoans": "Inguzanyo zisigare",
+      "finesCollected": "Amahane yakusanyijwe",
+      "finesIssued": "Amahane yatanzwe",
+      "finesIssuedValue": "{{count}} · {{amount}}",
+      "fineActivityTitle": "Ibikorwa by'amahane",
+      "issuedVsRepaidTitle": "Inguzanyo zatanzwe n'izishyuwe",
+      "issuedVsRepaidEmpty": "Nta nguzanyo zatanzwe cyangwa zishyuwe muri uku kwezi.",
+      "loansRepaid": "Inguzanyo zishyuwe",
+      "amount": "Amafaranga",
+      "vsLastMonth": "{{value}} ugereranije n'ukwezi gushize",
+      "noChange": "Nta mpinduka ugereranije n'ukwezi gushize",
+      "noBaseline": "Nta makuru y'ukwezi gushize"
+    },
+    "memberInsights": {
+      "title": "Amakuru y'abanyamuryango",
+      "subtitle": "Ibikorwa by'umwaka ku buyobozi.",
+      "topContributors": "Abashyizeho cyane",
+      "topContributorsHint": "Amafaranga menshi ashyizweho muri uyu mwaka.",
+      "topContributorsEmpty": "Nta mafaranga ashyizweho muri uyu mwaka.",
+      "fineFollowUp": "Amahane atarishyuwe",
+      "fineFollowUpHint": "Abanyamuryango bafite amahane menshi atarishyuwe muri uyu mwaka.",
+      "fineFollowUpEmpty": "Nta mahane asaba gukurikiranwa.",
+      "fineFollowUpMeta": "Amahane {{count}} · yatanzwe {{issued}}",
+      "overdueLoans": "Gukurikirana inguzanyo",
+      "overdueLoansHint": "Abanyamuryango bafite inguzanyo zatinze.",
+      "overdueLoansEmpty": "Nta nguzanyo zatinze.",
+      "overdueLoansMeta": "Inguzanyo {{count}} zatinze"
     }
   },
   "common": {

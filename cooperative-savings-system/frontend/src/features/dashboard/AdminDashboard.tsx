@@ -32,6 +32,7 @@ import { useCooperativeSubscription } from '@/features/subscription/useCooperati
 import { ROUTES } from '@/shared/constants/routes'
 import type { DashboardSummary } from '@/shared/types/dashboard'
 import {
+  canViewAnyMemberInsights,
   primaryRole,
   ROLE_ACCOUNTANT,
   ROLE_LOAN_OFFICER,
@@ -43,8 +44,10 @@ import {
 } from '@/shared/types/auth'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { MemberFinancialSummarySection } from './MemberFinancialSummarySection'
+import { MemberInsightsSection } from './MemberInsightsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
+import { ThisMonthInsightsSection } from './ThisMonthInsightsSection'
 
 const METRIC_COLS = { xs: 12, sm: 6, md: 4, lg: 3 }
 
@@ -139,6 +142,23 @@ function showMemberTable(role: AppRole, canManageMembers: boolean): boolean {
 
 function showContributionsChart(role: AppRole): boolean {
   return role !== ROLE_LOAN_OFFICER
+}
+
+function showThisMonthInsights(role: AppRole): boolean {
+  return role !== ROLE_SECRETARY
+}
+
+function showFullFinancialInsights(role: AppRole): boolean {
+  return (
+    role === ROLE_PRESIDENT ||
+    role === ROLE_VICE_PRESIDENT ||
+    role === ROLE_ACCOUNTANT ||
+    role === ROLE_SUPER_ADMIN
+  )
+}
+
+function showLoanInsights(role: AppRole): boolean {
+  return role !== ROLE_SECRETARY
 }
 
 interface AdminDashboardProps {
@@ -417,6 +437,18 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
             onRetry={() => void summaryQuery.refetch()}
           />
         </Box>
+      ) : null}
+
+      {showThisMonthInsights(officeRole) ? (
+        <ThisMonthInsightsSection
+          cooperativeId={cooperativeId}
+          showFullFinancials={showFullFinancialInsights(officeRole)}
+          showLoanAnalytics={showLoanInsights(officeRole)}
+        />
+      ) : null}
+
+      {canViewAnyMemberInsights(userRoles) ? (
+        <MemberInsightsSection cooperativeId={cooperativeId} />
       ) : null}
 
       <Grid container spacing={2} sx={{ mb: 3 }}>

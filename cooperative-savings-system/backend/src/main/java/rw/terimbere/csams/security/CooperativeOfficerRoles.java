@@ -35,6 +35,13 @@ public final class CooperativeOfficerRoles {
     public static final Set<String> BILLING_MANAGER_ROLE_CODES =
             Set.of(PRESIDENT, VICE_PRESIDENT, ACCOUNTANT, LEGACY_ADMIN);
 
+    /** Officers who may see member-identifying contribution/fine leaderboards. */
+    public static final Set<String> MEMBER_INSIGHTS_FINANCE_ROLE_CODES = BILLING_MANAGER_ROLE_CODES;
+
+    /** Officers who may see overdue-loan follow-up lists (includes loan officer). */
+    public static final Set<String> MEMBER_INSIGHTS_LOAN_ROLE_CODES =
+            Set.of(PRESIDENT, VICE_PRESIDENT, ACCOUNTANT, LOAN_OFFICER, LEGACY_ADMIN);
+
     private CooperativeOfficerRoles() {}
 
     public static String normalize(String roleInCooperative) {
@@ -71,6 +78,36 @@ public final class CooperativeOfficerRoles {
             return true;
         }
         return BILLING_MANAGER_ROLE_CODES.stream().anyMatch(principal::hasRole);
+    }
+
+    public static boolean canViewMemberFinanceInsights(UserPrincipal principal) {
+        if (principal == null) {
+            return false;
+        }
+        if (principal.hasRole(CooperativeAuthorizationService.SUPER_ADMIN)) {
+            return true;
+        }
+        return MEMBER_INSIGHTS_FINANCE_ROLE_CODES.stream().anyMatch(principal::hasRole);
+    }
+
+    public static boolean canViewMemberLoanInsights(UserPrincipal principal) {
+        if (principal == null) {
+            return false;
+        }
+        if (principal.hasRole(CooperativeAuthorizationService.SUPER_ADMIN)) {
+            return true;
+        }
+        return MEMBER_INSIGHTS_LOAN_ROLE_CODES.stream().anyMatch(principal::hasRole);
+    }
+
+    public static boolean canViewAnyMemberInsights(UserPrincipal principal) {
+        return canViewMemberFinanceInsights(principal) || canViewMemberLoanInsights(principal);
+    }
+
+    public static void requireMemberInsightsAccess(UserPrincipal principal) {
+        if (!canViewAnyMemberInsights(principal)) {
+            throw new ForbiddenException("Member insights are restricted to Saving Scheme officers");
+        }
     }
 
     public static void requireBillingManager(UserPrincipal principal) {

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import rw.terimbere.csams.modules.contribution.dto.MonthlyContributionChartPoint;
+import rw.terimbere.csams.modules.dashboard.dto.DashboardInsightsResponse;
+import rw.terimbere.csams.modules.dashboard.dto.DashboardMemberInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardSummaryResponse;
 import rw.terimbere.csams.modules.dashboard.service.DashboardService;
 import rw.terimbere.csams.shared.common.dto.ApiResponse;
@@ -32,6 +34,21 @@ public class DashboardController {
     @Operation(summary = "Dashboard contribution and membership summary")
     public ResponseEntity<ApiResponse<DashboardSummaryResponse>> summary(@PathVariable UUID cooperativeId) {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.summary(cooperativeId)));
+    }
+
+    @GetMapping("/insights")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Current vs previous month operational analytics")
+    public ResponseEntity<ApiResponse<DashboardInsightsResponse>> insights(@PathVariable UUID cooperativeId) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.insights(cooperativeId)));
+    }
+
+    @GetMapping("/member-insights")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Officer-only member contribution, fine, and overdue loan insights")
+    public ResponseEntity<ApiResponse<DashboardMemberInsightsResponse>> memberInsights(
+            @PathVariable UUID cooperativeId) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.memberInsights(cooperativeId)));
     }
 
     @GetMapping("/charts/monthly-contributions")

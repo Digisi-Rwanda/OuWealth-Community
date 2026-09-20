@@ -62,6 +62,95 @@ export interface PlatformOverview {
   pendingPayouts: number
 }
 
+export type MomChangeState = 'UP' | 'DOWN' | 'FLAT' | 'NO_BASELINE'
+
+export interface DashboardInsightsPeriod {
+  year: number
+  month: number
+  label?: string
+  previousYear: number
+  previousMonth: number
+}
+
+export interface ContributionsInsights {
+  currentMonth: string | number
+  previousMonth: string | number
+  changePercent: string | number | null
+  changeState: MomChangeState
+}
+
+export interface LoansInsights {
+  issuedCountCurrentMonth: number
+  issuedAmountCurrentMonth: string | number
+  issuedCountPreviousMonth: number
+  issuedAmountPreviousMonth: string | number
+  issuedAmountChangePercent: string | number | null
+  issuedAmountChangeState: MomChangeState
+  repaidCurrentMonth: string | number
+  repaidPreviousMonth: string | number
+  repaidChangePercent?: string | number | null
+  repaidChangeState?: MomChangeState
+  outstandingPrincipal: string | number
+}
+
+export interface FinesInsights {
+  issuedCountCurrentMonth: number
+  issuedAmountCurrentMonth: string | number
+  collectedCurrentMonth: string | number
+  collectedPreviousMonth?: string | number
+  collectedChangePercent?: string | number | null
+  collectedChangeState?: MomChangeState
+}
+
+export interface DashboardInsights {
+  period: DashboardInsightsPeriod
+  contributions: ContributionsInsights
+  loans: LoansInsights
+  fines: FinesInsights
+  currency?: string
+  timezone?: string
+}
+
+export interface MemberInsightsPeriod {
+  start: string
+  end: string
+}
+
+export interface TopContributorRow {
+  memberId: string
+  displayName: string
+  amount: string | number
+  rank: number
+}
+
+export interface FineFollowUpRow {
+  memberId: string
+  displayName: string
+  issuedAmount: string | number
+  paidAmount: string | number
+  outstandingAmount: string | number
+  fineCount: number
+  rank: number
+}
+
+export interface OverdueLoanInsightRow {
+  memberId: string
+  displayName: string
+  overdueLoanCount: number
+  outstandingPrincipal: string | number
+  oldestDueDate?: string | null
+  rank: number
+}
+
+export interface DashboardMemberInsights {
+  period: MemberInsightsPeriod
+  topContributors: TopContributorRow[]
+  fineFollowUp: FineFollowUpRow[]
+  overdueLoans: OverdueLoanInsightRow[]
+  currency?: string
+  timezone?: string
+}
+
 export function mapDashboardSummary(raw: DashboardSummary): DashboardSummary {
   return {
     totalMembers: Number(raw.totalMembers ?? 0),
@@ -147,5 +236,99 @@ export function mapPlatformOverview(raw: PlatformOverview): PlatformOverview {
     pendingFinePayments: Number(raw.pendingFinePayments ?? 0),
     pendingSocialContributions: Number(raw.pendingSocialContributions ?? 0),
     pendingPayouts: Number(raw.pendingPayouts ?? 0),
+  }
+}
+
+function mapMomState(raw: string | undefined): MomChangeState {
+  if (raw === 'UP' || raw === 'DOWN' || raw === 'FLAT' || raw === 'NO_BASELINE') return raw
+  return 'FLAT'
+}
+
+export function mapDashboardInsights(raw: DashboardInsights): DashboardInsights {
+  return {
+    period: {
+      year: Number(raw.period?.year ?? 0),
+      month: Number(raw.period?.month ?? 0),
+      label: raw.period?.label,
+      previousYear: Number(raw.period?.previousYear ?? 0),
+      previousMonth: Number(raw.period?.previousMonth ?? 0),
+    },
+    contributions: {
+      currentMonth: raw.contributions?.currentMonth ?? 0,
+      previousMonth: raw.contributions?.previousMonth ?? 0,
+      changePercent:
+        raw.contributions?.changePercent === undefined || raw.contributions?.changePercent === null
+          ? null
+          : raw.contributions.changePercent,
+      changeState: mapMomState(raw.contributions?.changeState),
+    },
+    loans: {
+      issuedCountCurrentMonth: Number(raw.loans?.issuedCountCurrentMonth ?? 0),
+      issuedAmountCurrentMonth: raw.loans?.issuedAmountCurrentMonth ?? 0,
+      issuedCountPreviousMonth: Number(raw.loans?.issuedCountPreviousMonth ?? 0),
+      issuedAmountPreviousMonth: raw.loans?.issuedAmountPreviousMonth ?? 0,
+      issuedAmountChangePercent:
+        raw.loans?.issuedAmountChangePercent === undefined ||
+        raw.loans?.issuedAmountChangePercent === null
+          ? null
+          : raw.loans.issuedAmountChangePercent,
+      issuedAmountChangeState: mapMomState(raw.loans?.issuedAmountChangeState),
+      repaidCurrentMonth: raw.loans?.repaidCurrentMonth ?? 0,
+      repaidPreviousMonth: raw.loans?.repaidPreviousMonth ?? 0,
+      repaidChangePercent:
+        raw.loans?.repaidChangePercent === undefined || raw.loans?.repaidChangePercent === null
+          ? null
+          : raw.loans.repaidChangePercent,
+      repaidChangeState: mapMomState(raw.loans?.repaidChangeState),
+      outstandingPrincipal: raw.loans?.outstandingPrincipal ?? 0,
+    },
+    fines: {
+      issuedCountCurrentMonth: Number(raw.fines?.issuedCountCurrentMonth ?? 0),
+      issuedAmountCurrentMonth: raw.fines?.issuedAmountCurrentMonth ?? 0,
+      collectedCurrentMonth: raw.fines?.collectedCurrentMonth ?? 0,
+      collectedPreviousMonth: raw.fines?.collectedPreviousMonth ?? 0,
+      collectedChangePercent:
+        raw.fines?.collectedChangePercent === undefined ||
+        raw.fines?.collectedChangePercent === null
+          ? null
+          : raw.fines.collectedChangePercent,
+      collectedChangeState: mapMomState(raw.fines?.collectedChangeState),
+    },
+    currency: raw.currency || 'RWF',
+    timezone: raw.timezone || 'Africa/Kigali',
+  }
+}
+
+export function mapDashboardMemberInsights(raw: DashboardMemberInsights): DashboardMemberInsights {
+  return {
+    period: {
+      start: raw.period?.start ?? '',
+      end: raw.period?.end ?? '',
+    },
+    topContributors: (raw.topContributors ?? []).map((row, index) => ({
+      memberId: String(row.memberId),
+      displayName: row.displayName || String(row.memberId),
+      amount: row.amount ?? 0,
+      rank: Number(row.rank ?? index + 1),
+    })),
+    fineFollowUp: (raw.fineFollowUp ?? []).map((row, index) => ({
+      memberId: String(row.memberId),
+      displayName: row.displayName || String(row.memberId),
+      issuedAmount: row.issuedAmount ?? 0,
+      paidAmount: row.paidAmount ?? 0,
+      outstandingAmount: row.outstandingAmount ?? 0,
+      fineCount: Number(row.fineCount ?? 0),
+      rank: Number(row.rank ?? index + 1),
+    })),
+    overdueLoans: (raw.overdueLoans ?? []).map((row, index) => ({
+      memberId: String(row.memberId),
+      displayName: row.displayName || String(row.memberId),
+      overdueLoanCount: Number(row.overdueLoanCount ?? 0),
+      outstandingPrincipal: row.outstandingPrincipal ?? 0,
+      oldestDueDate: row.oldestDueDate ?? null,
+      rank: Number(row.rank ?? index + 1),
+    })),
+    currency: raw.currency || 'RWF',
+    timezone: raw.timezone || 'Africa/Kigali',
   }
 }

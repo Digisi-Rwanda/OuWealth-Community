@@ -33,6 +33,12 @@ public class CooperativeAuthorizationService {
         }
     }
 
+    /** Membership plus officer access to member-identifying dashboard insights. */
+    public void requireMemberInsightsAccess(UUID cooperativeId) {
+        requireMembership(cooperativeId);
+        CooperativeOfficerRoles.requireMemberInsightsAccess(currentPrincipal());
+    }
+
     public void requireSuperAdmin() {
         if (!currentPrincipal().hasRole(SUPER_ADMIN)) {
             throw new ForbiddenException("Super admin access is required");

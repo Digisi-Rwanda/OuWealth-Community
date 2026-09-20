@@ -111,6 +111,19 @@ export const FINANCE_ACCESS_ROLES = [
   ROLE_SUPER_ADMIN,
 ]
 
+/** Officers who may see member-identifying contribution/fine leaderboards. */
+export const MEMBER_INSIGHTS_FINANCE_ROLES = FINANCE_ACCESS_ROLES
+
+/** Officers who may see overdue-loan follow-up (includes loan officer). */
+export const MEMBER_INSIGHTS_LOAN_ROLES = [
+  ROLE_PRESIDENT,
+  ROLE_VICE_PRESIDENT,
+  ROLE_ACCOUNTANT,
+  ROLE_LOAN_OFFICER,
+  ROLE_COOPERATIVE_ADMIN,
+  ROLE_SUPER_ADMIN,
+] as const
+
 /** Who may initiate/manage OuWealth subscription payments for a Saving Scheme. */
 export const BILLING_MANAGER_ROLES = FINANCE_ACCESS_ROLES
 
@@ -144,6 +157,18 @@ export type AppRole =
 export function hasAnyRole(roles: string[] | undefined, allowed: readonly string[]): boolean {
   if (!roles?.length) return false
   return allowed.some((role) => roles.includes(role))
+}
+
+export function canViewMemberFinanceInsights(roles: string[] | undefined): boolean {
+  return hasAnyRole(roles, MEMBER_INSIGHTS_FINANCE_ROLES)
+}
+
+export function canViewMemberLoanInsights(roles: string[] | undefined): boolean {
+  return hasAnyRole(roles, MEMBER_INSIGHTS_LOAN_ROLES)
+}
+
+export function canViewAnyMemberInsights(roles: string[] | undefined): boolean {
+  return canViewMemberFinanceInsights(roles) || canViewMemberLoanInsights(roles)
 }
 
 export function isOfficerRole(roles: string[] | undefined): boolean {

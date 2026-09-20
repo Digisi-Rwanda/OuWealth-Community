@@ -2,11 +2,15 @@ import { apiClient, isNotFoundError } from './client'
 import { unwrapApiData } from './auth'
 import type { ApiResponse } from '@/shared/types/api'
 import type {
+  DashboardInsights,
+  DashboardMemberInsights,
   DashboardSummary,
   MonthlyContributionChartPoint,
   PlatformOverview,
 } from '@/shared/types/dashboard'
 import {
+  mapDashboardInsights,
+  mapDashboardMemberInsights,
   mapDashboardSummary,
   mapMonthlyContributionChartPoint,
   mapPlatformOverview,
@@ -19,6 +23,24 @@ export async function fetchDashboardSummary(
     `/cooperatives/${cooperativeId}/dashboard/summary`,
   )
   return mapDashboardSummary(unwrapApiData(response.data))
+}
+
+export async function fetchDashboardInsights(
+  cooperativeId: string,
+): Promise<DashboardInsights> {
+  const response = await apiClient.get<ApiResponse<DashboardInsights>>(
+    `/cooperatives/${cooperativeId}/dashboard/insights`,
+  )
+  return mapDashboardInsights(unwrapApiData(response.data))
+}
+
+export async function fetchDashboardMemberInsights(
+  cooperativeId: string,
+): Promise<DashboardMemberInsights> {
+  const response = await apiClient.get<ApiResponse<DashboardMemberInsights>>(
+    `/cooperatives/${cooperativeId}/dashboard/member-insights`,
+  )
+  return mapDashboardMemberInsights(unwrapApiData(response.data))
 }
 
 export async function fetchMonthlyContributionsChart(

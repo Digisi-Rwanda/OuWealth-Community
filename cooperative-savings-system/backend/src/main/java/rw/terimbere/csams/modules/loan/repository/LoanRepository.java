@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import rw.terimbere.csams.modules.loan.entity.Loan;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.support.LoanOverdueRules;
 
 public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
@@ -142,14 +143,123 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-            """
-            UPDATE Loan l
-            SET l.status = rw.terimbere.csams.modules.loan.entity.LoanStatus.OVERDUE
-            WHERE l.cooperativeId = :cooperativeId
-              AND l.status = rw.terimbere.csams.modules.loan.entity.LoanStatus.ACTIVE
-              AND l.dueDate IS NOT NULL
-              AND l.dueDate < :today
-              AND (l.outstandingPrincipal + l.outstandingInterest) > 0
-            """)
+            "UPDATE Loan l"
+                    + " SET l.status = rw.terimbere.csams.modules.loan.entity.LoanStatus.OVERDUE"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND "
+                    + LoanOverdueRules.ACTIVE_PAST_DUE_WITH_BALANCE)
     int markOverdue(@Param("cooperativeId") UUID cooperativeId, @Param("today") LocalDate today);
+
+    /**
+     * Read-only count of loans that are currently overdue per {@link LoanOverdueRules}.
+     * Does not mutate {@code Loan.status}.
+     */
+    @Query(
+            "SELECT COUNT(l)"
+                    + " FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND "
+                    + LoanOverdueRules.CURRENTLY_OVERDUE_FOR_ANALYTICS)
+    long countCurrentlyOverdue(
+            @Param("cooperativeId") UUID cooperativeId, @Param("today") LocalDate today);
+
+    @Query(
+            "SELECT l FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND "
+                    + LoanOverdueRules.CURRENTLY_OVERDUE_FOR_ANALYTICS)
+    Page<Loan> findCurrentlyOverdue(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    @Query(
+            "SELECT l FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND l.memberUserId = :memberUserId"
+                    + " AND "
+                    + LoanOverdueRules.CURRENTLY_OVERDUE_FOR_ANALYTICS)
+    Page<Loan> findCurrentlyOverdueByMember(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("memberUserId") UUID memberUserId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    @Query(
+            "SELECT l FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND "
+                    + LoanOverdueRules.ACTIVE_NOT_CURRENTLY_OVERDUE)
+    Page<Loan> findActiveNotCurrentlyOverdue(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    @Query(
+            "SELECT l FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND l.memberUserId = :memberUserId"
+                    + " AND "
+                    + LoanOverdueRules.ACTIVE_NOT_CURRENTLY_OVERDUE)
+    Page<Loan> findActiveNotCurrentlyOverdueByMember(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("memberUserId") UUID memberUserId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    @Query(
+            """
+            SELECT COUNT(l)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.disbursementDate IS NOT NULL
+              AND l.disbursementDate >= :fromDate
+              AND l.disbursementDate <= :toDate
+              AND l.status IN :statuses
+            """)
+    long countDisbursedInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("statuses") Collection<LoanStatus> statuses);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(l.principalAmount), 0)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.disbursementDate IS NOT NULL
+              AND l.disbursementDate >= :fromDate
+              AND l.disbursementDate <= :toDate
+              AND l.status IN :statuses
+              AND l.principalAmount IS NOT NULL
+            """)
+    BigDecimal sumDisbursedPrincipalInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("statuses") Collection<LoanStatus> statuses);
+
+    /**
+     * Overdue loan follow-up by member (read-only; does not mutate Loan.status).
+     * Columns: memberUserId, overdueLoanCount, outstandingPrincipal, oldestDueDate
+     *
+     * <p>Uses {@link LoanOverdueRules#CURRENTLY_OVERDUE_FOR_ANALYTICS} so ACTIVE past-due loans
+     * appear without calling {@code markOverdue}.
+     */
+    @Query(
+            "SELECT l.memberUserId,"
+                    + " COUNT(l),"
+                    + " COALESCE(SUM(l.outstandingPrincipal), 0),"
+                    + " MIN(l.dueDate)"
+                    + " FROM Loan l"
+                    + " WHERE l.cooperativeId = :cooperativeId"
+                    + " AND "
+                    + LoanOverdueRules.CURRENTLY_OVERDUE_FOR_ANALYTICS
+                    + " GROUP BY l.memberUserId"
+                    + " ORDER BY COALESCE(SUM(l.outstandingPrincipal), 0) DESC")
+    List<Object[]> sumOverdueGroupedByMemberOrdered(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
 }

@@ -34,6 +34,7 @@ import rw.terimbere.csams.modules.loan.entity.LoanInstallment;
 import rw.terimbere.csams.modules.loan.entity.LoanRepaymentComponent;
 import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
+import rw.terimbere.csams.modules.loan.service.LoanPenaltyService;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepaymentAllocation;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentAllocationRepository;
 import rw.terimbere.csams.modules.membership.OpeningShareBalances;
@@ -73,6 +74,9 @@ class LoanScheduleAllocationIntegrationTest {
 
     @Autowired
     private SubscriptionPricing subscriptionPricing;
+
+    @Autowired
+    private LoanPenaltyService loanPenaltyService;
 
     @MockBean
     private Clock clock;
@@ -387,6 +391,7 @@ class LoanScheduleAllocationIntegrationTest {
         UUID loanId = createApproveDisburse("80000.0000", 1);
 
         freezeClock(LocalDate.of(2026, 2, 16));
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
@@ -497,6 +502,7 @@ class LoanScheduleAllocationIntegrationTest {
         assertThat(loanFines()).isEmpty();
 
         freezeClock(LocalDate.of(2026, 2, 19));
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].penaltyDue").value(1000.0));
@@ -517,6 +523,7 @@ class LoanScheduleAllocationIntegrationTest {
         freezeClock(LocalDate.of(2026, 1, 15));
         UUID loanId = createApproveDisburse("80000.0000", 1);
         freezeClock(LocalDate.of(2026, 2, 16));
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].penaltyDue").value(9500.0));
@@ -536,6 +543,7 @@ class LoanScheduleAllocationIntegrationTest {
         freezeClock(LocalDate.of(2026, 1, 15));
         UUID loanId = createApproveDisburse("80000.0000", 1);
         freezeClock(LocalDate.of(2026, 2, 16));
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].penaltyDue").value(4000.0));
@@ -643,6 +651,7 @@ class LoanScheduleAllocationIntegrationTest {
         repay(loanId, "15000.0000").andExpect(status().isOk());
 
         freezeClock(LocalDate.of(2026, 2, 16));
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(jsonPath("$.data.repaymentSchedule[0].penaltyDue").value(8000.0));
@@ -742,9 +751,16 @@ class LoanScheduleAllocationIntegrationTest {
     }
 
     private void getLoan(UUID loanId) throws Exception {
+        assessPenalties(loanId);
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/loans/" + loanId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk());
+    }
+
+    /** Write-side penalty assessment — no longer triggered by loan GET. */
+    private void assessPenalties(UUID loanId) {
+        Loan loan = loanRepository.findById(loanId).orElseThrow();
+        loanPenaltyService.evaluate(loan, LocalDate.now(clock), null);
     }
 
     private void putSettings(String fields) throws Exception {

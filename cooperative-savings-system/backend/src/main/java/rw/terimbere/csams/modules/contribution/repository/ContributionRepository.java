@@ -118,6 +118,27 @@ public interface ContributionRepository
 
     @Query(
             """
+            SELECT c.memberUserId, COALESCE(SUM(c.paidAmount), 0)
+            FROM Contribution c
+            WHERE c.cooperativeId = :cooperativeId
+              AND c.status IN (
+                  rw.terimbere.csams.modules.contribution.entity.ContributionStatus.PAID,
+                  rw.terimbere.csams.modules.contribution.entity.ContributionStatus.PARTIALLY_PAID
+              )
+              AND c.paymentDate IS NOT NULL
+              AND c.paymentDate >= :fromDate
+              AND c.paymentDate <= :toDate
+            GROUP BY c.memberUserId
+            ORDER BY COALESCE(SUM(c.paidAmount), 0) DESC
+            """)
+    List<Object[]> sumPaidGroupedByMemberInDateRangeOrdered(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable);
+
+    @Query(
+            """
             SELECT COALESCE(SUM(c.paidAmount), 0)
             FROM Contribution c
             WHERE c.cooperativeId = :cooperativeId

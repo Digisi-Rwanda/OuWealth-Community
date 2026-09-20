@@ -70,4 +70,18 @@ public interface FinePaymentRepository
             """)
     BigDecimal sumApprovedAmountByMember(
             @Param("cooperativeId") UUID cooperativeId, @Param("memberUserId") UUID memberUserId);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.amount), 0)
+            FROM FinePayment p
+            WHERE p.cooperativeId = :cooperativeId
+              AND p.status = rw.terimbere.csams.modules.fine.entity.FinePaymentStatus.APPROVED
+              AND p.paymentDate >= :fromDate
+              AND p.paymentDate <= :toDate
+            """)
+    BigDecimal sumApprovedAmountInDateRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

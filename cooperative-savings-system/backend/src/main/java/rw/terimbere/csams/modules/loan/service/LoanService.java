@@ -60,6 +60,7 @@ import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanShareTierRepository;
+import rw.terimbere.csams.modules.loan.support.LoanOverdueRules;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepayment;
 import rw.terimbere.csams.modules.loanrepayment.entity.LoanRepaymentAllocation;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentAllocationRepository;
@@ -308,7 +309,7 @@ public class LoanService {
         return evaluateEligibility(cooperativeId, target, requestedAmount, null);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PageResponse<LoanResponse> list(
             UUID cooperativeId,
             LoanStatus status,
@@ -322,14 +323,23 @@ public class LoanService {
             memberUserId = principal.getId();
             pendingApproval = false;
         }
-        loanRepository.markOverdue(cooperativeId, today());
 
+        LocalDate today = today();
         Page<Loan> page;
         if (pendingApproval) {
             page = loanRepository.findByCooperativeIdAndStatusIn(
                     cooperativeId,
                     EnumSet.of(LoanStatus.PENDING, LoanStatus.AWAITING_SECOND_APPROVAL),
                     pageable);
+        } else if (status == LoanStatus.OVERDUE && memberUserId != null) {
+            page = loanRepository.findCurrentlyOverdueByMember(cooperativeId, memberUserId, today, pageable);
+        } else if (status == LoanStatus.OVERDUE) {
+            page = loanRepository.findCurrentlyOverdue(cooperativeId, today, pageable);
+        } else if (status == LoanStatus.ACTIVE && memberUserId != null) {
+            page = loanRepository.findActiveNotCurrentlyOverdueByMember(
+                    cooperativeId, memberUserId, today, pageable);
+        } else if (status == LoanStatus.ACTIVE) {
+            page = loanRepository.findActiveNotCurrentlyOverdue(cooperativeId, today, pageable);
         } else if (status != null && memberUserId != null) {
             page = loanRepository.findByCooperativeIdAndMemberUserIdAndStatus(
                     cooperativeId, memberUserId, status, pageable);
@@ -343,28 +353,23 @@ public class LoanService {
         return PageMapper.toPageResponse(page, this::toResponse);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PageResponse<LoanResponse> myLoans(UUID cooperativeId, LoanStatus status, Pageable pageable) {
         UserPrincipal principal = authorizationService.currentPrincipal();
         return list(cooperativeId, status, principal.getId(), false, pageable);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public LoanResponse get(UUID cooperativeId, UUID loanId) {
         requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
-        loanRepository.markOverdue(cooperativeId, today());
         Loan loan = requireLoan(cooperativeId, loanId);
         requireLoanReadAccess(loan);
-        if (isScheduleBased(loan)) {
-            loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
-        }
         return toResponse(loan, null, true);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<LoanResponse> recentForMember(UUID cooperativeId, UUID memberUserId) {
-        loanRepository.markOverdue(cooperativeId, today());
         return loanRepository
                 .findTop20ByCooperativeIdAndMemberUserIdOrderByRequestDateDescCreatedAtDesc(
                         cooperativeId, memberUserId)
@@ -1259,7 +1264,7 @@ public class LoanService {
                 .approvalDate(loan.getApprovalDate())
                 .disbursementDate(loan.getDisbursementDate())
                 .dueDate(loan.getDueDate())
-                .status(loan.getStatus())
+                .status(LoanOverdueRules.effectiveStatus(loan, today()))
                 .guaranteeMode(loan.getGuaranteeMode() == null ? LoanGuaranteeMode.SELF : loan.getGuaranteeMode())
                 .shareCount(loan.getShareCount())
                 .sharePercent(loan.getSharePercent())
@@ -1430,17 +1435,13 @@ public class LoanService {
 
     public record ScheduleExport(byte[] content, String contentType, String filename) {}
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ScheduleExport exportSchedule(
             UUID cooperativeId, UUID loanId, String format, HttpServletRequest httpRequest) {
         Cooperative cooperative = requireCooperative(cooperativeId);
         authorizationService.requireMembership(cooperativeId);
         Loan loan = requireLoan(cooperativeId, loanId);
         requireLoanReadAccess(loan);
-        if (isScheduleBased(loan)) {
-            loanPenaltyService.evaluate(loan, today(), authorizationService.currentPrincipal().getId());
-            loan = requireLoan(cooperativeId, loanId);
-        }
         LoanScheduleResponse schedule = buildScheduleForLoan(loan);
         if (schedule == null) {
             throw new BusinessException("This loan does not have an amortization schedule");
