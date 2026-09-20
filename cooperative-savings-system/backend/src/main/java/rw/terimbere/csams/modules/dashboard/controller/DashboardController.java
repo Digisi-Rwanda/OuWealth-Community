@@ -14,9 +14,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import rw.terimbere.csams.modules.contribution.dto.MonthlyContributionChartPoint;
+import rw.terimbere.csams.modules.dashboard.dto.DashboardAdvancedInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardMemberInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardSummaryResponse;
+import rw.terimbere.csams.modules.dashboard.dto.InvestmentsByMonthPoint;
+import rw.terimbere.csams.modules.dashboard.dto.LoansDisbursedByMonthPoint;
 import rw.terimbere.csams.modules.dashboard.service.DashboardService;
 import rw.terimbere.csams.shared.common.dto.ApiResponse;
 
@@ -58,5 +61,31 @@ public class DashboardController {
             @PathVariable UUID cooperativeId, @RequestParam int year) {
         return ResponseEntity.ok(
                 ApiResponse.ok(dashboardService.monthlyContributionsChart(cooperativeId, year)));
+    }
+
+    @GetMapping("/charts/loans-disbursed-by-month")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Monthly disbursed loan count and principal chart data")
+    public ResponseEntity<ApiResponse<List<LoansDisbursedByMonthPoint>>> loansDisbursedByMonth(
+            @PathVariable UUID cooperativeId, @RequestParam int year) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(dashboardService.loansDisbursedByMonthChart(cooperativeId, year)));
+    }
+
+    @GetMapping("/charts/investments-by-month")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Monthly investment capital deployed chart data")
+    public ResponseEntity<ApiResponse<List<InvestmentsByMonthPoint>>> investmentsByMonth(
+            @PathVariable UUID cooperativeId, @RequestParam int year) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(dashboardService.investmentsByMonthChart(cooperativeId, year)));
+    }
+
+    @GetMapping("/advanced-insights")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Officer advanced seasonality companions: frequent borrowers and largest investments")
+    public ResponseEntity<ApiResponse<DashboardAdvancedInsightsResponse>> advancedInsights(
+            @PathVariable UUID cooperativeId) {
+        return ResponseEntity.ok(ApiResponse.ok(dashboardService.advancedInsights(cooperativeId)));
     }
 }

@@ -1,6 +1,7 @@
 package rw.terimbere.csams.modules.dashboard.service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -24,15 +25,20 @@ import rw.terimbere.csams.modules.contribution.service.ContributionService;
 import rw.terimbere.csams.modules.cooperative.entity.Cooperative;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
+import rw.terimbere.csams.modules.dashboard.dto.DashboardAdvancedInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardMemberInsightsResponse;
 import rw.terimbere.csams.modules.dashboard.dto.DashboardSummaryResponse;
+import rw.terimbere.csams.modules.dashboard.dto.InvestmentsByMonthPoint;
+import rw.terimbere.csams.modules.dashboard.dto.LoansDisbursedByMonthPoint;
 import rw.terimbere.csams.modules.dashboard.dto.PlatformOverviewResponse;
 import rw.terimbere.csams.modules.dashboard.support.MonthOverMonthCalculator;
 import rw.terimbere.csams.modules.fine.entity.FinePaymentStatus;
 import rw.terimbere.csams.modules.fine.repository.FinePaymentRepository;
 import rw.terimbere.csams.modules.fine.repository.FineRepository;
 import rw.terimbere.csams.modules.fine.service.FineService;
+import rw.terimbere.csams.modules.investment.entity.InvestmentStatus;
+import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
@@ -56,6 +62,7 @@ import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
 import rw.terimbere.csams.security.UserPrincipal;
 import rw.terimbere.csams.shared.exceptions.ResourceNotFoundException;
+import rw.terimbere.csams.shared.exceptions.ValidationException;
 import rw.terimbere.csams.shared.financial.LedgerFinancialCalculationService;
 import rw.terimbere.csams.shared.financial.LedgerTransactionType;
 import rw.terimbere.csams.shared.utilities.MoneyUtils;
@@ -67,6 +74,14 @@ public class DashboardService {
     private static final String DEFAULT_TIMEZONE = "Africa/Kigali";
     private static final EnumSet<LoanStatus> DISBURSED_STATUSES =
             EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE, LoanStatus.CLOSED, LoanStatus.WRITTEN_OFF);
+    private static final EnumSet<InvestmentStatus> DEPLOYED_INVESTMENT_STATUSES = EnumSet.of(
+            InvestmentStatus.ACTIVE,
+            InvestmentStatus.PARTIALLY_RETURNED,
+            InvestmentStatus.COMPLETED,
+            InvestmentStatus.LOSS_RECORDED);
+    private static final EnumSet<InvestmentStatus> ACTIVE_INVESTMENT_STATUSES =
+            EnumSet.of(InvestmentStatus.ACTIVE, InvestmentStatus.PARTIALLY_RETURNED);
+    private static final int ADVANCED_INSIGHTS_LIMIT = 5;
 
     private final CooperativeRepository cooperativeRepository;
     private final CooperativeMembershipRepository membershipRepository;
@@ -78,6 +93,7 @@ public class DashboardService {
     private final SocialFundBalanceService socialFundBalanceService;
     private final SocialFundService socialFundService;
     private final InvestmentService investmentService;
+    private final InvestmentRepository investmentRepository;
     private final PayoutService payoutService;
     private final LedgerFinancialCalculationService financialCalculationService;
     private final CooperativeAuthorizationService authorizationService;
@@ -194,6 +210,177 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public List<MonthlyContributionChartPoint> monthlyContributionsChart(UUID cooperativeId, int year) {
         return contributionService.monthlyChart(cooperativeId, year);
+    }
+
+    /**
+     * Loans disbursed by calendar month for a selectable year ({@code disbursementDate}).
+     *
+     * <p>Restricted to officers with loan-insight access (not MEMBER/SECRETARY).
+     */
+    @Transactional(readOnly = true)
+    public List<LoansDisbursedByMonthPoint> loansDisbursedByMonthChart(UUID cooperativeId, int year) {
+        requireCooperative(cooperativeId);
+        authorizationService.requireMemberLoanInsightsAccess(cooperativeId);
+        validateChartYear(year);
+
+        LocalDate fromDate = LocalDate.of(year, 1, 1);
+        LocalDate toDate = LocalDate.of(year, 12, 31);
+        Map<Integer, LoansDisbursedByMonthPoint> byMonth = new HashMap<>();
+        for (int m = 1; m <= 12; m++) {
+            byMonth.put(
+                    m,
+                    LoansDisbursedByMonthPoint.builder()
+                            .month(m)
+                            .loanCount(0)
+                            .principalAmount(MoneyUtils.scale(BigDecimal.ZERO))
+                            .build());
+        }
+        for (Object[] row :
+                loanRepository.sumDisbursedGroupedByMonth(cooperativeId, fromDate, toDate, DISBURSED_STATUSES)) {
+            int month = ((Number) row[0]).intValue();
+            long count = ((Number) row[1]).longValue();
+            BigDecimal principal = scaleOrZero((BigDecimal) row[2]);
+            byMonth.put(
+                    month,
+                    LoansDisbursedByMonthPoint.builder()
+                            .month(month)
+                            .loanCount(count)
+                            .principalAmount(principal)
+                            .build());
+        }
+        List<LoansDisbursedByMonthPoint> points = new ArrayList<>(12);
+        for (int m = 1; m <= 12; m++) {
+            points.add(byMonth.get(m));
+        }
+        return points;
+    }
+
+    /**
+     * Investment capital deployed by calendar month using {@code activatedAt} in the cooperative
+     * timezone. Uses original {@code amount}, not remaining capital.
+     *
+     * <p>Restricted to finance leadership (not LOAN_OFFICER/MEMBER/SECRETARY).
+     */
+    @Transactional(readOnly = true)
+    public List<InvestmentsByMonthPoint> investmentsByMonthChart(UUID cooperativeId, int year) {
+        requireCooperative(cooperativeId);
+        authorizationService.requireMemberFinanceInsightsAccess(cooperativeId);
+        validateChartYear(year);
+
+        String timezone = resolveTimezone(cooperativeId);
+        ZoneId zone = ZoneId.of(timezone);
+        List<InvestmentsByMonthPoint> points = new ArrayList<>(12);
+        for (int month = 1; month <= 12; month++) {
+            YearMonth ym = YearMonth.of(year, month);
+            Instant fromInclusive = ym.atDay(1).atStartOfDay(zone).toInstant();
+            Instant toExclusive = ym.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant();
+            List<Object[]> rows = investmentRepository.sumAmountAndCountActivatedBetween(
+                    cooperativeId, fromInclusive, toExclusive, DEPLOYED_INVESTMENT_STATUSES);
+            BigDecimal capital = MoneyUtils.scale(BigDecimal.ZERO);
+            long count = 0L;
+            if (rows != null && !rows.isEmpty() && rows.get(0) != null) {
+                Object[] row = rows.get(0);
+                capital = scaleOrZero(row[0] instanceof BigDecimal bd ? bd : null);
+                count = row[1] == null ? 0L : ((Number) row[1]).longValue();
+            }
+            points.add(InvestmentsByMonthPoint.builder()
+                    .month(month)
+                    .capitalDeployed(capital)
+                    .investmentCount(count)
+                    .build());
+        }
+        return points;
+    }
+
+    /**
+     * Advanced ranked insights: frequent borrowers (YTD) and largest active investments.
+     *
+     * <p>Role-split like C2: loan officers get frequent borrowers only; finance leadership also get
+     * largest active investments.
+     */
+    @Transactional(readOnly = true)
+    public DashboardAdvancedInsightsResponse advancedInsights(UUID cooperativeId) {
+        Cooperative cooperative = requireCooperative(cooperativeId);
+        authorizationService.requireMemberInsightsAccess(cooperativeId);
+
+        UserPrincipal principal = authorizationService.currentPrincipal();
+        boolean finance = CooperativeOfficerRoles.canViewMemberFinanceInsights(principal);
+        boolean loans = CooperativeOfficerRoles.canViewMemberLoanInsights(principal);
+
+        String timezone = resolveTimezone(cooperativeId);
+        ZoneId zone = ZoneId.of(timezone);
+        LocalDate today = LocalDate.now(zone);
+        int year = today.getYear();
+        LocalDate yearStart = LocalDate.of(year, 1, 1);
+        var page = PageRequest.of(0, ADVANCED_INSIGHTS_LIMIT);
+
+        List<DashboardAdvancedInsightsResponse.FrequentBorrowerRow> frequentBorrowers = List.of();
+        List<DashboardAdvancedInsightsResponse.LargestActiveInvestmentRow> largestActiveInvestments =
+                List.of();
+
+        if (loans) {
+            List<Object[]> borrowerRows = loanRepository.countDisbursedGroupedByMemberOrdered(
+                    cooperativeId, yearStart, today, DISBURSED_STATUSES, page);
+            Set<UUID> nameIds = new HashSet<>();
+            for (Object[] row : borrowerRows) {
+                nameIds.add((UUID) row[0]);
+            }
+            Map<UUID, String> names = resolveDisplayNames(nameIds);
+            frequentBorrowers = new ArrayList<>();
+            int rank = 1;
+            for (Object[] row : borrowerRows) {
+                UUID memberId = (UUID) row[0];
+                frequentBorrowers.add(DashboardAdvancedInsightsResponse.FrequentBorrowerRow.builder()
+                        .memberId(memberId)
+                        .displayName(names.getOrDefault(memberId, memberId.toString()))
+                        .numberOfLoansDisbursed(((Number) row[1]).longValue())
+                        .totalPrincipalBorrowed(scaleOrZero((BigDecimal) row[2]))
+                        .rank(rank++)
+                        .build());
+            }
+        }
+
+        if (finance) {
+            List<Object[]> investmentRows = investmentRepository.findLargestByRemainingCapital(
+                    cooperativeId, ACTIVE_INVESTMENT_STATUSES, page);
+            largestActiveInvestments = new ArrayList<>();
+            int rank = 1;
+            for (Object[] row : investmentRows) {
+                largestActiveInvestments.add(
+                        DashboardAdvancedInsightsResponse.LargestActiveInvestmentRow.builder()
+                                .investmentId((UUID) row[0])
+                                .name((String) row[1])
+                                .originalCapital(scaleOrZero((BigDecimal) row[2]))
+                                .remainingCapital(scaleOrZero((BigDecimal) row[3]))
+                                .profitReturned(scaleOrZero((BigDecimal) row[4]))
+                                .status((InvestmentStatus) row[5])
+                                .rank(rank++)
+                                .build());
+            }
+        }
+
+        return DashboardAdvancedInsightsResponse.builder()
+                .period(DashboardAdvancedInsightsResponse.Period.builder()
+                        .year(year)
+                        .asOf(today)
+                        .build())
+                .currency(cooperative.getCurrency())
+                .timezone(timezone)
+                .largestActiveInvestments(largestActiveInvestments)
+                .frequentBorrowers(frequentBorrowers)
+                .build();
+    }
+
+    private Cooperative requireCooperative(UUID cooperativeId) {
+        return cooperativeRepository
+                .findByIdAndDeletedFalse(cooperativeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cooperative", cooperativeId));
+    }
+
+    private static void validateChartYear(int year) {
+        if (year < 2000 || year > 2100) {
+            throw new ValidationException("year must be between 2000 and 2100");
+        }
     }
 
     /**

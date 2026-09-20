@@ -33,6 +33,7 @@ import rw.terimbere.csams.modules.dashboard.dto.DashboardMemberInsightsResponse;
 import rw.terimbere.csams.modules.fine.repository.FinePaymentRepository;
 import rw.terimbere.csams.modules.fine.repository.FineRepository;
 import rw.terimbere.csams.modules.fine.service.FineService;
+import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.service.LoanService;
@@ -78,6 +79,8 @@ class DashboardServiceMemberInsightsTest {
     private SocialFundService socialFundService;
     @Mock
     private InvestmentService investmentService;
+    @Mock
+    private InvestmentRepository investmentRepository;
     @Mock
     private PayoutService payoutService;
     @Mock

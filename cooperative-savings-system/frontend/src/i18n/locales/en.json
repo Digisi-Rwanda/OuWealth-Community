@@ -509,6 +509,32 @@
       "overdueLoansHint": "Members with overdue loan balances that may require follow-up.",
       "overdueLoansEmpty": "No overdue loans.",
       "overdueLoansMeta": "{{count}} overdue loans"
+    },
+    "advancedInsights": {
+      "title": "Advanced Insights",
+      "subtitle": "Seasonality and concentration analytics for authorized officers.",
+      "loansByMonth": "Loans disbursed by month",
+      "loansByMonthEmpty": "No loans disbursed for this year yet.",
+      "investmentsByMonth": "Investment capital deployed by month",
+      "investmentsByMonthEmpty": "No investments activated for this year yet.",
+      "principalDisbursed": "Principal disbursed",
+      "capitalDeployed": "Capital deployed",
+      "loanCountTooltip": "{{count}} loans",
+      "investmentCountTooltip": "{{count}} investments",
+      "frequentBorrowers": "Frequent Borrowers — YTD",
+      "frequentBorrowersHint": "Members with the most disbursed loans this year.",
+      "frequentBorrowersEmpty": "No disbursed loans yet this year.",
+      "member": "Member",
+      "loans": "Loans",
+      "totalBorrowed": "Total borrowed",
+      "largestInvestments": "Largest Active Investments",
+      "largestInvestmentsHint": "Active investments ranked by remaining capital.",
+      "largestInvestmentsEmpty": "No active investments.",
+      "investmentName": "Name",
+      "originalCapital": "Original capital",
+      "remainingCapital": "Remaining capital",
+      "profitReturned": "Profit returned",
+      "status": "Status"
     }
   },
   "common": {

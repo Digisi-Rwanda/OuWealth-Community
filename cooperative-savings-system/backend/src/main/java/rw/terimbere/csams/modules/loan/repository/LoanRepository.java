@@ -241,6 +241,57 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
             @Param("statuses") Collection<LoanStatus> statuses);
 
     /**
+     * Monthly disbursement seasonality. Columns: month (1–12), loanCount, principalAmount.
+     *
+     * <p>Uses {@code disbursementDate} only; callers must pass disbursed statuses and a year
+     * calendar range.
+     */
+    @Query(
+            """
+            SELECT extract(month from l.disbursementDate),
+                   COUNT(l),
+                   COALESCE(SUM(l.principalAmount), 0)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.disbursementDate IS NOT NULL
+              AND l.disbursementDate >= :fromDate
+              AND l.disbursementDate <= :toDate
+              AND l.status IN :statuses
+            GROUP BY extract(month from l.disbursementDate)
+            ORDER BY extract(month from l.disbursementDate)
+            """)
+    List<Object[]> sumDisbursedGroupedByMonth(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("statuses") Collection<LoanStatus> statuses);
+
+    /**
+     * Frequent borrowers (disbursed loans in date range). Columns: memberUserId, loanCount,
+     * totalPrincipal.
+     */
+    @Query(
+            """
+            SELECT l.memberUserId,
+                   COUNT(l),
+                   COALESCE(SUM(l.principalAmount), 0)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.disbursementDate IS NOT NULL
+              AND l.disbursementDate >= :fromDate
+              AND l.disbursementDate <= :toDate
+              AND l.status IN :statuses
+            GROUP BY l.memberUserId
+            ORDER BY COUNT(l) DESC, COALESCE(SUM(l.principalAmount), 0) DESC
+            """)
+    List<Object[]> countDisbursedGroupedByMemberOrdered(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("statuses") Collection<LoanStatus> statuses,
+            Pageable pageable);
+
+    /**
      * Overdue loan follow-up by member (read-only; does not mutate Loan.status).
      * Columns: memberUserId, overdueLoanCount, outstandingPrincipal, oldestDueDate
      *

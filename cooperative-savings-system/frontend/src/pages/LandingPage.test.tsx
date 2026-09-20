@@ -83,6 +83,17 @@ describe('LandingPage Phase E', () => {
     expect(text).not.toMatch(/500\s+members/i)
   })
 
+  it('contains no member-named advanced analytics', () => {
+    renderLanding()
+    const landing = screen.getByTestId('landing-page')
+    const text = landing.textContent ?? ''
+    expect(screen.queryByTestId('advanced-insights')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('frequent-borrowers-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('member-insights')).not.toBeInTheDocument()
+    expect(text).not.toMatch(/frequent borrowers/i)
+    expect(text).not.toMatch(/largest active investments/i)
+  })
+
   it('stacks pricing cards for mobile layout structure', () => {
     renderLanding()
     const cards = screen.getByTestId('landing-pricing-cards')

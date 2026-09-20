@@ -45,6 +45,7 @@ import {
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { MemberFinancialSummarySection } from './MemberFinancialSummarySection'
 import { MemberInsightsSection } from './MemberInsightsSection'
+import { AdvancedInsightsSection } from './AdvancedInsightsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
 import { ThisMonthInsightsSection } from './ThisMonthInsightsSection'
@@ -449,6 +450,10 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
 
       {canViewAnyMemberInsights(userRoles) ? (
         <MemberInsightsSection cooperativeId={cooperativeId} />
+      ) : null}
+
+      {canViewAnyMemberInsights(userRoles) ? (
+        <AdvancedInsightsSection cooperativeId={cooperativeId} />
       ) : null}
 
       <Grid container spacing={2} sx={{ mb: 3 }}>

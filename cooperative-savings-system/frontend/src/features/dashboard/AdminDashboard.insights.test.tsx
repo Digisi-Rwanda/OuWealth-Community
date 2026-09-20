@@ -67,10 +67,37 @@ const insights: DashboardInsights = {
 vi.mock('@/shared/api/dashboard', () => ({
   fetchDashboardSummary: vi.fn(),
   fetchDashboardInsights: vi.fn(),
+  fetchDashboardMemberInsights: vi.fn().mockResolvedValue({
+    period: { start: '2026-01-01', end: '2026-09-20' },
+    topContributors: [],
+    fineFollowUp: [],
+    overdueLoans: [],
+    currency: 'RWF',
+  }),
+  fetchDashboardAdvancedInsights: vi.fn().mockResolvedValue({
+    period: { year: 2026, asOf: '2026-09-20' },
+    largestActiveInvestments: [],
+    frequentBorrowers: [],
+    currency: 'RWF',
+  }),
   fetchMonthlyContributionsChart: vi.fn().mockResolvedValue([
     { month: 1, totalPaid: 100 },
     { month: 9, totalPaid: 1200000 },
   ]),
+  fetchLoansDisbursedByMonthChart: vi.fn().mockResolvedValue(
+    Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      loanCount: 0,
+      principalAmount: 0,
+    })),
+  ),
+  fetchInvestmentsByMonthChart: vi.fn().mockResolvedValue(
+    Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      capitalDeployed: 0,
+      investmentCount: 0,
+    })),
+  ),
 }))
 
 vi.mock('@/shared/api/cooperatives', () => ({

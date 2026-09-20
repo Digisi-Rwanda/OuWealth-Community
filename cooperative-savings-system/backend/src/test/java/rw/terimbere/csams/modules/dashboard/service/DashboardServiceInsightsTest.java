@@ -30,6 +30,7 @@ import rw.terimbere.csams.modules.dashboard.support.MonthOverMonthCalculator.Cha
 import rw.terimbere.csams.modules.fine.repository.FinePaymentRepository;
 import rw.terimbere.csams.modules.fine.repository.FineRepository;
 import rw.terimbere.csams.modules.fine.service.FineService;
+import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
@@ -76,6 +77,8 @@ class DashboardServiceInsightsTest {
     private SocialFundService socialFundService;
     @Mock
     private InvestmentService investmentService;
+    @Mock
+    private InvestmentRepository investmentRepository;
     @Mock
     private PayoutService payoutService;
     @Mock

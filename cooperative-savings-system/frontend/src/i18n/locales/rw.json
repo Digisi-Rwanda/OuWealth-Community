@@ -505,6 +505,32 @@
       "overdueLoansHint": "Abanyamuryango bafite inguzanyo zatinze.",
       "overdueLoansEmpty": "Nta nguzanyo zatinze.",
       "overdueLoansMeta": "Inguzanyo {{count}} zatinze"
+    },
+    "advancedInsights": {
+      "title": "Amakuru arambuye",
+      "subtitle": "Ibihe n'ubushobozi ku buyobozi.",
+      "loansByMonth": "Inguzanyo zatanzwe ku kwezi",
+      "loansByMonthEmpty": "Nta nguzanyo zatanzwe muri uyu mwaka.",
+      "investmentsByMonth": "Amafaranga ashyizwe mu ishoramari ku kwezi",
+      "investmentsByMonthEmpty": "Nta ishoramari ryatangijwe muri uyu mwaka.",
+      "principalDisbursed": "Umurongo watanzwe",
+      "capitalDeployed": "Amafaranga ashyizwe",
+      "loanCountTooltip": "Inguzanyo {{count}}",
+      "investmentCountTooltip": "Ishoramari {{count}}",
+      "frequentBorrowers": "Abakodesha kenshi — umwaka",
+      "frequentBorrowersHint": "Abanyamuryango bakodesheje kenshi muri uyu mwaka.",
+      "frequentBorrowersEmpty": "Nta nguzanyo zatanzwe muri uyu mwaka.",
+      "member": "Umunyamuryango",
+      "loans": "Inguzanyo",
+      "totalBorrowed": "Igiteranyo cyakodeshejwe",
+      "largestInvestments": "Ishoramari rinini rikora",
+      "largestInvestmentsHint": "Ishoramari rikora rishingiye ku mafaranga asigaye.",
+      "largestInvestmentsEmpty": "Nta ishoramari rikora.",
+      "investmentName": "Izina",
+      "originalCapital": "Amafaranga ya mbere",
+      "remainingCapital": "Asigaye",
+      "profitReturned": "Inyungu zasubijwe",
+      "status": "Imiterere"
     }
   },
   "common": {

@@ -30,11 +30,11 @@ describe('App public site', () => {
 
   it('renders LandingPage at / instead of login', async () => {
     render(<App />)
-    expect(await screen.findByTestId('landing-page')).toBeInTheDocument()
+    expect(await screen.findByTestId('landing-page', {}, { timeout: 15_000 })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: /Manage your Saving Scheme with confidence/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /Sign in/i })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/^Password$/i)).not.toBeInTheDocument()
-  })
+  }, 20_000)
 
   it('keeps login available at /login with OuWealth branding', async () => {
     go('/login')

@@ -2,16 +2,22 @@ import { apiClient, isNotFoundError } from './client'
 import { unwrapApiData } from './auth'
 import type { ApiResponse } from '@/shared/types/api'
 import type {
+  DashboardAdvancedInsights,
   DashboardInsights,
   DashboardMemberInsights,
   DashboardSummary,
+  InvestmentsByMonthPoint,
+  LoansDisbursedByMonthPoint,
   MonthlyContributionChartPoint,
   PlatformOverview,
 } from '@/shared/types/dashboard'
 import {
+  mapDashboardAdvancedInsights,
   mapDashboardInsights,
   mapDashboardMemberInsights,
   mapDashboardSummary,
+  mapInvestmentsByMonthPoint,
+  mapLoansDisbursedByMonthPoint,
   mapMonthlyContributionChartPoint,
   mapPlatformOverview,
 } from '@/shared/types/dashboard'
@@ -52,6 +58,37 @@ export async function fetchMonthlyContributionsChart(
     { params: { year } },
   )
   return (unwrapApiData(response.data) ?? []).map(mapMonthlyContributionChartPoint)
+}
+
+export async function fetchLoansDisbursedByMonthChart(
+  cooperativeId: string,
+  year: number,
+): Promise<LoansDisbursedByMonthPoint[]> {
+  const response = await apiClient.get<ApiResponse<LoansDisbursedByMonthPoint[]>>(
+    `/cooperatives/${cooperativeId}/dashboard/charts/loans-disbursed-by-month`,
+    { params: { year } },
+  )
+  return (unwrapApiData(response.data) ?? []).map(mapLoansDisbursedByMonthPoint)
+}
+
+export async function fetchInvestmentsByMonthChart(
+  cooperativeId: string,
+  year: number,
+): Promise<InvestmentsByMonthPoint[]> {
+  const response = await apiClient.get<ApiResponse<InvestmentsByMonthPoint[]>>(
+    `/cooperatives/${cooperativeId}/dashboard/charts/investments-by-month`,
+    { params: { year } },
+  )
+  return (unwrapApiData(response.data) ?? []).map(mapInvestmentsByMonthPoint)
+}
+
+export async function fetchDashboardAdvancedInsights(
+  cooperativeId: string,
+): Promise<DashboardAdvancedInsights> {
+  const response = await apiClient.get<ApiResponse<DashboardAdvancedInsights>>(
+    `/cooperatives/${cooperativeId}/dashboard/advanced-insights`,
+  )
+  return mapDashboardAdvancedInsights(unwrapApiData(response.data))
 }
 
 export async function fetchPlatformOverview(): Promise<PlatformOverview> {

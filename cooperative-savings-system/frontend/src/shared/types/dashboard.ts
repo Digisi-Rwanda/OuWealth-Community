@@ -44,6 +44,49 @@ export interface MonthlyContributionChartPoint {
   totalPaid: string | number
 }
 
+export interface LoansDisbursedByMonthPoint {
+  month: number
+  loanCount: number
+  principalAmount: string | number
+}
+
+export interface InvestmentsByMonthPoint {
+  month: number
+  capitalDeployed: string | number
+  investmentCount: number
+}
+
+export interface AdvancedInsightsPeriod {
+  year: number
+  asOf: string
+}
+
+export interface FrequentBorrowerRow {
+  memberId: string
+  displayName: string
+  numberOfLoansDisbursed: number
+  totalPrincipalBorrowed: string | number
+  rank: number
+}
+
+export interface LargestActiveInvestmentRow {
+  investmentId: string
+  name: string
+  originalCapital: string | number
+  remainingCapital: string | number
+  profitReturned: string | number
+  status: string
+  rank: number
+}
+
+export interface DashboardAdvancedInsights {
+  period: AdvancedInsightsPeriod
+  largestActiveInvestments: LargestActiveInvestmentRow[]
+  frequentBorrowers: FrequentBorrowerRow[]
+  currency?: string
+  timezone?: string
+}
+
 export interface PlatformOverview {
   totalCooperatives: number
   activeCooperatives: number
@@ -216,6 +259,53 @@ export function mapMonthlyContributionChartPoint(
   return {
     month: Number(raw.month),
     totalPaid: raw.totalPaid ?? 0,
+  }
+}
+
+export function mapLoansDisbursedByMonthPoint(
+  raw: LoansDisbursedByMonthPoint,
+): LoansDisbursedByMonthPoint {
+  return {
+    month: Number(raw.month),
+    loanCount: Number(raw.loanCount ?? 0),
+    principalAmount: raw.principalAmount ?? 0,
+  }
+}
+
+export function mapInvestmentsByMonthPoint(raw: InvestmentsByMonthPoint): InvestmentsByMonthPoint {
+  return {
+    month: Number(raw.month),
+    capitalDeployed: raw.capitalDeployed ?? 0,
+    investmentCount: Number(raw.investmentCount ?? 0),
+  }
+}
+
+export function mapDashboardAdvancedInsights(
+  raw: DashboardAdvancedInsights,
+): DashboardAdvancedInsights {
+  return {
+    period: {
+      year: Number(raw.period?.year ?? 0),
+      asOf: raw.period?.asOf ?? '',
+    },
+    largestActiveInvestments: (raw.largestActiveInvestments ?? []).map((row, index) => ({
+      investmentId: String(row.investmentId),
+      name: row.name || String(row.investmentId),
+      originalCapital: row.originalCapital ?? 0,
+      remainingCapital: row.remainingCapital ?? 0,
+      profitReturned: row.profitReturned ?? 0,
+      status: row.status || '',
+      rank: Number(row.rank ?? index + 1),
+    })),
+    frequentBorrowers: (raw.frequentBorrowers ?? []).map((row, index) => ({
+      memberId: String(row.memberId),
+      displayName: row.displayName || String(row.memberId),
+      numberOfLoansDisbursed: Number(row.numberOfLoansDisbursed ?? 0),
+      totalPrincipalBorrowed: row.totalPrincipalBorrowed ?? 0,
+      rank: Number(row.rank ?? index + 1),
+    })),
+    currency: raw.currency || 'RWF',
+    timezone: raw.timezone || 'Africa/Kigali',
   }
 }
 

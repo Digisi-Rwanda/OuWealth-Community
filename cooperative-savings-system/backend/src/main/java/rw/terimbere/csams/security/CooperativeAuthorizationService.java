@@ -39,6 +39,22 @@ public class CooperativeAuthorizationService {
         CooperativeOfficerRoles.requireMemberInsightsAccess(currentPrincipal());
     }
 
+    /** Membership plus finance/leadership access (contribution/fine/investment insights). */
+    public void requireMemberFinanceInsightsAccess(UUID cooperativeId) {
+        requireMembership(cooperativeId);
+        if (!CooperativeOfficerRoles.canViewMemberFinanceInsights(currentPrincipal())) {
+            throw new ForbiddenException("Finance insights are restricted to Saving Scheme leadership");
+        }
+    }
+
+    /** Membership plus loan-insight access (includes loan officer). */
+    public void requireMemberLoanInsightsAccess(UUID cooperativeId) {
+        requireMembership(cooperativeId);
+        if (!CooperativeOfficerRoles.canViewMemberLoanInsights(currentPrincipal())) {
+            throw new ForbiddenException("Loan insights are restricted to Saving Scheme officers");
+        }
+    }
+
     public void requireSuperAdmin() {
         if (!currentPrincipal().hasRole(SUPER_ADMIN)) {
             throw new ForbiddenException("Super admin access is required");

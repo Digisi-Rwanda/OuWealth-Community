@@ -1,6 +1,7 @@
 package rw.terimbere.csams.modules.investment.repository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -47,4 +48,41 @@ public interface InvestmentRepository extends JpaRepository<Investment, UUID> {
     BigDecimal sumTotalProfitReturnedByStatuses(
             @Param("cooperativeId") UUID cooperativeId,
             @Param("statuses") Collection<InvestmentStatus> statuses);
+
+    /**
+     * Capital deployed in an Instant half-open window (cooperative-timezone month bounds).
+     * Columns: capitalDeployed (SUM amount), investmentCount.
+     */
+    @Query(
+            """
+            SELECT COALESCE(SUM(i.amount), 0), COUNT(i)
+            FROM Investment i
+            WHERE i.cooperativeId = :cooperativeId
+              AND i.activatedAt IS NOT NULL
+              AND i.activatedAt >= :fromInclusive
+              AND i.activatedAt < :toExclusive
+              AND i.status IN :statuses
+            """)
+    List<Object[]> sumAmountAndCountActivatedBetween(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromInclusive") Instant fromInclusive,
+            @Param("toExclusive") Instant toExclusive,
+            @Param("statuses") Collection<InvestmentStatus> statuses);
+
+    /**
+     * Largest active investments by remaining capital. Columns: id, name, amount,
+     * remainingCapital, totalProfitReturned, status.
+     */
+    @Query(
+            """
+            SELECT i.id, i.name, i.amount, i.remainingCapital, i.totalProfitReturned, i.status
+            FROM Investment i
+            WHERE i.cooperativeId = :cooperativeId
+              AND i.status IN :statuses
+            ORDER BY i.remainingCapital DESC
+            """)
+    List<Object[]> findLargestByRemainingCapital(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("statuses") Collection<InvestmentStatus> statuses,
+            Pageable pageable);
 }
