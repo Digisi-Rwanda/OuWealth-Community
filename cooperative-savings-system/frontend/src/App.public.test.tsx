@@ -82,6 +82,8 @@ describe('App public site', () => {
     await screen.findByTestId('landing-page')
     expect(screen.getByTestId('landing-cta-login')).toHaveAttribute('href', ROUTES.login)
     expect(screen.getByTestId('landing-cta-signup')).toHaveAttribute('href', ROUTES.signup)
+    expect(screen.getByTestId('pricing-cta-signup')).toHaveAttribute('href', ROUTES.signup)
+    expect(screen.getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', `${ROUTES.home}#pricing`)
     await user.click(screen.getByTestId('landing-cta-login'))
     expect(await screen.findByRole('heading', { name: /Sign in/i })).toBeInTheDocument()
   })
@@ -136,6 +138,7 @@ describe('App public site', () => {
     await user.click(screen.getByRole('button', { name: /Open menu/i }))
     const drawer = await screen.findByTestId('public-mobile-nav')
     expect(within(drawer).getByRole('link', { name: 'Home' })).toHaveAttribute('href', ROUTES.home)
+    expect(within(drawer).getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', `${ROUTES.home}#pricing`)
     expect(within(drawer).getByRole('link', { name: 'About' })).toHaveAttribute('href', ROUTES.about)
     expect(within(drawer).getByRole('link', { name: 'Contact' })).toHaveAttribute('href', ROUTES.contact)
     expect(within(drawer).getByRole('link', { name: 'Login' })).toHaveAttribute('href', ROUTES.login)
@@ -149,11 +152,13 @@ describe('App public site', () => {
     render(<App />)
     const landing = await screen.findByTestId('landing-page')
     const text = landing.textContent ?? ''
-    expect(text).not.toMatch(/RWF\s*[\d,]+/)
+    // Public subscription pricing may show RWF amounts; block operational/member data.
     expect(text).not.toMatch(/outstanding loan/i)
     expect(text).not.toMatch(/memberUserId/i)
+    expect(text).not.toMatch(/happy customers/i)
     expect(screen.queryByTestId('current-subscription-card')).not.toBeInTheDocument()
     expect(screen.queryByTestId('payment-history')).not.toBeInTheDocument()
+    expect(screen.getByTestId('landing-pricing')).toBeInTheDocument()
   })
 
   it('does not render the authenticated app sidebar on public marketing pages', async () => {

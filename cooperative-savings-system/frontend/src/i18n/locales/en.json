@@ -8,6 +8,7 @@
     "nav": {
       "aria": "Public site navigation",
       "home": "Home",
+      "pricing": "Pricing",
       "about": "About",
       "contact": "Contact",
       "privacy": "Privacy Policy",
@@ -26,6 +27,47 @@
         "subtitle": "OuWealth Community helps Saving Schemes organize members, record contributions, manage loans and repayments, track investments, and stay clear with reports — in one place.",
         "visualTitle": "Communities building wealth together",
         "visualSubtitle": "A branded space for your Saving Scheme story — approved photography can be added here later."
+      },
+      "journey": {
+        "title": "From contributions to shared progress",
+        "subtitle": "A simple story of how a Saving Scheme grows — and how OuWealth keeps every step organized.",
+        "stepsAria": "Saving Scheme journey steps",
+        "stepLabel": "Step {{step}}",
+        "prev": "Previous journey step",
+        "next": "Next journey step",
+        "progress": "Step {{current}} of {{total}}",
+        "steps": {
+          "community": {
+            "title": "Community together",
+            "body": "Create and organize your Saving Scheme and members.",
+            "module": "Connected to member management"
+          },
+          "contributions": {
+            "title": "Contributions",
+            "body": "Track what members are expected to contribute, what has been paid, and what remains.",
+            "module": "Connected to contributions"
+          },
+          "loans": {
+            "title": "Loans",
+            "body": "Manage loan requests, approvals, disbursements, repayments, and outstanding balances.",
+            "module": "Connected to loans and repayments"
+          },
+          "investments": {
+            "title": "Investments",
+            "body": "Record investments and monitor capital and returns.",
+            "module": "Connected to investments"
+          },
+          "visibility": {
+            "title": "Financial visibility",
+            "body": "See reports, trends, obligations, and the Saving Scheme’s financial position.",
+            "module": "Connected to reports and analytics"
+          },
+          "progress": {
+            "title": "Shared progress",
+            "body": "Keep leadership and members organized around transparent records.",
+            "module": "Built for everyday Saving Scheme operations"
+          }
+        }
       },
       "how": {
         "title": "How OuWealth Works",
@@ -61,6 +103,35 @@
         "ledgerDesc": "Keep a clear record of scheme financial movements.",
         "billing": "Subscription / billing",
         "billingDesc": "Manage your OuWealth Community subscription for the scheme."
+      },
+      "pricing": {
+        "title": "Simple pricing",
+        "subtitle": "Start free, then choose the plan that fits your Saving Scheme.",
+        "startFree": "Start with {{months}} months free.",
+        "noPaymentNow": "No subscription payment is required when you create your Saving Scheme.",
+        "loginCta": "Already have an account? Login",
+        "trial": {
+          "badge": "Free trial",
+          "name": "Free trial",
+          "duration": "{{months}} months",
+          "access": "Full OuWealth access during the trial",
+          "noPayment": "No subscription payment required initially"
+        },
+        "monthly": {
+          "badge": "Monthly",
+          "name": "Monthly",
+          "price": "{{amount}} / month",
+          "blurb": "Flexible monthly billing after your free trial."
+        },
+        "annual": {
+          "badge": "Best value",
+          "name": "Annual",
+          "price": "{{amount}} / year",
+          "listPriceLabel": "normal annual value",
+          "savePercent": "Save {{percent}}%",
+          "savings": "Save {{amount}} compared with paying monthly for a year",
+          "equivalent": "Equivalent to {{amount}} / month"
+        }
       },
       "value": {
         "title": "Clarity for every Saving Scheme",

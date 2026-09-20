@@ -23,7 +23,7 @@ import { BrandLogo } from '@/shared/components/BrandLogo'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher'
 import { ROUTES } from '@/shared/constants/routes'
-import { publicFooterLinks, publicPrimaryLinks } from './publicNav'
+import { publicFooterLinks, publicPrimaryLinks, isPublicNavActive, publicNavTarget } from './publicNav'
 
 const DRAWER_WIDTH = 300
 
@@ -37,7 +37,7 @@ export function PublicLayout() {
 
   useEffect(() => {
     setMobileOpen(false)
-  }, [location.pathname])
+  }, [location.pathname, location.hash])
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }} data-testid="public-mobile-nav">
@@ -48,10 +48,10 @@ export function PublicLayout() {
       <List sx={{ px: 1, py: 1.5, flex: 1 }}>
         {publicPrimaryLinks.map((item) => (
           <ListItemButton
-            key={item.path}
+            key={`${item.labelKey}-${item.path}-${item.hash ?? ''}`}
             component={NavLink}
-            to={item.path}
-            selected={location.pathname === item.path}
+            to={publicNavTarget(item)}
+            selected={isPublicNavActive(item, location.pathname, location.hash)}
             sx={{ borderRadius: 2, mb: 0.5, minHeight: 44 }}
           >
             <ListItemText primary={t(item.labelKey)} />
@@ -128,14 +128,16 @@ export function PublicLayout() {
             <Stack direction="row" spacing={0.5} component="nav" aria-label={t('public.nav.aria')} sx={{ ml: 1 }}>
               {publicPrimaryLinks.map((item) => (
                 <Button
-                  key={item.path}
+                  key={`${item.labelKey}-${item.path}-${item.hash ?? ''}`}
                   component={NavLink}
-                  to={item.path}
+                  to={publicNavTarget(item)}
                   color="inherit"
                   sx={{
                     fontWeight: 600,
                     minHeight: 40,
-                    color: location.pathname === item.path ? 'primary.main' : 'text.primary',
+                    color: isPublicNavActive(item, location.pathname, location.hash)
+                      ? 'primary.main'
+                      : 'text.primary',
                   }}
                 >
                   {t(item.labelKey)}
@@ -231,9 +233,9 @@ export function PublicLayout() {
               >
                 {publicFooterLinks.map((item) => (
                   <Button
-                    key={`${item.labelKey}-${item.path}`}
+                    key={`${item.labelKey}-${item.path}-${item.hash ?? ''}`}
                     component={RouterLink}
-                    to={item.path}
+                    to={publicNavTarget(item)}
                     size="small"
                     sx={{ color: 'rgba(255,255,255,0.88)', minHeight: 40 }}
                   >

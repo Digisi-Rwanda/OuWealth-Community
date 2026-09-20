@@ -16,12 +16,16 @@ import {
   Container,
   Stack,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material'
 import type { SvgIconComponent } from '@mui/icons-material'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { OuWealthMark } from '@/features/branding/OuWealthMark'
+import { LandingJourneySection } from '@/features/landing/LandingJourneySection'
+import { LandingPricingSection } from '@/features/landing/LandingPricingSection'
 import { ROUTES } from '@/shared/constants/routes'
 
 const HOW_STEPS = [
@@ -91,7 +95,6 @@ function HeroVisual() {
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.82)', textAlign: 'center', maxWidth: 300 }}>
           {t('public.landing.hero.visualSubtitle')}
         </Typography>
-        {/* Reserved for a future approved marketing photograph */}
         <Box
           component="img"
           data-marketing-image-slot="hero-community"
@@ -107,6 +110,15 @@ export function LandingPage() {
   const { t } = useTranslation()
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
+  const location = useLocation()
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+
+  useEffect(() => {
+    if (location.hash !== '#pricing') return
+    const el = document.getElementById('pricing')
+    if (!el) return
+    el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  }, [location.hash, reduceMotion])
 
   return (
     <Box data-testid="landing-page">
@@ -166,7 +178,9 @@ export function LandingPage() {
         </Container>
       </Box>
 
-      <Box component="section" aria-labelledby="landing-how-heading" sx={{ py: { xs: 6, md: 8 } }}>
+      <LandingJourneySection />
+
+      <Box component="section" aria-labelledby="landing-how-heading" sx={{ py: { xs: 6, md: 8 }, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}>
         <Container maxWidth="lg">
           <Typography id="landing-how-heading" variant="h3" component="h2" gutterBottom>
             {t('public.landing.how.title')}
@@ -197,11 +211,7 @@ export function LandingPage() {
         </Container>
       </Box>
 
-      <Box
-        component="section"
-        aria-labelledby="landing-capabilities-heading"
-        sx={{ py: { xs: 6, md: 8 }, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}
-      >
+      <Box component="section" aria-labelledby="landing-capabilities-heading" sx={{ py: { xs: 6, md: 8 } }}>
         <Container maxWidth="lg">
           <Typography id="landing-capabilities-heading" variant="h3" component="h2" gutterBottom>
             {t('public.landing.capabilities.title')}
@@ -232,6 +242,8 @@ export function LandingPage() {
           </Box>
         </Container>
       </Box>
+
+      <LandingPricingSection />
 
       <Box component="section" aria-labelledby="landing-value-heading" sx={{ py: { xs: 6, md: 8 } }}>
         <Container maxWidth="lg">

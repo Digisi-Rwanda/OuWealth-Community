@@ -8,6 +8,7 @@
     "nav": {
       "aria": "Urubuga rw'abashyitsi",
       "home": "Ahabanza",
+      "pricing": "Ibiciro",
       "about": "Abo turi bo",
       "contact": "Twandikire",
       "privacy": "Politiki y'ibanga",
@@ -26,6 +27,47 @@
         "subtitle": "OuWealth Community ifasha ibimina gucunga abanyamuryango, kwandika amafaranga ashyizweho, gucunga inguzanyo n'uko wishyurwa, gukurikirana ishoramari, no gukora raporo — ahantu hamwe.",
         "visualTitle": "Imiryango yubaka ubukungu hamwe",
         "visualSubtitle": "Ahantu h'ikirango cy'ikimina — amafoto yemewe ashobora kongerwaho nyuma."
+      },
+      "journey": {
+        "title": "Kuva ku mafaranga ashyizweho kugeza ku majyambere asangiwe",
+        "subtitle": "Inkuru yoroshye y'uko ikimina gikura — n'uko OuWealth igumana buri ntambwe itegekanijwe.",
+        "stepsAria": "Intambwe z'urugendo rw'ikimina",
+        "stepLabel": "Intambwe {{step}}",
+        "prev": "Intambwe ibanziriza",
+        "next": "Intambwe ikurikira",
+        "progress": "Intambwe {{current}} kuri {{total}}",
+        "steps": {
+          "community": {
+            "title": "Umuryango hamwe",
+            "body": "Kora kandi utegure Ikimina cyawe n'abanyamuryango.",
+            "module": "Bihuye n'imicungire y'abanyamuryango"
+          },
+          "contributions": {
+            "title": "Amafaranga ashyizweho",
+            "body": "Kurikirana icyo abanyamuryango bagomba gutanga, icyo batanze, n'icyo basigaje.",
+            "module": "Bihuye n'amafaranga ashyizweho"
+          },
+          "loans": {
+            "title": "Inguzanyo",
+            "body": "Cunga ubusabe bw'inguzanyo, kwemeza, gutanga, kwishyura, n'amafaranga asigaye.",
+            "module": "Bihuye n'inguzanyo n'uko wishyurwa"
+          },
+          "investments": {
+            "title": "Ishoramari",
+            "body": "Andika ishoramari kandi ukurikirane umutungo n'inyungu.",
+            "module": "Bihuye n'ishoramari"
+          },
+          "visibility": {
+            "title": "Ubunyangamugayo bw'amafaranga",
+            "body": "Reba raporo, imiyoboro, inshingano, n'imiterere y'amafaranga y'ikimina.",
+            "module": "Bihuye na raporo n'isesengura"
+          },
+          "progress": {
+            "title": "Amajyambere asangiwe",
+            "body": "Gumana ubuyobozi n'abanyamuryango bategekanijwe ku nyandiko zisobanutse.",
+            "module": "Byubatswe ku bikorwa bya buri munsi by'ikimina"
+          }
+        }
       },
       "how": {
         "title": "Uko OuWealth ikora",
@@ -61,6 +103,35 @@
         "ledgerDesc": "Gumana inyandiko zisobanutse z'ibikorwa by'amafaranga.",
         "billing": "Kwishyura porogaramu",
         "billingDesc": "Cunga ubwiyunge bwa OuWealth Community bw'ikimina."
+      },
+      "pricing": {
+        "title": "Ibiciro byoroshye",
+        "subtitle": "Tangira ubuntu, hanyuma uhitemo gahunda ikwiriye Ikimina cyawe.",
+        "startFree": "Tangira n'amezi {{months}} y'ubuntu.",
+        "noPaymentNow": "Nta kwishyura ubwiyunge busabwa igihe urema Ikimina cyawe.",
+        "loginCta": "Usanzwe ufite konti? Injira",
+        "trial": {
+          "badge": "Igihe cy'ubuntu",
+          "name": "Igihe cy'ubuntu",
+          "duration": "Amezi {{months}}",
+          "access": "Gukoresha OuWealth byose mu gihe cy'ubuntu",
+          "noPayment": "Nta kwishyura ubwiyunge busabwa mu ntangiriro"
+        },
+        "monthly": {
+          "badge": "Buri kwezi",
+          "name": "Buri kwezi",
+          "price": "{{amount}} / ukwezi",
+          "blurb": "Kwishyura buri kwezi nyuma y'igihe cy'ubuntu."
+        },
+        "annual": {
+          "badge": "Agaciro keza",
+          "name": "Umwaka",
+          "price": "{{amount}} / umwaka",
+          "listPriceLabel": "agaciro kasanzwe cy'umwaka",
+          "savePercent": "Kuzigama {{percent}}%",
+          "savings": "Zigama {{amount}} ugereranyije no kwishyura buri kwezi mu mwaka",
+          "equivalent": "Bihora nk'uko ari {{amount}} / ukwezi"
+        }
       },
       "value": {
         "title": "Ubunyangamugayo ku kimina cyose",
