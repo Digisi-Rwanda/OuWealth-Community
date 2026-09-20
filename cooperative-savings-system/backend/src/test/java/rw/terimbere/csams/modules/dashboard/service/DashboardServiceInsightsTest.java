@@ -33,6 +33,7 @@ import rw.terimbere.csams.modules.fine.service.FineService;
 import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.service.LoanService;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
@@ -89,6 +90,8 @@ class DashboardServiceInsightsTest {
     private UserRepository userRepository;
     @Mock
     private LoanRepository loanRepository;
+    @Mock
+    private LoanInstallmentRepository loanInstallmentRepository;
     @Mock
     private LoanRepaymentRepository loanRepaymentRepository;
     @Mock

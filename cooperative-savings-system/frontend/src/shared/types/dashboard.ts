@@ -83,8 +83,28 @@ export interface DashboardAdvancedInsights {
   period: AdvancedInsightsPeriod
   largestActiveInvestments: LargestActiveInvestmentRow[]
   frequentBorrowers: FrequentBorrowerRow[]
+  repaymentReliability?: RepaymentReliabilitySection | null
   currency?: string
   timezone?: string
+}
+
+export interface RepaymentReliabilitySection {
+  period: string
+  minimumSample: number
+  dataQualityExcludedTotal?: number
+  members: RepaymentReliabilityRow[]
+}
+
+export interface RepaymentReliabilityRow {
+  memberId: string
+  displayName: string
+  installmentsDue: number
+  installmentsPaidOnTime: number
+  installmentsPaidLate: number
+  installmentsUnpaidPastDue: number
+  dataQualityExcluded?: number
+  onTimeRate: string | number
+  rank: number
 }
 
 export interface PlatformOverview {
@@ -304,6 +324,24 @@ export function mapDashboardAdvancedInsights(
       totalPrincipalBorrowed: row.totalPrincipalBorrowed ?? 0,
       rank: Number(row.rank ?? index + 1),
     })),
+    repaymentReliability: raw.repaymentReliability
+      ? {
+          period: raw.repaymentReliability.period || 'LIFETIME',
+          minimumSample: Number(raw.repaymentReliability.minimumSample ?? 3),
+          dataQualityExcludedTotal: Number(raw.repaymentReliability.dataQualityExcludedTotal ?? 0),
+          members: (raw.repaymentReliability.members ?? []).map((row, index) => ({
+            memberId: String(row.memberId),
+            displayName: row.displayName || String(row.memberId),
+            installmentsDue: Number(row.installmentsDue ?? 0),
+            installmentsPaidOnTime: Number(row.installmentsPaidOnTime ?? 0),
+            installmentsPaidLate: Number(row.installmentsPaidLate ?? 0),
+            installmentsUnpaidPastDue: Number(row.installmentsUnpaidPastDue ?? 0),
+            dataQualityExcluded: Number(row.dataQualityExcluded ?? 0),
+            onTimeRate: row.onTimeRate ?? 0,
+            rank: Number(row.rank ?? index + 1),
+          })),
+        }
+      : null,
     currency: raw.currency || 'RWF',
     timezone: raw.timezone || 'Africa/Kigali',
   }

@@ -534,7 +534,16 @@
       "originalCapital": "Original capital",
       "remainingCapital": "Remaining capital",
       "profitReturned": "Profit returned",
-      "status": "Status"
+      "status": "Status",
+      "repaymentReliability": "Repayment Reliability",
+      "repaymentReliabilityHint": "Historical installment repayment performance based on due dates.",
+      "repaymentReliabilityMinSample": "Minimum {{count}} evaluated installments",
+      "repaymentReliabilityEmpty": "No members have enough repayment history yet.",
+      "onTimeRate": "On-time rate",
+      "onTime": "On time",
+      "paidLate": "Late",
+      "pastDue": "Past due",
+      "evaluated": "Evaluated"
     }
   },
   "common": {

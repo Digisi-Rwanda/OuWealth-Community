@@ -89,9 +89,11 @@ describe('LandingPage Phase E', () => {
     const text = landing.textContent ?? ''
     expect(screen.queryByTestId('advanced-insights')).not.toBeInTheDocument()
     expect(screen.queryByTestId('frequent-borrowers-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('repayment-reliability-card')).not.toBeInTheDocument()
     expect(screen.queryByTestId('member-insights')).not.toBeInTheDocument()
     expect(text).not.toMatch(/frequent borrowers/i)
     expect(text).not.toMatch(/largest active investments/i)
+    expect(text).not.toMatch(/repayment reliability/i)
   })
 
   it('stacks pricing cards for mobile layout structure', () => {

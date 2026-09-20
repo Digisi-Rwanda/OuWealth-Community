@@ -102,6 +102,7 @@ vi.mock('@/shared/api/dashboard', () => ({
     period: { year: 2026, asOf: '2026-09-20' },
     largestActiveInvestments: [],
     frequentBorrowers: [],
+    repaymentReliability: { period: 'LIFETIME', minimumSample: 3, members: [] },
     currency: 'RWF',
   }),
   fetchMonthlyContributionsChart: vi.fn().mockResolvedValue([{ month: 9, totalPaid: 1200000 }]),

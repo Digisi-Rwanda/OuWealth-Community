@@ -103,6 +103,23 @@ const advancedInsights: DashboardAdvancedInsights = {
       rank: 1,
     },
   ],
+  repaymentReliability: {
+    period: 'LIFETIME',
+    minimumSample: 3,
+    dataQualityExcludedTotal: 0,
+    members: [
+      {
+        memberId: 'm1',
+        displayName: 'Jane Doe',
+        installmentsDue: 12,
+        installmentsPaidOnTime: 11,
+        installmentsPaidLate: 0,
+        installmentsUnpaidPastDue: 1,
+        onTimeRate: 91.7,
+        rank: 1,
+      },
+    ],
+  },
   currency: 'RWF',
 }
 
@@ -233,6 +250,13 @@ describe('AdminDashboard advanced insights (Phase F1)', () => {
     expect(within(investments).getByText(/4[,.]?000[,.]?000/)).toBeInTheDocument()
     expect(investments.textContent).not.toMatch(/roi|return %|annualized/i)
 
+    const reliability = screen.getByTestId('repayment-reliability-card')
+    expect(within(reliability).getByText(/repayment reliability/i)).toBeInTheDocument()
+    expect(within(reliability).getByText(/minimum 3 evaluated installments/i)).toBeInTheDocument()
+    expect(within(reliability).getByText('91.7%')).toBeInTheDocument()
+    expect(within(reliability).getByText('11')).toBeInTheDocument()
+    expect(reliability.textContent).not.toMatch(/best borrower|worst borrower|credit score|risk score/i)
+
     expect(screen.getByTestId('this-month-insights')).toBeInTheDocument()
     expect(screen.getByTestId('member-insights')).toBeInTheDocument()
   }, 20_000)
@@ -243,6 +267,7 @@ describe('AdminDashboard advanced insights (Phase F1)', () => {
     expect(await screen.findByTestId('loans-disbursed-by-month-chart')).toBeInTheDocument()
     expect(screen.queryByTestId('investments-by-month-chart')).not.toBeInTheDocument()
     expect(screen.getByTestId('frequent-borrowers-card')).toBeInTheDocument()
+    expect(screen.getByTestId('repayment-reliability-card')).toBeInTheDocument()
     expect(screen.queryByTestId('largest-active-investments-card')).not.toBeInTheDocument()
     expect(fetchInvestmentsByMonthChart).not.toHaveBeenCalled()
   }, 15_000)
@@ -309,6 +334,11 @@ describe('AdminDashboard advanced insights (Phase F1)', () => {
       ...advancedInsights,
       frequentBorrowers: [],
       largestActiveInvestments: [],
+      repaymentReliability: {
+        period: 'LIFETIME',
+        minimumSample: 3,
+        members: [],
+      },
     })
     vi.mocked(fetchDashboardSummary).mockResolvedValue(summary)
     vi.mocked(fetchDashboardInsights).mockResolvedValue(insights)
@@ -353,6 +383,7 @@ describe('AdminDashboard advanced insights (Phase F1)', () => {
     expect(screen.getByTestId('investments-by-month-empty')).toBeInTheDocument()
     expect(screen.getByTestId('frequent-borrowers-empty')).toBeInTheDocument()
     expect(screen.getByTestId('largest-active-investments-empty')).toBeInTheDocument()
+    expect(screen.getByTestId('repayment-reliability-empty')).toBeInTheDocument()
   }, 15_000)
 
   it('requests seasonal chart data for the selected year', async () => {

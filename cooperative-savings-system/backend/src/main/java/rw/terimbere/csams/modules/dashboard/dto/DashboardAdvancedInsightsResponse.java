@@ -27,6 +27,8 @@ public class DashboardAdvancedInsightsResponse {
     @Builder.Default
     private List<FrequentBorrowerRow> frequentBorrowers = new ArrayList<>();
 
+    private RepaymentReliabilitySection repaymentReliability;
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -34,6 +36,36 @@ public class DashboardAdvancedInsightsResponse {
     public static class Period {
         private int year;
         private LocalDate asOf;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RepaymentReliabilitySection {
+        /** Always {@code LIFETIME} for F2 MVP. */
+        private String period;
+        private int minimumSample;
+        private long dataQualityExcludedTotal;
+
+        @Builder.Default
+        private List<RepaymentReliabilityRow> members = new ArrayList<>();
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RepaymentReliabilityRow {
+        private UUID memberId;
+        private String displayName;
+        private long installmentsDue;
+        private long installmentsPaidOnTime;
+        private long installmentsPaidLate;
+        private long installmentsUnpaidPastDue;
+        private long dataQualityExcluded;
+        private BigDecimal onTimeRate;
+        private int rank;
     }
 
     @Data

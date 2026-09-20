@@ -1,5 +1,7 @@
 import {
   Box,
+  LinearProgress,
+  Link,
   MenuItem,
   Paper,
   Stack,
@@ -14,11 +16,14 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
+import { selectCanManageMembers } from '@/app/store/authSlice'
 import { fetchDashboardAdvancedInsights } from '@/shared/api/dashboard'
 import { getErrorMessage } from '@/shared/api/client'
 import { ErrorState } from '@/shared/components/ErrorState'
+import { ROUTES } from '@/shared/constants/routes'
 import {
   canViewMemberFinanceInsights,
   canViewMemberLoanInsights,
@@ -35,6 +40,7 @@ interface AdvancedInsightsSectionProps {
 export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSectionProps) {
   const { t } = useTranslation()
   const userRoles = useAppSelector((s) => s.auth.user?.roles ?? [])
+  const canManageMembers = useAppSelector(selectCanManageMembers)
   const showLoans = canViewMemberLoanInsights(userRoles)
   const showFinance = canViewMemberFinanceInsights(userRoles)
   const [chartYear, setChartYear] = useState(dayjs().year())
@@ -55,6 +61,34 @@ export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSecti
   const data = query.data
   const currency = data?.currency || 'RWF'
   const money = (v: string | number | null | undefined) => formatMoney(v ?? 0, { currency })
+  const reliability = data?.repaymentReliability
+  const reliabilityMembers = reliability?.members ?? []
+
+  const memberLink = (memberId: string, displayName: string) => {
+    if (!canManageMembers) {
+      return (
+        <Typography component="span" sx={{ fontWeight: 600 }}>
+          {displayName}
+        </Typography>
+      )
+    }
+    return (
+      <Link
+        component={RouterLink}
+        to={`${ROUTES.members}/${memberId}`}
+        underline="hover"
+        sx={{ fontWeight: 600 }}
+      >
+        {displayName}
+      </Link>
+    )
+  }
+
+  const formatRate = (value: string | number | null | undefined) => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return '—'
+    return `${n.toFixed(1)}%`
+  }
 
   return (
     <Box sx={{ mb: 3 }} data-testid="advanced-insights">
@@ -242,6 +276,83 @@ export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSecti
           </Paper>
         ) : null}
       </Stack>
+
+      {showLoans ? (
+        <Paper
+          elevation={0}
+          data-testid="repayment-reliability-card"
+          sx={{
+            mt: 2,
+            p: { xs: 2, md: 2.5 },
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {t('dashboard.advancedInsights.repaymentReliability')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            {t('dashboard.advancedInsights.repaymentReliabilityHint')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+            {t('dashboard.advancedInsights.repaymentReliabilityMinSample', {
+              count: reliability?.minimumSample ?? 3,
+            })}
+          </Typography>
+          {query.isLoading ? (
+            <Typography color="text.secondary">{t('common.loading')}</Typography>
+          ) : reliabilityMembers.length === 0 ? (
+            <Typography color="text.secondary" data-testid="repayment-reliability-empty">
+              {t('dashboard.advancedInsights.repaymentReliabilityEmpty')}
+            </Typography>
+          ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" aria-label={t('dashboard.advancedInsights.repaymentReliability')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('dashboard.advancedInsights.member')}</TableCell>
+                    <TableCell sx={{ minWidth: 140 }}>
+                      {t('dashboard.advancedInsights.onTimeRate')}
+                    </TableCell>
+                    <TableCell align="right">{t('dashboard.advancedInsights.onTime')}</TableCell>
+                    <TableCell align="right">{t('dashboard.advancedInsights.paidLate')}</TableCell>
+                    <TableCell align="right">{t('dashboard.advancedInsights.pastDue')}</TableCell>
+                    <TableCell align="right">{t('dashboard.advancedInsights.evaluated')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {reliabilityMembers.map((row) => {
+                    const rate = Number(row.onTimeRate) || 0
+                    return (
+                      <TableRow key={row.memberId}>
+                        <TableCell>{memberLink(row.memberId, row.displayName)}</TableCell>
+                        <TableCell>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {formatRate(row.onTimeRate)}
+                            </Typography>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.max(0, Math.min(100, rate))}
+                              aria-label={formatRate(row.onTimeRate)}
+                              sx={{ height: 6, borderRadius: 1 }}
+                            />
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">{row.installmentsPaidOnTime}</TableCell>
+                        <TableCell align="right">{row.installmentsPaidLate}</TableCell>
+                        <TableCell align="right">{row.installmentsUnpaidPastDue}</TableCell>
+                        <TableCell align="right">{row.installmentsDue}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </Paper>
+      ) : null}
     </Box>
   )
 }

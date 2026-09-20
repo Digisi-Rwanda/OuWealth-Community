@@ -530,7 +530,16 @@
       "originalCapital": "Amafaranga ya mbere",
       "remainingCapital": "Asigaye",
       "profitReturned": "Inyungu zasubijwe",
-      "status": "Imiterere"
+      "status": "Imiterere",
+      "repaymentReliability": "Kwishyura neza",
+      "repaymentReliabilityHint": "Uko abanyamuryango bashyuye ku gihe hashingiye ku minsi yari itegekanijwe.",
+      "repaymentReliabilityMinSample": "Byibuze {{count}} byishyuwe bigenewe",
+      "repaymentReliabilityEmpty": "Nta munyamuryango ufite amateka ahagije yo kwishyura.",
+      "onTimeRate": "Ku gihe (%)",
+      "onTime": "Ku gihe",
+      "paidLate": "Byatinze",
+      "pastDue": "Bitarishyurwa",
+      "evaluated": "Byagenzuwe"
     }
   },
   "common": {

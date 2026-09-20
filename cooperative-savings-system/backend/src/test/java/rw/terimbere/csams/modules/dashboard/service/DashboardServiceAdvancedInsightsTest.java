@@ -40,6 +40,7 @@ import rw.terimbere.csams.modules.investment.entity.InvestmentStatus;
 import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.service.LoanService;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
@@ -105,6 +106,8 @@ class DashboardServiceAdvancedInsightsTest {
     private UserRepository userRepository;
     @Mock
     private LoanRepository loanRepository;
+    @Mock
+    private LoanInstallmentRepository loanInstallmentRepository;
     @Mock
     private LoanRepaymentRepository loanRepaymentRepository;
     @Mock
@@ -218,6 +221,7 @@ class DashboardServiceAdvancedInsightsTest {
                 .thenReturn(List.of(
                         new Object[] {memberA, 5L, new BigDecimal("900000")},
                         new Object[] {memberB, 4L, new BigDecimal("700000")}));
+        when(loanInstallmentRepository.findRepaymentReliabilityFacts(cooperativeId)).thenReturn(List.of());
         when(investmentRepository.findLargestByRemainingCapital(
                         eq(cooperativeId), eq(ACTIVE), any(Pageable.class)))
                 .thenReturn(List.of());
@@ -248,6 +252,7 @@ class DashboardServiceAdvancedInsightsTest {
         when(loanRepository.countDisbursedGroupedByMemberOrdered(
                         eq(cooperativeId), eq(yearStart), eq(today), eq(DISBURSED), any(Pageable.class)))
                 .thenReturn(List.of());
+        when(loanInstallmentRepository.findRepaymentReliabilityFacts(cooperativeId)).thenReturn(List.of());
         when(investmentRepository.findLargestByRemainingCapital(
                         eq(cooperativeId), eq(ACTIVE), any(Pageable.class)))
                 .thenReturn(List.of(
@@ -300,12 +305,17 @@ class DashboardServiceAdvancedInsightsTest {
         when(loanRepository.countDisbursedGroupedByMemberOrdered(
                         eq(cooperativeId), eq(yearStart), eq(today), eq(DISBURSED), any(Pageable.class)))
                 .thenReturn(List.<Object[]>of(new Object[] {memberA, 3L, new BigDecimal("300000")}));
+        when(loanInstallmentRepository.findRepaymentReliabilityFacts(cooperativeId)).thenReturn(List.of());
         stubNames(memberA, "Sam Loan");
 
         DashboardAdvancedInsightsResponse response = dashboardService.advancedInsights(cooperativeId);
 
         assertThat(response.getFrequentBorrowers()).hasSize(1);
         assertThat(response.getLargestActiveInvestments()).isEmpty();
+        assertThat(response.getRepaymentReliability()).isNotNull();
+        assertThat(response.getRepaymentReliability().getMembers()).isEmpty();
+        assertThat(response.getRepaymentReliability().getPeriod()).isEqualTo("LIFETIME");
+        assertThat(response.getRepaymentReliability().getMinimumSample()).isEqualTo(3);
         verify(investmentRepository, never()).findLargestByRemainingCapital(any(), any(), any());
     }
 

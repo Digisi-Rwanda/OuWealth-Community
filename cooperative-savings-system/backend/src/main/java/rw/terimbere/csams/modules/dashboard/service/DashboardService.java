@@ -33,6 +33,9 @@ import rw.terimbere.csams.modules.dashboard.dto.InvestmentsByMonthPoint;
 import rw.terimbere.csams.modules.dashboard.dto.LoansDisbursedByMonthPoint;
 import rw.terimbere.csams.modules.dashboard.dto.PlatformOverviewResponse;
 import rw.terimbere.csams.modules.dashboard.support.MonthOverMonthCalculator;
+import rw.terimbere.csams.modules.dashboard.support.RepaymentReliabilityAggregator;
+import rw.terimbere.csams.modules.dashboard.support.RepaymentReliabilityClassifier;
+import rw.terimbere.csams.modules.dashboard.support.RepaymentReliabilityClassifier.InstallmentFact;
 import rw.terimbere.csams.modules.fine.entity.FinePaymentStatus;
 import rw.terimbere.csams.modules.fine.repository.FinePaymentRepository;
 import rw.terimbere.csams.modules.fine.repository.FineRepository;
@@ -40,7 +43,9 @@ import rw.terimbere.csams.modules.fine.service.FineService;
 import rw.terimbere.csams.modules.investment.entity.InvestmentStatus;
 import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.service.InvestmentService;
+import rw.terimbere.csams.modules.loan.entity.LoanInstallmentStatus;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
+import rw.terimbere.csams.modules.loan.repository.LoanInstallmentRepository;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
 import rw.terimbere.csams.modules.loan.service.LoanService;
 import rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository;
@@ -99,6 +104,7 @@ public class DashboardService {
     private final CooperativeAuthorizationService authorizationService;
     private final UserRepository userRepository;
     private final LoanRepository loanRepository;
+    private final LoanInstallmentRepository loanInstallmentRepository;
     private final LoanRepaymentRepository loanRepaymentRepository;
     private final FineRepository fineRepository;
     private final FinePaymentRepository finePaymentRepository;
@@ -317,6 +323,7 @@ public class DashboardService {
         List<DashboardAdvancedInsightsResponse.FrequentBorrowerRow> frequentBorrowers = List.of();
         List<DashboardAdvancedInsightsResponse.LargestActiveInvestmentRow> largestActiveInvestments =
                 List.of();
+        DashboardAdvancedInsightsResponse.RepaymentReliabilitySection repaymentReliability = null;
 
         if (loans) {
             List<Object[]> borrowerRows = loanRepository.countDisbursedGroupedByMemberOrdered(
@@ -325,7 +332,20 @@ public class DashboardService {
             for (Object[] row : borrowerRows) {
                 nameIds.add((UUID) row[0]);
             }
+
+            List<InstallmentFact> reliabilityFacts = mapReliabilityFacts(
+                    loanInstallmentRepository.findRepaymentReliabilityFacts(cooperativeId));
+            List<RepaymentReliabilityAggregator.MemberTotals> reliabilityTotals =
+                    RepaymentReliabilityAggregator.aggregateRanked(
+                            reliabilityFacts,
+                            today,
+                            RepaymentReliabilityAggregator.DEFAULT_MINIMUM_SAMPLE,
+                            ADVANCED_INSIGHTS_LIMIT);
+            for (RepaymentReliabilityAggregator.MemberTotals totals : reliabilityTotals) {
+                nameIds.add(totals.memberId());
+            }
             Map<UUID, String> names = resolveDisplayNames(nameIds);
+
             frequentBorrowers = new ArrayList<>();
             int rank = 1;
             for (Object[] row : borrowerRows) {
@@ -338,6 +358,35 @@ public class DashboardService {
                         .rank(rank++)
                         .build());
             }
+
+            long dataQualityExcludedTotal = 0L;
+            for (InstallmentFact fact : reliabilityFacts) {
+                if (RepaymentReliabilityClassifier.isDataQualityExcluded(fact, today)) {
+                    dataQualityExcludedTotal++;
+                }
+            }
+            List<DashboardAdvancedInsightsResponse.RepaymentReliabilityRow> reliabilityRows =
+                    new ArrayList<>();
+            rank = 1;
+            for (RepaymentReliabilityAggregator.MemberTotals totals : reliabilityTotals) {
+                reliabilityRows.add(DashboardAdvancedInsightsResponse.RepaymentReliabilityRow.builder()
+                        .memberId(totals.memberId())
+                        .displayName(names.getOrDefault(totals.memberId(), totals.memberId().toString()))
+                        .installmentsDue(totals.installmentsDue())
+                        .installmentsPaidOnTime(totals.installmentsPaidOnTime())
+                        .installmentsPaidLate(totals.installmentsPaidLate())
+                        .installmentsUnpaidPastDue(totals.installmentsUnpaidPastDue())
+                        .dataQualityExcluded(totals.dataQualityExcluded())
+                        .onTimeRate(totals.onTimeRate())
+                        .rank(rank++)
+                        .build());
+            }
+            repaymentReliability = DashboardAdvancedInsightsResponse.RepaymentReliabilitySection.builder()
+                    .period(RepaymentReliabilityAggregator.PERIOD_LIFETIME)
+                    .minimumSample(RepaymentReliabilityAggregator.DEFAULT_MINIMUM_SAMPLE)
+                    .dataQualityExcludedTotal(dataQualityExcludedTotal)
+                    .members(reliabilityRows)
+                    .build();
         }
 
         if (finance) {
@@ -368,7 +417,33 @@ public class DashboardService {
                 .timezone(timezone)
                 .largestActiveInvestments(largestActiveInvestments)
                 .frequentBorrowers(frequentBorrowers)
+                .repaymentReliability(repaymentReliability)
                 .build();
+    }
+
+    private static List<InstallmentFact> mapReliabilityFacts(List<Object[]> rows) {
+        List<InstallmentFact> facts = new ArrayList<>();
+        if (rows == null) {
+            return facts;
+        }
+        for (Object[] row : rows) {
+            if (row == null || row.length < 11) {
+                continue;
+            }
+            facts.add(new InstallmentFact(
+                    (UUID) row[0],
+                    (UUID) row[1],
+                    (LocalDate) row[2],
+                    (LoanInstallmentStatus) row[3],
+                    (BigDecimal) row[4],
+                    (BigDecimal) row[5],
+                    (BigDecimal) row[6],
+                    (BigDecimal) row[7],
+                    (BigDecimal) row[8],
+                    (BigDecimal) row[9],
+                    (LocalDate) row[10]));
+        }
+        return facts;
     }
 
     private Cooperative requireCooperative(UUID cooperativeId) {
