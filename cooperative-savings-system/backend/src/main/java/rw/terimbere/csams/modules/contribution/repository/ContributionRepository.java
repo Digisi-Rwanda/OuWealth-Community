@@ -174,4 +174,71 @@ public interface ContributionRepository
             """)
     BigDecimal sumOutstandingByMember(
             @Param("cooperativeId") UUID cooperativeId, @Param("memberUserId") UUID memberUserId);
+
+    /**
+     * FULL_FINANCIAL multi-month aggregation by obligation year/month (not paymentDate).
+     *
+     * <p>Excludes {@code CANCELLED}. Waived rows contribute 0 expected (domain treats waived as
+     * non-obligatory) while paid amounts and zero outstanding are retained.
+     *
+     * <p>Columns: memberUserId, expected, paid, remaining, overpaid, periodsCounted
+     */
+    @Query(
+            """
+            SELECT c.memberUserId,
+                   COALESCE(SUM(CASE
+                       WHEN c.status = rw.terimbere.csams.modules.contribution.entity.ContributionStatus.WAIVED
+                       THEN 0
+                       ELSE COALESCE(c.expectedAmount, 0)
+                   END), 0),
+                   COALESCE(SUM(COALESCE(c.paidAmount, 0)), 0),
+                   COALESCE(SUM(COALESCE(c.outstandingAmount, 0)), 0),
+                   COALESCE(SUM(CASE
+                       WHEN c.status = rw.terimbere.csams.modules.contribution.entity.ContributionStatus.WAIVED
+                       THEN 0
+                       WHEN COALESCE(c.paidAmount, 0) > COALESCE(c.expectedAmount, 0)
+                       THEN COALESCE(c.paidAmount, 0) - COALESCE(c.expectedAmount, 0)
+                       ELSE 0
+                   END), 0),
+                   COUNT(c)
+            FROM Contribution c
+            WHERE c.cooperativeId = :cooperativeId
+              AND c.status <> rw.terimbere.csams.modules.contribution.entity.ContributionStatus.CANCELLED
+              AND (
+                    c.year > :fromYear
+                    OR (c.year = :fromYear AND c.month >= :fromMonth)
+                  )
+              AND (
+                    c.year < :toYear
+                    OR (c.year = :toYear AND c.month <= :toMonth)
+                  )
+            GROUP BY c.memberUserId
+            ORDER BY c.memberUserId
+            """)
+    List<Object[]> sumAggregatesByMemberInObligationRange(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("fromYear") int fromYear,
+            @Param("fromMonth") int fromMonth,
+            @Param("toYear") int toYear,
+            @Param("toMonth") int toMonth);
+
+    /**
+     * Single-month FULL_FINANCIAL detail rows (excludes CANCELLED).
+     * Ordered by member for stable PDF output after name hydration.
+     */
+    @Query(
+            """
+            SELECT c
+            FROM Contribution c
+            WHERE c.cooperativeId = :cooperativeId
+              AND c.year = :year
+              AND c.month = :month
+              AND c.status <> rw.terimbere.csams.modules.contribution.entity.ContributionStatus.CANCELLED
+            ORDER BY c.memberUserId
+            """)
+    List<Contribution> findObligationRowsForMonth(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("year") int year,
+            @Param("month") int month);
 }
+

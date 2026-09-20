@@ -20,7 +20,7 @@ public enum ReportType {
     PAYOUTS("Payouts"),
     FINANCIAL_LEDGER("Financial Ledger"),
     AUDIT_LOGS("Audit Logs"),
-    FULL_FINANCIAL("Full Financial Summary");
+    FULL_FINANCIAL("Full Financial Report");
 
     private final String label;
 

@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -64,6 +65,7 @@ import rw.terimbere.csams.modules.payout.entity.PayoutRun;
 import rw.terimbere.csams.modules.payout.entity.PayoutRunStatus;
 import rw.terimbere.csams.modules.payout.repository.PayoutLineRepository;
 import rw.terimbere.csams.modules.payout.repository.PayoutRunRepository;
+import rw.terimbere.csams.modules.report.dto.MemberContributionAggregate;
 import rw.terimbere.csams.modules.report.dto.ReportExportRequest;
 import rw.terimbere.csams.modules.report.dto.ReportHeaderMeta;
 import rw.terimbere.csams.modules.report.dto.ReportSheetData;
@@ -71,6 +73,7 @@ import rw.terimbere.csams.modules.report.dto.ReportType;
 import rw.terimbere.csams.modules.report.dto.ReportTypeResponse;
 import rw.terimbere.csams.modules.report.export.ReportExporter;
 import rw.terimbere.csams.modules.report.export.ReportLabels;
+import rw.terimbere.csams.modules.report.support.ContributionObligationPeriod;
 import rw.terimbere.csams.modules.share.dto.ShareValuationResponse;
 import rw.terimbere.csams.modules.share.entity.SharePurchase;
 import rw.terimbere.csams.modules.share.entity.SharePurchaseStatus;
@@ -1156,6 +1159,25 @@ public class ReportService {
                 cooperativeId, periodFrom, periodTo));
         BigDecimal additionalAmount = MoneyUtils.scale(nvl(sharePurchaseRepository.sumApprovedAmountInPeriod(
                 cooperativeId, periodFrom, periodTo)));
+
+        ContributionObligationPeriod.Range obligationRange = ContributionObligationPeriod.resolve(request);
+        List<MemberContributionAggregate> contributionAggregates =
+                loadFullFinancialContributionAggregates(cooperativeId, obligationRange);
+        ReportSheetData contributionSheet =
+                fullFinancialContributionSheet(obligationRange, contributionAggregates);
+        BigDecimal contributionExpected = MoneyUtils.scale(contributionAggregates.stream()
+                .map(MemberContributionAggregate::getExpectedAmount)
+                .reduce(BigDecimal.ZERO, MoneyUtils::add));
+        BigDecimal contributionPaid = MoneyUtils.scale(contributionAggregates.stream()
+                .map(MemberContributionAggregate::getPaidAmount)
+                .reduce(BigDecimal.ZERO, MoneyUtils::add));
+        BigDecimal contributionRemaining = MoneyUtils.scale(contributionAggregates.stream()
+                .map(MemberContributionAggregate::getRemainingAmount)
+                .reduce(BigDecimal.ZERO, MoneyUtils::add));
+
+        ReportSheetData specialSheet = specialContributionsSheet(cooperativeId, request);
+        ReportSheetData ledger = ledgerSheet(cooperativeId, request);
+
         List<List<Object>> summaryRows = List.of(
                 List.of("Available Funds", MoneyUtils.scale(available)),
                 List.of("Outstanding Loans", valuation.getOutstandingLoans()),
@@ -1168,16 +1190,14 @@ public class ReportService {
                 List.of("Current Share Value", valuation.getCurrentShareValue()),
                 List.of("Additional Shares Purchased During Period", additionalShares),
                 List.of("Amount Paid for Additional Shares", additionalAmount),
-                List.of(
-                        "Regular Contributions (report filter)",
-                        MoneyUtils.scale(sumColumn(contributionsSheet(cooperativeId, request), 4))),
+                List.of("Regular Contributions Expected (obligation period)", contributionExpected),
+                List.of("Regular Contributions Paid (obligation period)", contributionPaid),
+                List.of("Regular Contributions Remaining (obligation period)", contributionRemaining),
                 List.of(
                         "Special Contributions (report filter)",
-                        MoneyUtils.scale(sumColumn(specialContributionsSheet(cooperativeId, request), 2))),
-                List.of("Ledger Debits (report filter)", MoneyUtils.scale(sumColumn(ledgerSheet(cooperativeId, request), 3))),
-                List.of(
-                        "Ledger Credits (report filter)",
-                        MoneyUtils.scale(sumColumn(ledgerSheet(cooperativeId, request), 4))));
+                        MoneyUtils.scale(sumColumn(specialSheet, 2))),
+                List.of("Ledger Debits (report filter)", MoneyUtils.scale(sumColumn(ledger, 3))),
+                List.of("Ledger Credits (report filter)", MoneyUtils.scale(sumColumn(ledger, 4))));
 
         List<ReportSheetData> sheets = new ArrayList<>();
         sheets.add(ReportSheetData.builder()
@@ -1186,12 +1206,146 @@ public class ReportService {
                 .rows(summaryRows)
                 .build());
         sheets.add(sharePurchasesSheet(cooperativeId, request));
-        sheets.add(contributionsSheet(cooperativeId, request));
-        sheets.add(specialContributionsSheet(cooperativeId, request));
+        sheets.add(contributionSheet);
+        sheets.add(specialSheet);
         sheets.add(incomeExpenseSheet(cooperativeId, request, true));
         sheets.add(incomeExpenseSheet(cooperativeId, request, false));
-        sheets.add(ledgerSheet(cooperativeId, request));
+        sheets.add(ledger);
         return sheets;
+    }
+
+    /**
+     * Obligation-period aggregates for FULL_FINANCIAL only.
+     *
+     * <p>Status rules: CANCELLED excluded; WAIVED expected counted as 0 (matches {@code
+     * sumExpectedByMember}); paid/outstanding use stored amounts (waived outstanding is already 0).
+     */
+    List<MemberContributionAggregate> loadFullFinancialContributionAggregates(
+            UUID cooperativeId, ContributionObligationPeriod.Range range) {
+        if (range.singleMonth()) {
+            List<Contribution> rows = contributionRepository.findObligationRowsForMonth(
+                    cooperativeId, range.fromYear(), range.fromMonth());
+            Map<UUID, String> names = loadMemberNames(
+                    rows.stream().map(Contribution::getMemberUserId).distinct().toList());
+            List<MemberContributionAggregate> aggregates = new ArrayList<>();
+            for (Contribution c : rows) {
+                BigDecimal expected = c.getStatus() == ContributionStatus.WAIVED
+                        ? MoneyUtils.scale(BigDecimal.ZERO)
+                        : MoneyUtils.scale(nvl(c.getExpectedAmount()));
+                BigDecimal paid = MoneyUtils.scale(nvl(c.getPaidAmount()));
+                BigDecimal remaining = MoneyUtils.scale(nvl(c.getOutstandingAmount()));
+                BigDecimal overpaid = BigDecimal.ZERO;
+                if (c.getStatus() != ContributionStatus.WAIVED
+                        && paid.compareTo(MoneyUtils.scale(nvl(c.getExpectedAmount()))) > 0) {
+                    overpaid = MoneyUtils.scale(
+                            paid.subtract(MoneyUtils.scale(nvl(c.getExpectedAmount()))));
+                }
+                aggregates.add(MemberContributionAggregate.builder()
+                        .memberUserId(c.getMemberUserId())
+                        .memberName(names.getOrDefault(c.getMemberUserId(), ""))
+                        .expectedAmount(expected)
+                        .paidAmount(paid)
+                        .remainingAmount(remaining)
+                        .overpaidAmount(overpaid)
+                        .periodsCounted(1)
+                        .status(c.getStatus() == null ? "" : c.getStatus().name())
+                        .build());
+            }
+            aggregates.sort(Comparator.comparing(
+                    a -> a.getMemberName() == null ? "" : a.getMemberName(), String.CASE_INSENSITIVE_ORDER));
+            return aggregates;
+        }
+
+        List<Object[]> rows = contributionRepository.sumAggregatesByMemberInObligationRange(
+                cooperativeId,
+                range.fromYear(),
+                range.fromMonth(),
+                range.toYear(),
+                range.toMonth());
+        Map<UUID, String> names = loadMemberNames(
+                rows.stream().map(r -> (UUID) r[0]).distinct().toList());
+        List<MemberContributionAggregate> aggregates = new ArrayList<>();
+        for (Object[] row : rows) {
+            UUID memberId = (UUID) row[0];
+            aggregates.add(MemberContributionAggregate.builder()
+                    .memberUserId(memberId)
+                    .memberName(names.getOrDefault(memberId, ""))
+                    .expectedAmount(MoneyUtils.scale(nvl((BigDecimal) row[1])))
+                    .paidAmount(MoneyUtils.scale(nvl((BigDecimal) row[2])))
+                    .remainingAmount(MoneyUtils.scale(nvl((BigDecimal) row[3])))
+                    .overpaidAmount(MoneyUtils.scale(nvl((BigDecimal) row[4])))
+                    .periodsCounted(((Number) row[5]).longValue())
+                    .status(null)
+                    .build());
+        }
+        aggregates.sort(Comparator.comparing(
+                a -> a.getMemberName() == null ? "" : a.getMemberName(), String.CASE_INSENSITIVE_ORDER));
+        return aggregates;
+    }
+
+    private ReportSheetData fullFinancialContributionSheet(
+            ContributionObligationPeriod.Range range, List<MemberContributionAggregate> aggregates) {
+        if (range.singleMonth()) {
+            List<List<Object>> rows = new ArrayList<>();
+            BigDecimal expectedTotal = BigDecimal.ZERO;
+            BigDecimal paidTotal = BigDecimal.ZERO;
+            BigDecimal remainingTotal = BigDecimal.ZERO;
+            for (MemberContributionAggregate a : aggregates) {
+                expectedTotal = MoneyUtils.add(expectedTotal, a.getExpectedAmount());
+                paidTotal = MoneyUtils.add(paidTotal, a.getPaidAmount());
+                remainingTotal = MoneyUtils.add(remainingTotal, a.getRemainingAmount());
+                rows.add(cells(
+                        a.getMemberName(),
+                        a.getExpectedAmount(),
+                        a.getPaidAmount(),
+                        a.getRemainingAmount(),
+                        nullToEmpty(a.getStatus())));
+            }
+            return ReportSheetData.builder()
+                    .sheetName("Member Contributions — " + range.singleMonthLabel(Locale.ENGLISH))
+                    .headers(List.of("Member", "Expected", "Paid", "Remaining", "Status"))
+                    .rows(rows)
+                    .totalsRow(List.of(
+                            "TOTAL",
+                            MoneyUtils.scale(expectedTotal),
+                            MoneyUtils.scale(paidTotal),
+                            MoneyUtils.scale(remainingTotal),
+                            ""))
+                    .build();
+        }
+
+        List<List<Object>> rows = new ArrayList<>();
+        BigDecimal expectedTotal = BigDecimal.ZERO;
+        BigDecimal paidTotal = BigDecimal.ZERO;
+        BigDecimal remainingTotal = BigDecimal.ZERO;
+        BigDecimal overpaidTotal = BigDecimal.ZERO;
+        long periodsTotal = 0;
+        for (MemberContributionAggregate a : aggregates) {
+            expectedTotal = MoneyUtils.add(expectedTotal, a.getExpectedAmount());
+            paidTotal = MoneyUtils.add(paidTotal, a.getPaidAmount());
+            remainingTotal = MoneyUtils.add(remainingTotal, a.getRemainingAmount());
+            overpaidTotal = MoneyUtils.add(overpaidTotal, a.getOverpaidAmount());
+            periodsTotal += a.getPeriodsCounted();
+            rows.add(cells(
+                    a.getMemberName(),
+                    a.getPeriodsCounted(),
+                    a.getExpectedAmount(),
+                    a.getPaidAmount(),
+                    a.getRemainingAmount(),
+                    a.getOverpaidAmount()));
+        }
+        return ReportSheetData.builder()
+                .sheetName("Member Contribution Summary")
+                .headers(List.of("Member", "Periods", "Expected", "Paid", "Remaining", "Overpaid"))
+                .rows(rows)
+                .totalsRow(List.of(
+                        "TOTAL",
+                        periodsTotal,
+                        MoneyUtils.scale(expectedTotal),
+                        MoneyUtils.scale(paidTotal),
+                        MoneyUtils.scale(remainingTotal),
+                        MoneyUtils.scale(overpaidTotal)))
+                .build();
     }
 
     private BigDecimal sumColumn(ReportSheetData sheet, int columnIndex) {

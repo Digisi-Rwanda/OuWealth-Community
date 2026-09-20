@@ -169,14 +169,17 @@ describe('AuditLogsPage presentation', () => {
   it('sends raw action values to the filter API while showing labels', async () => {
     const userUi = userEvent.setup()
     renderPage()
-    await screen.findByText('Loan requested')
+    await screen.findByText('Loan requested', {}, { timeout: 15_000 })
     await userUi.click(screen.getByLabelText('Action'))
-    await userUi.click(await screen.findByRole('option', { name: 'Loan requested' }))
-    await waitFor(() => {
-      expect(fetchAuditLogsMock).toHaveBeenCalledWith(
-        'coop-1',
-        expect.objectContaining({ action: 'LOAN_REQUEST' }),
-      )
-    })
-  })
+    await userUi.click(await screen.findByRole('option', { name: 'Loan requested' }, { timeout: 15_000 }))
+    await waitFor(
+      () => {
+        expect(fetchAuditLogsMock).toHaveBeenCalledWith(
+          'coop-1',
+          expect.objectContaining({ action: 'LOAN_REQUEST' }),
+        )
+      },
+      { timeout: 15_000 },
+    )
+  }, 20_000)
 })

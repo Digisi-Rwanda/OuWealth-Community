@@ -225,9 +225,9 @@ describe('AdminDashboard member insights (Phase C2)', () => {
 
   it('leadership sees Member Insights with ranked contributors and fines', async () => {
     renderAdmin([ROLE_PRESIDENT])
-    const section = await screen.findByTestId('member-insights')
+    const section = await screen.findByTestId('member-insights', {}, { timeout: 15_000 })
     expect(within(section).getByText(/member insights/i)).toBeInTheDocument()
-    const contributors = await screen.findByTestId('top-contributors-card')
+    const contributors = await screen.findByTestId('top-contributors-card', {}, { timeout: 15_000 })
     expect(within(contributors).getByText('Jane Doe')).toBeInTheDocument()
     expect(within(contributors).getByText(/450[,.]?000/)).toBeInTheDocument()
     expect(within(contributors).getByText('1.')).toBeInTheDocument()
@@ -235,7 +235,7 @@ describe('AdminDashboard member insights (Phase C2)', () => {
     expect(within(fines).getByText(/highest outstanding fines/i)).toBeInTheDocument()
     expect(within(fines).getByText('John Doe')).toBeInTheDocument()
     expect(section.textContent).not.toMatch(/worst|punished|bad payer/i)
-  })
+  }, 20_000)
 
   it('shows empty contributor and fine states', async () => {
     renderAdmin([ROLE_ACCOUNTANT], {

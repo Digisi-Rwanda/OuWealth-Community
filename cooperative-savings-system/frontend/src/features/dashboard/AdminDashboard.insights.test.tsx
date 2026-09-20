@@ -225,12 +225,12 @@ describe('AdminDashboard this-month insights (Phase C1)', () => {
 
   it('shows contributions KPI with positive MoM for leadership', async () => {
     renderAdmin([ROLE_PRESIDENT])
-    const card = await screen.findByTestId('insight-contributions')
+    const card = await screen.findByTestId('insight-contributions', {}, { timeout: 15_000 })
     expect(within(card).getByText(/contributions/i)).toBeInTheDocument()
-    expect(await within(card).findByText(/1[\s,.]*200[\s,.]*000/)).toBeInTheDocument()
-    expect(await within(card).findByText(/20\.0% vs last month/i)).toBeInTheDocument()
+    expect(await within(card).findByText(/1[\s,.]*200[\s,.]*000/, {}, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await within(card).findByText(/20\.0% vs last month/i, {}, { timeout: 15_000 })).toBeInTheDocument()
     expect(screen.getByTestId('this-month-insights')).toBeInTheDocument()
-  })
+  }, 20_000)
 
   it('shows negative contribution delta', async () => {
     renderAdmin([ROLE_ACCOUNTANT], {

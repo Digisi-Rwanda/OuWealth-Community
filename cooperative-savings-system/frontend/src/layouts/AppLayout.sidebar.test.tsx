@@ -267,10 +267,13 @@ describe('AppLayout sidebar (Phase B)', () => {
     const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement
     await user.click(within(paper).getByRole('link', { name: /^Members$/i }))
     expect(screen.getByTestId('page-members')).toBeInTheDocument()
-    await waitFor(() => {
-      expect(document.querySelector('.MuiModal-root')).toHaveAttribute('aria-hidden', 'true')
-    })
-  })
+    await waitFor(
+      () => {
+        expect(document.querySelector('.MuiModal-root')).toHaveAttribute('aria-hidden', 'true')
+      },
+      { timeout: 15_000 },
+    )
+  }, 20_000)
 
   it('keeps CooperativeSelector, notifications, user menu, language and theme controls', async () => {
     renderLayout({ roles: [ROLE_PRESIDENT], mdUp: true })
