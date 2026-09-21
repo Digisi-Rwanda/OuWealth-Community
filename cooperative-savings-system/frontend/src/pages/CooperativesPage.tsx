@@ -94,7 +94,12 @@ export function CooperativesPage() {
         id: 'status',
         label: t('cooperatives.fields.status'),
         render: (row) => (
-          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            useFlexGap
+            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          >
             <Chip size="small" color={statusColor(row.status)} label={t(`status.${row.status}`)} />
             {isOnboardingIncomplete(row) ? (
               <Chip

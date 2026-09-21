@@ -80,9 +80,15 @@ function HeroVisual() {
       />
       <Stack
         spacing={2}
-        alignItems="center"
-        justifyContent="center"
-        sx={{ position: 'relative', height: '100%', minHeight: { xs: 260, md: 360 }, px: 3, py: 4 }}
+        sx={{
+          position: 'relative',
+          height: '100%',
+          minHeight: { xs: 260, md: 360 },
+          px: 3,
+          py: 4,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
         <OuWealthMark size={72} />
         <Typography
@@ -198,7 +204,7 @@ export function LandingPage() {
             {HOW_STEPS.map((key, index) => (
               <Card key={key} variant="outlined" sx={{ height: '100%', bgcolor: 'background.paper' }}>
                 <CardContent>
-                  <Typography variant="overline" color="secondary.main" fontWeight={700}>
+                  <Typography variant="overline" color="secondary.main" sx={{ fontWeight: 700 }}>
                     {t('public.landing.how.stepLabel', { step: index + 1 })}
                   </Typography>
                   <Typography variant="h6" component="h3" sx={{ mt: 0.5 }}>
@@ -230,7 +236,7 @@ export function LandingPage() {
               <Card key={labelKey} variant="outlined" sx={{ height: '100%' }}>
                 <CardContent>
                   <Icon color="primary" sx={{ mb: 1 }} aria-hidden />
-                  <Typography variant="subtitle1" component="h3" fontWeight={700}>
+                  <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
                     {t(labelKey)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
@@ -259,7 +265,7 @@ export function LandingPage() {
               <Typography id="landing-value-heading" variant="h3" component="h2" gutterBottom>
                 {t('public.landing.value.title')}
               </Typography>
-              <Typography color="text.secondary" paragraph>
+              <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
                 {t('public.landing.value.body')}
               </Typography>
               <Stack component="ul" spacing={1} sx={{ pl: 2, m: 0 }}>
@@ -303,7 +309,7 @@ export function LandingPage() {
           <Typography id="landing-about-heading" variant="h4" component="h2" gutterBottom>
             {t('public.landing.aboutTeaser.title')}
           </Typography>
-          <Typography color="text.secondary" paragraph>
+          <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
             {t('public.landing.aboutTeaser.body')}
           </Typography>
           <Button component={RouterLink} to={ROUTES.about} variant="outlined" data-testid="landing-about-link">
@@ -317,7 +323,7 @@ export function LandingPage() {
           <Typography id="landing-contact-heading" variant="h4" component="h2" gutterBottom>
             {t('public.landing.contactTeaser.title')}
           </Typography>
-          <Typography color="text.secondary" paragraph>
+          <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
             {t('public.landing.contactTeaser.body')}
           </Typography>
           <Button component={RouterLink} to={ROUTES.contact} variant="contained" data-testid="landing-contact-link">

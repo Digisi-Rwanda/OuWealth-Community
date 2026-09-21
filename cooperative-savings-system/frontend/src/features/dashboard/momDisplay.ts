@@ -13,20 +13,30 @@ export function resolveMomDisplay(
   changeState: MomChangeState | undefined,
 ): MomDisplay {
   const state = changeState ?? 'FLAT'
-  if (state === 'NO_BASELINE' || changePercent === null || changePercent === undefined) {
-    if (state === 'NO_BASELINE') {
-      return { state: 'NO_BASELINE', percent: null, arrow: 'none' }
-    }
+
+  if (state === 'NO_BASELINE') {
+    return { state: 'NO_BASELINE', percent: null, arrow: 'none' }
+  }
+
+  if (changePercent === null || changePercent === undefined) {
+    return { state: 'FLAT', percent: null, arrow: 'none' }
   }
 
   const raw = Number(changePercent)
   const percent = Number.isFinite(raw) ? raw : null
+
   if (percent === null) {
-    return { state: state === 'NO_BASELINE' ? 'NO_BASELINE' : 'FLAT', percent: null, arrow: 'none' }
+    return { state: 'FLAT', percent: null, arrow: 'none' }
   }
 
-  if (state === 'UP' || percent > 0) return { state: 'UP', percent, arrow: 'up' }
-  if (state === 'DOWN' || percent < 0) return { state: 'DOWN', percent, arrow: 'down' }
+  if (state === 'UP' || percent > 0) {
+    return { state: 'UP', percent, arrow: 'up' }
+  }
+
+  if (state === 'DOWN' || percent < 0) {
+    return { state: 'DOWN', percent, arrow: 'down' }
+  }
+
   return { state: 'FLAT', percent: 0, arrow: 'flat' }
 }
 

@@ -113,7 +113,12 @@ export function CurrentSubscriptionCard({ subscription, plans }: CurrentSubscrip
     <Card variant="outlined" data-testid="current-subscription-card">
       <CardContent>
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          >
             <Typography variant="h6" component="h2">
               {t('subscription.billing.currentTitle')}
             </Typography>
@@ -134,8 +139,8 @@ export function CurrentSubscriptionCard({ subscription, plans }: CurrentSubscrip
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             spacing={2}
-            flexWrap="wrap"
             useFlexGap
+            sx={{ flexWrap: 'wrap' }}
           >
             <Detail label={t('subscription.billing.status')} value={t(`subscription.status.${status}`)} />
             <Detail

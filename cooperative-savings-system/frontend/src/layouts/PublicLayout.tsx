@@ -66,7 +66,7 @@ export function PublicLayout() {
         <Button component={RouterLink} to={ROUTES.signup} variant="contained" color="secondary" fullWidth>
           {t('public.nav.createScheme')}
         </Button>
-        <Stack direction="row" spacing={1} justifyContent="center">
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center' }}>
           <LanguageSwitcher onDark={dark} />
           <ThemeSwitcher onDark={dark} />
         </Stack>
@@ -149,7 +149,7 @@ export function PublicLayout() {
           <Box sx={{ flex: 1 }} />
 
           {isMdUp ? (
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <LanguageSwitcher onDark={dark} />
               <ThemeSwitcher onDark={dark} />
               <Button component={RouterLink} to={ROUTES.login} variant="outlined" size="medium">
@@ -213,8 +213,10 @@ export function PublicLayout() {
             <Stack
               direction={{ xs: 'column', md: 'row' }}
               spacing={3}
-              justifyContent="space-between"
-              alignItems={{ xs: 'flex-start', md: 'center' }}
+              sx={{
+                justifyContent: 'space-between',
+                alignItems: { xs: 'flex-start', md: 'center' },
+              }}
             >
               <Box>
                 <BrandLogo variant="lockup" size={40} onDark />
@@ -226,10 +228,12 @@ export function PublicLayout() {
                 component="nav"
                 aria-label={t('public.footer.navAria')}
                 direction="row"
-                flexWrap="wrap"
                 useFlexGap
                 spacing={1.5}
-                sx={{ maxWidth: { xs: '100%', md: 520 } }}
+                sx={{
+                  maxWidth: { xs: '100%', md: 520 },
+                  flexWrap: 'wrap',
+                }}
               >
                 {publicFooterLinks.map((item) => (
                   <Button

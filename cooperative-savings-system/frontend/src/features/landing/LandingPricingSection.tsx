@@ -53,7 +53,12 @@ export function LandingPricingSection() {
             {t('public.landing.pricing.title')}
           </Typography>
           <Typography color="text.secondary">{t('public.landing.pricing.subtitle')}</Typography>
-          <Typography variant="subtitle1" fontWeight={700} color="primary.main" data-testid="pricing-trial-lead">
+          <Typography
+            variant="subtitle1"
+            color="primary.main"
+            data-testid="pricing-trial-lead"
+            sx={{ fontWeight: 700 }}
+          >
             {t('public.landing.pricing.startFree', { months: pricing.trialMonths })}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -72,7 +77,7 @@ export function LandingPricingSection() {
         >
           <Card variant="outlined" data-testid="pricing-card-trial" sx={{ height: '100%' }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                 {t('public.landing.pricing.trial.badge')}
               </Typography>
               <Typography variant="h5" component="h3">
@@ -83,7 +88,13 @@ export function LandingPricingSection() {
               </Typography>
               <Stack component="ul" spacing={1} sx={{ pl: 0, m: 0, listStyle: 'none', flex: 1 }}>
                 {(['access', 'noPayment'] as const).map((key) => (
-                  <Stack key={key} component="li" direction="row" spacing={1} alignItems="flex-start">
+                  <Stack
+                    key={key}
+                    component="li"
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: 'flex-start' }}
+                  >
                     <CheckCircleOutlinedIcon color="primary" fontSize="small" sx={{ mt: 0.25 }} aria-hidden />
                     <Typography variant="body2">{t(`public.landing.pricing.trial.${key}`)}</Typography>
                   </Stack>
@@ -94,7 +105,7 @@ export function LandingPricingSection() {
 
           <Card variant="outlined" data-testid="pricing-card-monthly" sx={{ height: '100%' }}>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-              <Typography variant="overline" color="text.secondary" fontWeight={700}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
                 {t('public.landing.pricing.monthly.badge')}
               </Typography>
               <Typography variant="h5" component="h3">
@@ -120,8 +131,13 @@ export function LandingPricingSection() {
             }}
           >
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                <Typography variant="overline" color="secondary.main" fontWeight={700}>
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <Typography variant="overline" color="secondary.main" sx={{ fontWeight: 700 }}>
                   {t('public.landing.pricing.annual.badge')}
                 </Typography>
                 <Chip
@@ -149,7 +165,12 @@ export function LandingPricingSection() {
                 </Typography>
               </Box>
               <Stack component="ul" spacing={1} sx={{ pl: 0, m: 0, listStyle: 'none', flex: 1 }}>
-                <Stack component="li" direction="row" spacing={1} alignItems="flex-start">
+                <Stack
+                  component="li"
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: 'flex-start' }}
+                >
                   <CheckCircleOutlinedIcon color="secondary" fontSize="small" sx={{ mt: 0.25 }} aria-hidden />
                   <Typography variant="body2" data-testid="pricing-annual-savings">
                     {t('public.landing.pricing.annual.savings', {
@@ -157,7 +178,12 @@ export function LandingPricingSection() {
                     })}
                   </Typography>
                 </Stack>
-                <Stack component="li" direction="row" spacing={1} alignItems="flex-start">
+                <Stack
+                  component="li"
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: 'flex-start' }}
+                >
                   <CheckCircleOutlinedIcon color="secondary" fontSize="small" sx={{ mt: 0.25 }} aria-hidden />
                   <Typography variant="body2" data-testid="pricing-annual-equivalent">
                     {t('public.landing.pricing.annual.equivalent', {
@@ -173,8 +199,10 @@ export function LandingPricingSection() {
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={1.5}
-          sx={{ mt: 4 }}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
+          sx={{
+            mt: 4,
+            alignItems: { xs: 'stretch', sm: 'center' },
+          }}
         >
           <Button
             component={RouterLink}

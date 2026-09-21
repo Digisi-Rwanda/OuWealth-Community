@@ -7,16 +7,22 @@ export function AboutPage() {
   return (
     <Box data-testid="about-page" sx={{ py: { xs: 5, md: 8 } }}>
       <Container maxWidth="md">
-        <Typography variant="overline" color="primary" fontWeight={700}>
+        <Typography variant="overline" color="primary" sx={{ fontWeight: 700 }}>
           {t('app.name')}
         </Typography>
         <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
           {t('public.about.title')}
         </Typography>
-        <Typography color="text.secondary" paragraph sx={{ fontSize: '1.1rem' }}>
+        <Typography
+          color="text.secondary"
+          component="p"
+          sx={{ fontSize: '1.1rem', mb: 2 }}
+        >
           {t('public.about.intro')}
         </Typography>
-        <Typography paragraph>{t('public.about.purpose')}</Typography>
+        <Typography component="p" sx={{ mb: 2 }}>
+          {t('public.about.purpose')}
+        </Typography>
         <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 2 }}>
           {t('public.about.areasTitle')}
         </Typography>

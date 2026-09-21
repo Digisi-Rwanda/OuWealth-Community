@@ -150,10 +150,10 @@ export function LandingJourneySection() {
             <Stack
               direction="row"
               spacing={1}
-              flexWrap="wrap"
               useFlexGap
               role="tablist"
               aria-label={t('public.landing.journey.stepsAria')}
+              sx={{ flexWrap: 'wrap' }}
             >
               {STEPS.map((s, i) => (
                 <Button
@@ -188,7 +188,7 @@ export function LandingJourneySection() {
                 minHeight: { xs: 200, md: 240 },
               }}
             >
-              <Typography variant="overline" color="secondary.main" fontWeight={700}>
+              <Typography variant="overline" color="secondary.main" sx={{ fontWeight: 700 }}>
                 {t('public.landing.journey.stepLabel', { step: index + 1 })}
               </Typography>
               <Typography variant="h5" component="h3" sx={{ mt: 0.5 }} data-testid="journey-step-title">
@@ -197,12 +197,16 @@ export function LandingJourneySection() {
               <Typography color="text.secondary" sx={{ mt: 1.5 }} data-testid="journey-step-body">
                 {t(step.bodyKey)}
               </Typography>
-              <Typography variant="body2" sx={{ mt: 2 }} color="primary.main" fontWeight={600}>
+              <Typography
+                variant="body2"
+                color="primary.main"
+                sx={{ mt: 2, fontWeight: 600 }}
+              >
                 {t(step.moduleKey)}
               </Typography>
             </Box>
 
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <IconButton
                 aria-label={t('public.landing.journey.prev')}
                 onClick={() => go(index - 1)}

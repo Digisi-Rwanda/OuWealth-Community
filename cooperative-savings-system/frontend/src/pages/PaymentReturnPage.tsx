@@ -93,13 +93,13 @@ export function PaymentReturnPage() {
                 : 'payment-return-pending'
             }
           >
-            <Typography component="span" display="block">
+            <Typography component="span" sx={{ display: 'block' }}>
               {verifyQuery.data?.verificationUnavailable
                 ? t('subscription.billing.verificationUnavailable')
                 : t('subscription.billing.verifyingPayment')}
             </Typography>
             {!verifyQuery.data?.verificationUnavailable ? (
-              <Typography component="span" display="block" sx={{ mt: 1 }}>
+              <Typography component="span" sx={{ mt: 1, display: 'block' }}>
                 {t('subscription.billing.paymentPending')}
               </Typography>
             ) : null}

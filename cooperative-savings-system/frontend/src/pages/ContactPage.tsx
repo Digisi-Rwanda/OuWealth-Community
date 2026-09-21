@@ -14,7 +14,7 @@ export function ContactPage() {
         <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
           {t('public.contact.title')}
         </Typography>
-        <Typography color="text.secondary" paragraph>
+        <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
           {t('public.contact.intro')}
         </Typography>
         <Alert severity="info" data-testid="contact-placeholder">

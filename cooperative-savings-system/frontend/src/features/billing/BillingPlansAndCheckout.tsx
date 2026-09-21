@@ -491,7 +491,7 @@ export function BillingPlansAndCheckout({
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <Stack direction="row" justifyContent="space-between" spacing={2} sx={{ py: 0.5 }}>
+    <Stack direction="row" spacing={2} sx={{ py: 0.5, justifyContent: 'space-between' }}>
       <Typography variant="body2" color="text.secondary">
         {label}
       </Typography>
@@ -536,7 +536,7 @@ function PlanCard({
       }}
     >
       <CardContent sx={{ flexGrow: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
           <Typography variant="h6" component="h3">
             {t(`subscription.cycle.${plan.billingCycle}`)}
           </Typography>
