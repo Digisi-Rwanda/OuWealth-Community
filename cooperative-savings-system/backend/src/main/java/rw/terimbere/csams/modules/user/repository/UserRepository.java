@@ -1,5 +1,6 @@
 package rw.terimbere.csams.modules.user.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,21 +37,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByIdAndDeletedFalse(UUID id);
 
+    /** Ids (from {@code userIds}) of non-deleted users holding the global SUPER_ADMIN role. */
     @Query(
             """
-            SELECT DISTINCT u FROM User u
+            SELECT DISTINCT u.id FROM User u
             JOIN u.roles r
-            JOIN r.permissions p
             WHERE u.deleted = false
-              AND p.code = :permissionCode
-              AND u.id IN (
-                  SELECT m.userId FROM CooperativeMembership m
-                  WHERE m.cooperativeId = :cooperativeId
-                    AND UPPER(m.membershipStatus) = 'ACTIVE'
-              )
+              AND r.code = 'SUPER_ADMIN'
+              AND u.id IN :userIds
             """)
-    List<User> findActiveMembersWithPermission(
-            @Param("cooperativeId") UUID cooperativeId, @Param("permissionCode") String permissionCode);
+    List<UUID> findSuperAdminIdsAmong(@Param("userIds") Collection<UUID> userIds);
 
     long countByDeletedFalse();
 }

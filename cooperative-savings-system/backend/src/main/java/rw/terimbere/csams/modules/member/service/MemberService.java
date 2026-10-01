@@ -417,10 +417,12 @@ public class MemberService {
             nextRole = CooperativeOfficerRoles.normalize(request.getRoleInCooperative());
             assertCanAssignRole(principal, nextRole);
             membership.setRoleInCooperative(nextRole);
-            ensureSystemRoles(user, nextRole);
-            userRepository.save(user);
         }
         membershipRepository.save(membership);
+        if (StringUtils.hasText(request.getRoleInCooperative())) {
+            syncGlobalOfficerRoles(user);
+            userRepository.save(user);
+        }
 
         auditService.record(
                 principal.getId(),
@@ -479,6 +481,8 @@ public class MemberService {
             }
             membership.setMembershipStatus(status);
             membershipRepository.save(membership);
+            syncGlobalOfficerRoles(user);
+            userRepository.save(user);
         }
 
         auditService.record(
@@ -574,9 +578,6 @@ public class MemberService {
             createdNewUser = true;
         }
 
-        ensureSystemRoles(user, CooperativeOfficerRoles.PRESIDENT);
-        userRepository.save(user);
-
         CooperativeMembership membership = membershipRepository
                 .findByCooperativeIdAndUserId(cooperativeId, user.getId())
                 .orElseGet(() -> CooperativeMembership.builder()
@@ -588,6 +589,8 @@ public class MemberService {
         membership.setMembershipStatus("ACTIVE");
         membership.setRoleInCooperative(CooperativeOfficerRoles.PRESIDENT);
         membership = membershipRepository.save(membership);
+        syncGlobalOfficerRoles(user);
+        userRepository.save(user);
 
         CooperativeOnboardingState onboardingState =
                 onboardingService.completeIfAwaitingPresident(cooperativeId, principal.getId(), httpRequest);
@@ -656,15 +659,32 @@ public class MemberService {
         }
     }
 
-    private void ensureSystemRoles(User user, String roleInCoop) {
+    /**
+     * Recomputes the user's global officer roles from <em>all</em> of their ACTIVE cooperative memberships.
+     * Authorization of cooperative-scoped requests no longer reads these global roles (it uses the target
+     * cooperative's membership role), but they still feed JWT claims and non-scoped code, so a role change
+     * in one cooperative must never remove the roles another cooperative relies on.
+     */
+    private void syncGlobalOfficerRoles(User user) {
         if (user.getRoles() == null) {
             user.setRoles(new HashSet<>());
         }
         user.getRoles().removeIf(role -> CooperativeOfficerRoles.isOfficerRoleCode(role.getCode()));
         user.getRoles().add(requireRole(ROLE_MEMBER));
-        String platformRole = CooperativeOfficerRoles.platformRole(roleInCoop);
-        if (platformRole != null) {
-            user.getRoles().add(requireRole(platformRole));
+        for (CooperativeMembership active :
+                membershipRepository.findByUserIdAndMembershipStatus(user.getId(), "ACTIVE")) {
+            String platformRole = CooperativeOfficerRoles.platformRole(normalizeStoredRole(active));
+            if (platformRole != null) {
+                user.getRoles().add(requireRole(platformRole));
+            }
+        }
+    }
+
+    private static String normalizeStoredRole(CooperativeMembership membership) {
+        try {
+            return CooperativeOfficerRoles.normalize(membership.getRoleInCooperative());
+        } catch (ValidationException ex) {
+            return CooperativeOfficerRoles.MEMBER;
         }
     }
 

@@ -1,5 +1,6 @@
 package rw.terimbere.csams.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import rw.terimbere.csams.security.AuthenticationRateLimitFilter;
+import rw.terimbere.csams.security.CooperativeAccessResolver;
+import rw.terimbere.csams.security.CooperativeScopeFilter;
 import rw.terimbere.csams.security.JwtAuthenticationFilter;
 import rw.terimbere.csams.security.RestAccessDeniedHandler;
 import rw.terimbere.csams.security.RestAuthenticationEntryPoint;
@@ -31,6 +34,8 @@ import rw.terimbere.csams.security.RestAuthenticationEntryPoint;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CooperativeAccessResolver cooperativeAccessResolver;
+    private final ObjectMapper objectMapper;
     private final AuthenticationRateLimitFilter authenticationRateLimitFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
@@ -83,7 +88,10 @@ public class SecurityConfig {
                         .anyRequest()
                         .permitAll())
                 .addFilterBefore(authenticationRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(
+                        new CooperativeScopeFilter(cooperativeAccessResolver, objectMapper),
+                        JwtAuthenticationFilter.class);
 
         return http.build();
     }

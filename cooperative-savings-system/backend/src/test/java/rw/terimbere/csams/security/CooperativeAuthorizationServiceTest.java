@@ -50,6 +50,18 @@ class CooperativeAuthorizationServiceTest {
     }
 
     @Test
+    void requireMembership_forbidsCooperativeOtherThanTheScopedOne() {
+        UserPrincipal scopedToA = principal("accountant", Set.of("MEMBER", "ACCOUNTANT"), Set.of("CONTRIBUTION_WRITE"), Set.of(coopA, coopB))
+                .toBuilder()
+                .scopedCooperativeId(coopA)
+                .build();
+        authenticate(scopedToA);
+
+        service.requireMembership(coopA);
+        assertThatThrownBy(() -> service.requireMembership(coopB)).isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
     void hasRole_and_hasAuthority() {
         authenticate(principal(
                 "admin",

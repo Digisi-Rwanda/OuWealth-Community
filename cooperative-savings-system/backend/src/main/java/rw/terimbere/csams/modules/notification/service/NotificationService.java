@@ -1,6 +1,7 @@
 package rw.terimbere.csams.modules.notification.service;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import rw.terimbere.csams.modules.notification.dto.PendingApprovalsResponse;
 import rw.terimbere.csams.modules.notification.entity.Notification;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.repository.NotificationRepository;
+import rw.terimbere.csams.security.CooperativeAccessResolver;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
 import rw.terimbere.csams.security.UserPrincipal;
@@ -37,6 +39,7 @@ public class NotificationService {
     private final ContributionRepository contributionRepository;
     private final LoanRepository loanRepository;
     private final SharePurchaseRepository sharePurchaseRepository;
+    private final CooperativeAccessResolver cooperativeAccessResolver;
 
     @Transactional
     public Notification create(
@@ -90,36 +93,62 @@ public class NotificationService {
             return PendingApprovalsResponse.builder().build();
         }
 
+        // Non-super-admins: a queue only counts for a cooperative where the caller's role *in that
+        // cooperative* grants the matching permission (never global roles from other cooperatives).
+        Set<UUID> contributionCoops = new HashSet<>();
+        Set<UUID> loanFirstCoops = new HashSet<>();
+        Set<UUID> loanSecondCoops = new HashSet<>();
+        Set<UUID> shareCoops = new HashSet<>();
+        if (scoped) {
+            for (UUID cooperativeId : cooperativeIds) {
+                UserPrincipal inCooperative = cooperativeAccessResolver.scope(principal, cooperativeId);
+                if (inCooperative.hasAuthority("CONTRIBUTION_WRITE")) {
+                    contributionCoops.add(cooperativeId);
+                }
+                if (inCooperative.hasAuthority(CooperativeOfficerRoles.LOAN_APPROVE)) {
+                    loanFirstCoops.add(cooperativeId);
+                }
+                if (inCooperative.hasAuthority(CooperativeOfficerRoles.FUND_AUTHORIZE)) {
+                    loanSecondCoops.add(cooperativeId);
+                }
+                if (SharePurchaseService.canReviewSharePurchases(inCooperative)) {
+                    shareCoops.add(cooperativeId);
+                }
+            }
+        }
+
         long contributionPendingCount = 0;
-        if (principal.hasAuthority("CONTRIBUTION_WRITE")) {
-            contributionPendingCount = scoped
-                    ? contributionRepository.countByCooperativeIdInAndReviewStatus(
-                            cooperativeIds, ContributionReviewStatus.PENDING)
-                    : contributionRepository.countByReviewStatus(ContributionReviewStatus.PENDING);
+        if (!scoped) {
+            contributionPendingCount = contributionRepository.countByReviewStatus(ContributionReviewStatus.PENDING);
+        } else if (!contributionCoops.isEmpty()) {
+            contributionPendingCount = contributionRepository.countByCooperativeIdInAndReviewStatus(
+                    contributionCoops, ContributionReviewStatus.PENDING);
         }
 
         long loanPendingCount = 0;
-        if (superAdmin || principal.hasAuthority(CooperativeOfficerRoles.LOAN_APPROVE)) {
-            loanPendingCount = scoped
-                    ? loanRepository.countByCooperativeIdInAndStatus(cooperativeIds, LoanStatus.PENDING)
-                    : loanRepository.countByStatus(LoanStatus.PENDING);
+        if (!scoped) {
+            loanPendingCount = loanRepository.countByStatus(LoanStatus.PENDING);
+        } else if (!loanFirstCoops.isEmpty()) {
+            loanPendingCount = loanRepository.countByCooperativeIdInAndStatus(loanFirstCoops, LoanStatus.PENDING);
         }
 
         long loanSecondApprovalCount = 0;
-        if (superAdmin || principal.hasAuthority(CooperativeOfficerRoles.FUND_AUTHORIZE)) {
-            loanSecondApprovalCount = scoped
-                    ? loanRepository.countByCooperativeIdInAndStatusAndFirstApprovedByNot(
-                            cooperativeIds, LoanStatus.AWAITING_SECOND_APPROVAL, principal.getId())
-                    : loanRepository.countByStatusAndFirstApprovedByNot(
-                            LoanStatus.AWAITING_SECOND_APPROVAL, principal.getId());
+        if (!scoped) {
+            loanSecondApprovalCount = loanRepository.countByStatusAndFirstApprovedByNot(
+                    LoanStatus.AWAITING_SECOND_APPROVAL, principal.getId());
+        } else if (!loanSecondCoops.isEmpty()) {
+            loanSecondApprovalCount = loanRepository.countByCooperativeIdInAndStatusAndFirstApprovedByNot(
+                    loanSecondCoops, LoanStatus.AWAITING_SECOND_APPROVAL, principal.getId());
         }
 
         long sharePurchasePendingCount = 0;
-        if (SharePurchaseService.canReviewSharePurchases(principal)) {
-            sharePurchasePendingCount = scoped
-                    ? sharePurchaseRepository.countByCooperativeIdInAndStatus(
-                            cooperativeIds, SharePurchaseStatus.PENDING)
-                    : sharePurchaseRepository.countByStatus(SharePurchaseStatus.PENDING);
+        if (!scoped) {
+            if (SharePurchaseService.canReviewSharePurchases(principal)) {
+                sharePurchasePendingCount = sharePurchaseRepository.countByStatus(SharePurchaseStatus.PENDING);
+            }
+        } else if (!shareCoops.isEmpty()) {
+            sharePurchasePendingCount =
+                    sharePurchaseRepository.countByCooperativeIdInAndStatus(shareCoops, SharePurchaseStatus.PENDING);
         }
 
         return PendingApprovalsResponse.builder()

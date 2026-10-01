@@ -14,7 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class UserPrincipal implements UserDetails {
 
     private final UUID id;
@@ -23,6 +23,13 @@ public class UserPrincipal implements UserDetails {
     private final Set<String> roles;
     private final Set<String> permissions;
     private final Set<UUID> cooperativeIds;
+
+    /**
+     * When non-null, {@link #roles} and {@link #permissions} were resolved from the caller's membership
+     * in exactly this cooperative (see {@link CooperativeAccessResolver}) instead of from global user roles.
+     */
+    private final UUID scopedCooperativeId;
+
     private final boolean accountNonLocked;
     private final boolean enabled;
 

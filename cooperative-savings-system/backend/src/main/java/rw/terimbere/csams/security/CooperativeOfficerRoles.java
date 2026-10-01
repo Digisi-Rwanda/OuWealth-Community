@@ -9,6 +9,12 @@ import rw.terimbere.csams.shared.exceptions.ValidationException;
  * Cooperative officer roles (Ikimina committee). Distinct from platform {@code SUPER_ADMIN}.
  *
  * <p>{@code COOPERATIVE_ADMIN} is a legacy alias for {@code PRESIDENT}.
+ *
+ * <p>The principal-based helpers below ({@code isOfficer}, {@code isLeadership}, {@code requireFundAuthorize},
+ * ...) are cooperative-aware only because, for cooperative-scoped requests, {@link CooperativeScopeFilter}
+ * replaces the principal's roles/permissions with those of its membership in the target cooperative
+ * (see {@link CooperativeAccessResolver}). Do not call them with an unscoped principal to authorize
+ * work on a specific cooperative.
  */
 public final class CooperativeOfficerRoles {
 

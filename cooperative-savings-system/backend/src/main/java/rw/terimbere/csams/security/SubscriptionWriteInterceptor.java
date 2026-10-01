@@ -4,14 +4,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import rw.terimbere.csams.modules.subscription.service.SubscriptionEntitlementService;
+import rw.terimbere.csams.shared.exceptions.ValidationException;
 
 /**
  * Blocks cooperative operational writes when the selected cooperative's effective
@@ -25,8 +24,6 @@ import rw.terimbere.csams.modules.subscription.service.SubscriptionEntitlementSe
 public class SubscriptionWriteInterceptor implements HandlerInterceptor {
 
     private static final Set<String> MUTATING_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
-    private static final Pattern COOPERATIVE_PATH = Pattern.compile(
-            "^/api/v1/cooperatives/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:/.*)?$");
 
     private final SubscriptionEntitlementService entitlementService;
 
@@ -37,13 +34,16 @@ public class SubscriptionWriteInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String path = normalizedPath(request);
+        String path = CooperativePath.pathOf(request);
+        CooperativePath.Result parsed = CooperativePath.parse(path);
+        if (parsed.kind() == CooperativePath.Kind.INVALID) {
+            // Same fail-closed rule as CooperativeScopeFilter: never skip enforcement on an untrusted segment.
+            throw new ValidationException(CooperativeScopeFilter.INVALID_PATH_MESSAGE);
+        }
         if (isExempt(method, path)) {
             return true;
         }
-
-        Matcher matcher = COOPERATIVE_PATH.matcher(path);
-        if (!matcher.matches()) {
+        if (parsed.kind() != CooperativePath.Kind.COOPERATIVE) {
             return true;
         }
 
@@ -55,7 +55,7 @@ public class SubscriptionWriteInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        UUID cooperativeId = UUID.fromString(matcher.group(1));
+        UUID cooperativeId = parsed.cooperativeId();
         if (!principal.isMemberOf(cooperativeId)) {
             return true;
         }
@@ -107,19 +107,6 @@ public class SubscriptionWriteInterceptor implements HandlerInterceptor {
 
     private static String uuid() {
         return "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
-    }
-
-    private static String normalizedPath(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        String context = request.getContextPath();
-        if (uri != null && context != null && !context.isEmpty() && uri.startsWith(context)) {
-            uri = uri.substring(context.length());
-        }
-        if (uri == null || uri.isEmpty()) {
-            return "/";
-        }
-        int query = uri.indexOf('?');
-        return query >= 0 ? uri.substring(0, query) : uri;
     }
 
     private static UserPrincipal currentPrincipal() {

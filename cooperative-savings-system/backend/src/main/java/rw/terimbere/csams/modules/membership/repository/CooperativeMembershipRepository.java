@@ -29,6 +29,14 @@ public interface CooperativeMembershipRepository extends JpaRepository<Cooperati
 
     @Query(
             """
+            SELECT m FROM CooperativeMembership m
+            WHERE m.cooperativeId = :cooperativeId
+              AND UPPER(m.membershipStatus) = 'ACTIVE'
+            """)
+    List<CooperativeMembership> findActiveByCooperativeId(@Param("cooperativeId") UUID cooperativeId);
+
+    @Query(
+            """
             SELECT COALESCE(SUM(m.shareCount), 0)
             FROM CooperativeMembership m
             WHERE m.cooperativeId = :cooperativeId

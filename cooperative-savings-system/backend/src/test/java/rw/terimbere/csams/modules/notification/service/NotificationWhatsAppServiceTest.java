@@ -1,5 +1,6 @@
 package rw.terimbere.csams.modules.notification.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,11 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.report.whatsapp.WhatsAppCloudClient;
 import rw.terimbere.csams.modules.report.whatsapp.WhatsAppProperties;
 import rw.terimbere.csams.modules.user.entity.User;
 import rw.terimbere.csams.modules.user.repository.UserRepository;
+import rw.terimbere.csams.security.CooperativeAccessResolver;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationWhatsAppServiceTest {
@@ -32,6 +37,12 @@ class NotificationWhatsAppServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private CooperativeMembershipRepository membershipRepository;
+
+    @Mock
+    private CooperativeAccessResolver accessResolver;
+
     private WhatsAppProperties properties;
     private NotificationWhatsAppService service;
     private final UUID userId = UUID.randomUUID();
@@ -41,7 +52,8 @@ class NotificationWhatsAppServiceTest {
     @BeforeEach
     void setUp() {
         properties = new WhatsAppProperties();
-        service = new NotificationWhatsAppService(whatsAppCloudClient, properties, userRepository, sync);
+        service = new NotificationWhatsAppService(
+                whatsAppCloudClient, properties, userRepository, membershipRepository, accessResolver, sync);
     }
 
     @Test
@@ -59,7 +71,7 @@ class NotificationWhatsAppServiceTest {
         verify(whatsAppCloudClient, never()).sendText(any(), any());
         verify(whatsAppCloudClient, never()).sendDocument(any(), any(), any(), any());
         verify(userRepository, never()).findByIdAndDeletedFalse(any());
-        verify(userRepository, never()).findActiveMembersWithPermission(any(), any());
+        verify(membershipRepository, never()).findActiveByCooperativeId(any());
     }
 
     @Test
@@ -174,10 +186,11 @@ class NotificationWhatsAppServiceTest {
         UUID excluded = UUID.randomUUID();
         User officer = userWithPhone("0788123456");
         officer.setId(officerId);
-        User excludedOfficer = userWithPhone("0788000000");
-        excludedOfficer.setId(excluded);
-        when(userRepository.findActiveMembersWithPermission(cooperativeId, "LOAN_APPROVE"))
-                .thenReturn(List.of(officer, excludedOfficer));
+        when(membershipRepository.findActiveByCooperativeId(cooperativeId))
+                .thenReturn(List.of(
+                        membership(officerId, "LOAN_OFFICER"), membership(excluded, "LOAN_OFFICER")));
+        when(accessResolver.permissionsForMembershipRole("LOAN_OFFICER"))
+                .thenReturn(Set.of("LOAN_READ", "LOAN_APPROVE"));
         when(userRepository.findByIdAndDeletedFalse(officerId)).thenReturn(Optional.of(officer));
 
         service.notifyOfficers(
@@ -186,6 +199,49 @@ class NotificationWhatsAppServiceTest {
         verify(whatsAppCloudClient)
                 .sendText(eq("250788123456"), eq("TERIMBERE CSAMS\nYou have a loan request pending your approval."));
         verify(whatsAppCloudClient, never()).sendText(eq("250788000000"), any());
+    }
+
+    @Test
+    void notifyOfficers_usesRoleInThisCooperative_notGlobalRoles() {
+        enableWhatsApp();
+        UUID officerInThisCoop = UUID.randomUUID();
+        UUID memberHere = UUID.randomUUID(); // may be an accountant in ANOTHER cooperative
+        User officer = userWithPhone("0788123456");
+        officer.setId(officerInThisCoop);
+        when(membershipRepository.findActiveByCooperativeId(cooperativeId))
+                .thenReturn(List.of(membership(officerInThisCoop, "ACCOUNTANT"), membership(memberHere, "MEMBER")));
+        when(accessResolver.permissionsForMembershipRole("ACCOUNTANT"))
+                .thenReturn(Set.of("CONTRIBUTION_READ", "CONTRIBUTION_WRITE"));
+        when(accessResolver.permissionsForMembershipRole("MEMBER")).thenReturn(Set.of("CONTRIBUTION_READ"));
+        when(userRepository.findByIdAndDeletedFalse(officerInThisCoop)).thenReturn(Optional.of(officer));
+
+        assertThat(service.officerRecipientIds(cooperativeId, "CONTRIBUTION_WRITE"))
+                .containsExactly(officerInThisCoop);
+        service.notifyOfficers(cooperativeId, "CONTRIBUTION_WRITE", "pending", null);
+
+        verify(userRepository, never()).findByIdAndDeletedFalse(memberHere);
+        verify(whatsAppCloudClient).sendText(eq("250788123456"), eq("pending"));
+    }
+
+    @Test
+    void officerRecipients_includeActiveSuperAdminMembers() {
+        UUID superAdminMember = UUID.randomUUID();
+        UUID plainMember = UUID.randomUUID();
+        when(membershipRepository.findActiveByCooperativeId(cooperativeId))
+                .thenReturn(List.of(membership(superAdminMember, "MEMBER"), membership(plainMember, "MEMBER")));
+        when(accessResolver.permissionsForMembershipRole("MEMBER")).thenReturn(Set.of("CONTRIBUTION_READ"));
+        when(userRepository.findSuperAdminIdsAmong(any())).thenReturn(List.of(superAdminMember));
+
+        assertThat(service.officerRecipientIds(cooperativeId, "CONTRIBUTION_WRITE"))
+                .containsExactly(superAdminMember);
+    }
+
+    private static CooperativeMembership membership(UUID userId, String roleInCooperative) {
+        return CooperativeMembership.builder()
+                .userId(userId)
+                .membershipStatus("ACTIVE")
+                .roleInCooperative(roleInCooperative)
+                .build();
     }
 
     private void enableWhatsApp() {

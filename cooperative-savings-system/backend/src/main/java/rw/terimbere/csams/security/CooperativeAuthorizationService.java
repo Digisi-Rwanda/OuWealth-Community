@@ -31,6 +31,12 @@ public class CooperativeAuthorizationService {
         if (cooperativeId == null || !principal.isMemberOf(cooperativeId)) {
             throw new ForbiddenException("Not a member of this cooperative");
         }
+        // The principal's roles/permissions were resolved for exactly one cooperative (the request path).
+        // Never let them authorize work on a different cooperative.
+        if (principal.getScopedCooperativeId() != null
+                && !principal.getScopedCooperativeId().equals(cooperativeId)) {
+            throw new ForbiddenException("Not authorized for this cooperative");
+        }
     }
 
     /** Membership plus officer access to member-identifying dashboard insights. */

@@ -1,5 +1,9 @@
 package rw.terimbere.csams.modules.notification.service;
 
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
@@ -9,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
+import rw.terimbere.csams.modules.membership.entity.CooperativeMembership;
+import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.whatsapp.NotificationWhatsAppCopy;
 import rw.terimbere.csams.modules.report.whatsapp.WhatsAppCloudClient;
@@ -16,6 +22,7 @@ import rw.terimbere.csams.modules.report.whatsapp.WhatsAppPhone;
 import rw.terimbere.csams.modules.report.whatsapp.WhatsAppProperties;
 import rw.terimbere.csams.modules.user.entity.User;
 import rw.terimbere.csams.modules.user.repository.UserRepository;
+import rw.terimbere.csams.security.CooperativeAccessResolver;
 
 /**
  * Optional WhatsApp delivery for existing in-app notification events.
@@ -30,16 +37,22 @@ public class NotificationWhatsAppService {
     private final WhatsAppCloudClient whatsAppCloudClient;
     private final WhatsAppProperties whatsAppProperties;
     private final UserRepository userRepository;
+    private final CooperativeMembershipRepository membershipRepository;
+    private final CooperativeAccessResolver accessResolver;
     private final Executor taskExecutor;
 
     public NotificationWhatsAppService(
             WhatsAppCloudClient whatsAppCloudClient,
             WhatsAppProperties whatsAppProperties,
             UserRepository userRepository,
+            CooperativeMembershipRepository membershipRepository,
+            CooperativeAccessResolver accessResolver,
             @Qualifier("taskExecutor") Executor taskExecutor) {
         this.whatsAppCloudClient = whatsAppCloudClient;
         this.whatsAppProperties = whatsAppProperties;
         this.userRepository = userRepository;
+        this.membershipRepository = membershipRepository;
+        this.accessResolver = accessResolver;
         this.taskExecutor = taskExecutor;
     }
 
@@ -70,11 +83,11 @@ public class NotificationWhatsAppService {
         }
         runAfterCommit(() -> {
             try {
-                for (User officer : userRepository.findActiveMembersWithPermission(cooperativeId, permissionCode)) {
-                    if (officer.getId() == null || officer.getId().equals(excludeUserId)) {
+                for (UUID officerId : officerRecipientIds(cooperativeId, permissionCode)) {
+                    if (officerId.equals(excludeUserId)) {
                         continue;
                     }
-                    sendToUser(officer.getId(), message);
+                    sendToUser(officerId, message);
                 }
             } catch (Exception ex) {
                 log.warn(
@@ -82,6 +95,33 @@ public class NotificationWhatsAppService {
                         ex.getClass().getSimpleName());
             }
         });
+    }
+
+    /**
+     * Users who currently hold {@code permissionCode} <em>in this cooperative</em>: ACTIVE members whose
+     * {@code role_in_cooperative} maps to that permission. Global user roles are deliberately not used, so an
+     * accountant in cooperative A who is only a member of cooperative B is never treated as an officer of B.
+     * Active members who are platform Super Admins keep receiving officer notifications.
+     */
+    public Set<UUID> officerRecipientIds(UUID cooperativeId, String permissionCode) {
+        List<CooperativeMembership> activeMembers = membershipRepository.findActiveByCooperativeId(cooperativeId);
+        Set<UUID> recipients = new LinkedHashSet<>();
+        Set<UUID> activeUserIds = new HashSet<>();
+        for (CooperativeMembership membership : activeMembers) {
+            if (membership.getUserId() == null) {
+                continue;
+            }
+            activeUserIds.add(membership.getUserId());
+            if (accessResolver
+                    .permissionsForMembershipRole(membership.getRoleInCooperative())
+                    .contains(permissionCode)) {
+                recipients.add(membership.getUserId());
+            }
+        }
+        if (!activeUserIds.isEmpty()) {
+            recipients.addAll(userRepository.findSuperAdminIdsAmong(activeUserIds));
+        }
+        return recipients;
     }
 
     private void sendToUser(UUID userId, String message) {
