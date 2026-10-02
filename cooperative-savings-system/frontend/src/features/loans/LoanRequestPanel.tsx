@@ -100,6 +100,38 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
     },
   })
 
+  // Every hook (including the dependent queries below) must run on every render, in the same order.
+  // The loading/error/blocked early returns come only after the last hook; queries that must not run
+  // yet are held back with `enabled`, never by skipping the hook.
+  const settings = settingsQuery.data
+  const memberRequestsBlocked = !isAdmin && settings && !settings.allowMemberRequests
+  const amount = watch('amount')
+  const purpose = watch('purpose')
+  const termMonths = watch('termMonths')
+  const selectedMemberId = watch('memberUserId')
+  const guaranteeMode = watch('guaranteeMode')
+  const eligibilityMemberId = isAdmin ? selectedMemberId : currentUser?.id
+  const parsedTerm = termMonths.trim() ? Number(termMonths.trim()) : undefined
+  const canPreview = Boolean(cooperativeId && amount && Number(amount) > 0)
+  // Same condition under which the form (rather than the loading/error state) is shown.
+  const formReady = settingsQuery.isSuccess && (isAdmin || !previewQuery.isLoading)
+
+  const scheduleQuery = useQuery({
+    queryKey: ['loans', 'repayment-preview', cooperativeId, amount, parsedTerm],
+    queryFn: () =>
+      previewLoanRepayment(cooperativeId, {
+        amount,
+        termMonths: parsedTerm,
+      }),
+    enabled: formReady && canPreview,
+  })
+
+  const eligibilityQuery = useQuery({
+    queryKey: ['loans', 'eligibility', cooperativeId, eligibilityMemberId, amount],
+    queryFn: () => fetchLoanEligibility(cooperativeId, eligibilityMemberId, amount),
+    enabled: formReady && Boolean(cooperativeId && eligibilityMemberId),
+  })
+
   if (settingsQuery.isLoading || (!isAdmin && previewQuery.isLoading)) {
     return <LoadingState variant="skeleton" rows={3} />
   }
@@ -111,33 +143,6 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
       />
     )
   }
-
-  const settings = settingsQuery.data
-  const memberRequestsBlocked = !isAdmin && settings && !settings.allowMemberRequests
-  const amount = watch('amount')
-  const purpose = watch('purpose')
-  const termMonths = watch('termMonths')
-  const selectedMemberId = watch('memberUserId')
-  const guaranteeMode = watch('guaranteeMode')
-  const eligibilityMemberId = isAdmin ? selectedMemberId : currentUser?.id
-  const parsedTerm = termMonths.trim() ? Number(termMonths.trim()) : undefined
-  const canPreview = Boolean(cooperativeId && amount && Number(amount) > 0)
-
-  const scheduleQuery = useQuery({
-    queryKey: ['loans', 'repayment-preview', cooperativeId, amount, parsedTerm],
-    queryFn: () =>
-      previewLoanRepayment(cooperativeId, {
-        amount,
-        termMonths: parsedTerm,
-      }),
-    enabled: canPreview,
-  })
-
-  const eligibilityQuery = useQuery({
-    queryKey: ['loans', 'eligibility', cooperativeId, eligibilityMemberId, amount],
-    queryFn: () => fetchLoanEligibility(cooperativeId, eligibilityMemberId, amount),
-    enabled: Boolean(cooperativeId && eligibilityMemberId),
-  })
 
   if (memberRequestsBlocked) {
     return (
