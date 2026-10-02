@@ -2,12 +2,10 @@ import * as yup from 'yup'
 import {
   isValidCooperativeEmail,
   isValidRegistrationDate,
-  isValidRegistrationNumber,
   isValidRwandanPhone,
   MAX_CONTRIBUTION_DUE_DAY,
   MIN_CONTRIBUTION_DUE_DAY,
   MIN_REGISTRATION_DATE,
-  normalizeRegistrationNumber,
   normalizeRwandanPhone,
   RWANDA_CURRENCY,
   todayInKigaliIso,
@@ -15,7 +13,6 @@ import {
 
 export type OnboardingFormValues = {
   name: string
-  registrationNumber: string
   contactEmail: string
   contactPhone: string
   address: string
@@ -34,7 +31,6 @@ export type OnboardingFormValues = {
 
 export const onboardingDefaults: OnboardingFormValues = {
   name: '',
-  registrationNumber: '',
   contactEmail: '',
   contactPhone: '',
   address: '',
@@ -53,7 +49,6 @@ export const onboardingDefaults: OnboardingFormValues = {
 
 export const ONBOARDING_STEP1_FIELDS: (keyof OnboardingFormValues)[] = [
   'name',
-  'registrationNumber',
   'contactEmail',
   'contactPhone',
   'address',
@@ -75,15 +70,6 @@ export const ONBOARDING_STEP2_FIELDS: (keyof OnboardingFormValues)[] = [
 
 export const onboardingSchema: yup.ObjectSchema<OnboardingFormValues> = yup.object({
   name: yup.string().trim().required('Name is required').max(255),
-  registrationNumber: yup
-    .string()
-    .trim()
-    .required('Registration number is required')
-    .test(
-      'registration',
-      'Use a valid registration number (4–32 characters, letters/digits with / or -)',
-      (v) => Boolean(v && isValidRegistrationNumber(v)),
-    ),
   contactEmail: yup
     .string()
     .trim()
@@ -145,7 +131,6 @@ export const onboardingSchema: yup.ObjectSchema<OnboardingFormValues> = yup.obje
 export interface PublicOnboardingPayload {
   cooperative: {
     name: string
-    registrationNumber: string
     contactEmail: string
     contactPhone: string
     address?: string
@@ -169,7 +154,6 @@ export function toOnboardingPayload(values: OnboardingFormValues): PublicOnboard
   return {
     cooperative: {
       name: values.name.trim(),
-      registrationNumber: normalizeRegistrationNumber(values.registrationNumber),
       contactEmail: values.contactEmail.trim().toLowerCase(),
       contactPhone: normalizeRwandanPhone(values.contactPhone),
       address: values.address.trim() || undefined,

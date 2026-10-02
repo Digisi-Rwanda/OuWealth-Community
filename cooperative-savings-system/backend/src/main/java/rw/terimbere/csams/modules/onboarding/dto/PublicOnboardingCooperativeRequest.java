@@ -31,7 +31,10 @@ public class PublicOnboardingCooperativeRequest {
     @Size(max = 2000)
     private String description;
 
-    @NotBlank
+    /**
+     * Optional for public self-onboarding. Missing, null or blank is stored as null (nothing is invented).
+     * When a value is supplied it must still be a valid registration number and unique among active schemes.
+     */
     @Size(max = 128)
     @CooperativeRegistrationNumber
     private String registrationNumber;

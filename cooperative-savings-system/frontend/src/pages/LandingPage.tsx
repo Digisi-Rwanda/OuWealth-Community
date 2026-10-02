@@ -26,6 +26,17 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { OuWealthMark } from '@/features/branding/OuWealthMark'
 import { LandingJourneySection } from '@/features/landing/LandingJourneySection'
 import { LandingPricingSection } from '@/features/landing/LandingPricingSection'
+import {
+  LANDING_SECTION_PY,
+  LANDING_SECTION_PY_COMPACT,
+  landingCardBodySx,
+  landingCardSx,
+  landingCardTitleSx,
+  landingLabelSx,
+  landingSectionSubtitleSx,
+  landingSectionTitleSx,
+} from '@/features/landing/landingStyles'
+import { LandingIconBadge } from '@/features/landing/LandingIconBadge'
 import { ROUTES } from '@/shared/constants/routes'
 
 const HOW_STEPS = [
@@ -94,7 +105,7 @@ function HeroVisual() {
         <Typography
           variant="h5"
           component="p"
-          sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', maxWidth: 320 }}
+          sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 500, maxWidth: 320 }}
         >
           {t('public.landing.hero.visualTitle')}
         </Typography>
@@ -132,7 +143,7 @@ export function LandingPage() {
         component="section"
         aria-labelledby="landing-hero-heading"
         sx={{
-          py: { xs: 5, md: 8 },
+          py: { xs: 4.5, md: 7 },
           background: dark
             ? 'radial-gradient(ellipse at 10% 0%, rgba(27,77,140,0.35) 0%, transparent 50%), linear-gradient(180deg, #0A0A0A 0%, #121212 100%)'
             : 'radial-gradient(ellipse at 12% 0%, rgba(27,77,140,0.14) 0%, transparent 50%), radial-gradient(ellipse at 90% 20%, rgba(255,122,0,0.08) 0%, transparent 40%), linear-gradient(180deg, #FFFFFF 0%, #F4F8FD 100%)',
@@ -148,13 +159,23 @@ export function LandingPage() {
             }}
           >
             <Stack spacing={2.5}>
-              <Typography variant="overline" color="primary" sx={{ letterSpacing: '0.12em', fontWeight: 700 }}>
+              <Typography variant="overline" color="primary" sx={{ letterSpacing: '0.12em', fontWeight: 600 }}>
                 {t('app.name')}
               </Typography>
-              <Typography id="landing-hero-heading" variant="h2" component="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' } }}>
+              <Typography
+                id="landing-hero-heading"
+                variant="h2"
+                component="h1"
+                sx={{ fontSize: { xs: '1.8rem', md: '2.35rem' }, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.015em' }}
+              >
                 {t('public.landing.hero.title')}
               </Typography>
-              <Typography variant="h6" component="p" color="text.secondary" sx={{ fontWeight: 400, maxWidth: 540 }}>
+              <Typography
+                variant="body1"
+                component="p"
+                color="text.secondary"
+                sx={{ fontSize: { xs: '1rem', md: '1.05rem' }, fontWeight: 400, lineHeight: 1.6, maxWidth: 540 }}
+              >
                 {t('public.landing.hero.subtitle')}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ pt: 1 }}>
@@ -186,12 +207,12 @@ export function LandingPage() {
 
       <LandingJourneySection />
 
-      <Box component="section" aria-labelledby="landing-how-heading" sx={{ py: { xs: 6, md: 8 }, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}>
+      <Box component="section" aria-labelledby="landing-how-heading" sx={{ py: LANDING_SECTION_PY, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}>
         <Container maxWidth="lg">
-          <Typography id="landing-how-heading" variant="h3" component="h2" gutterBottom>
+          <Typography id="landing-how-heading" variant="h4" component="h2" sx={landingSectionTitleSx}>
             {t('public.landing.how.title')}
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 640 }}>
+          <Typography color="text.secondary" sx={landingSectionSubtitleSx}>
             {t('public.landing.how.subtitle')}
           </Typography>
           <Box
@@ -202,12 +223,12 @@ export function LandingPage() {
             }}
           >
             {HOW_STEPS.map((key, index) => (
-              <Card key={key} variant="outlined" sx={{ height: '100%', bgcolor: 'background.paper' }}>
-                <CardContent>
-                  <Typography variant="overline" color="secondary.main" sx={{ fontWeight: 700 }}>
+              <Card key={key} elevation={0} sx={landingCardSx('primary')}>
+                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                  <Typography variant="overline" color="secondary.main" sx={landingLabelSx}>
                     {t('public.landing.how.stepLabel', { step: index + 1 })}
                   </Typography>
-                  <Typography variant="h6" component="h3" sx={{ mt: 0.5 }}>
+                  <Typography variant="subtitle1" component="h3" sx={[landingCardTitleSx, { mt: 0.5, fontSize: '1.05rem' }]}>
                     {t(key)}
                   </Typography>
                 </CardContent>
@@ -217,12 +238,12 @@ export function LandingPage() {
         </Container>
       </Box>
 
-      <Box component="section" aria-labelledby="landing-capabilities-heading" sx={{ py: { xs: 6, md: 8 } }}>
+      <Box component="section" aria-labelledby="landing-capabilities-heading" sx={{ py: LANDING_SECTION_PY }}>
         <Container maxWidth="lg">
-          <Typography id="landing-capabilities-heading" variant="h3" component="h2" gutterBottom>
+          <Typography id="landing-capabilities-heading" variant="h4" component="h2" sx={landingSectionTitleSx}>
             {t('public.landing.capabilities.title')}
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 640 }}>
+          <Typography color="text.secondary" sx={landingSectionSubtitleSx}>
             {t('public.landing.capabilities.subtitle')}
           </Typography>
           <Box
@@ -233,13 +254,15 @@ export function LandingPage() {
             }}
           >
             {CAPABILITIES.map(({ labelKey, descriptionKey, icon: Icon }) => (
-              <Card key={labelKey} variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Icon color="primary" sx={{ mb: 1 }} aria-hidden />
-                  <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
+              <Card key={labelKey} elevation={0} sx={landingCardSx('primary')}>
+                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                  <LandingIconBadge>
+                    <Icon fontSize="small" />
+                  </LandingIconBadge>
+                  <Typography variant="subtitle1" component="h3" sx={landingCardTitleSx}>
                     {t(labelKey)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                  <Typography variant="body2" color="text.secondary" sx={[landingCardBodySx, { mt: 0.75 }]}>
                     {t(descriptionKey)}
                   </Typography>
                 </CardContent>
@@ -251,7 +274,7 @@ export function LandingPage() {
 
       <LandingPricingSection />
 
-      <Box component="section" aria-labelledby="landing-value-heading" sx={{ py: { xs: 6, md: 8 } }}>
+      <Box component="section" aria-labelledby="landing-value-heading" sx={{ py: LANDING_SECTION_PY }}>
         <Container maxWidth="lg">
           <Box
             sx={{
@@ -262,15 +285,19 @@ export function LandingPage() {
             }}
           >
             <Box>
-              <Typography id="landing-value-heading" variant="h3" component="h2" gutterBottom>
+              <Typography id="landing-value-heading" variant="h4" component="h2" sx={landingSectionTitleSx}>
                 {t('public.landing.value.title')}
               </Typography>
-              <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
+              <Typography
+                color="text.secondary"
+                component="p"
+                sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6, mb: 2 }}
+              >
                 {t('public.landing.value.body')}
               </Typography>
               <Stack component="ul" spacing={1} sx={{ pl: 2, m: 0 }}>
                 {(['organize', 'visibility', 'obligations', 'position'] as const).map((item) => (
-                  <Typography key={item} component="li" variant="body1">
+                  <Typography key={item} component="li" variant="body1" sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.55 }}>
                     {t(`public.landing.value.${item}`)}
                   </Typography>
                 ))}
@@ -292,7 +319,7 @@ export function LandingPage() {
                 px: 3,
               }}
             >
-              <Typography variant="h5" component="p" sx={{ textAlign: 'center', maxWidth: 280, fontFamily: 'Georgia, serif' }}>
+              <Typography variant="h5" component="p" sx={{ textAlign: 'center', maxWidth: 280, fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 500 }}>
                 {t('public.landing.value.visual')}
               </Typography>
             </Box>
@@ -303,13 +330,13 @@ export function LandingPage() {
       <Box
         component="section"
         aria-labelledby="landing-about-heading"
-        sx={{ py: { xs: 5, md: 6 }, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}
+        sx={{ py: LANDING_SECTION_PY_COMPACT, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}
       >
         <Container maxWidth="md">
-          <Typography id="landing-about-heading" variant="h4" component="h2" gutterBottom>
+          <Typography id="landing-about-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.4rem', md: '1.65rem' } }]}>
             {t('public.landing.aboutTeaser.title')}
           </Typography>
-          <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
+          <Typography color="text.secondary" component="p" sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6, mb: 2 }}>
             {t('public.landing.aboutTeaser.body')}
           </Typography>
           <Button component={RouterLink} to={ROUTES.about} variant="outlined" data-testid="landing-about-link">
@@ -318,12 +345,12 @@ export function LandingPage() {
         </Container>
       </Box>
 
-      <Box component="section" aria-labelledby="landing-contact-heading" sx={{ py: { xs: 5, md: 7 } }}>
+      <Box component="section" aria-labelledby="landing-contact-heading" sx={{ py: LANDING_SECTION_PY_COMPACT }}>
         <Container maxWidth="md">
-          <Typography id="landing-contact-heading" variant="h4" component="h2" gutterBottom>
+          <Typography id="landing-contact-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.4rem', md: '1.65rem' } }]}>
             {t('public.landing.contactTeaser.title')}
           </Typography>
-          <Typography color="text.secondary" component="p" sx={{ mb: 2 }}>
+          <Typography color="text.secondary" component="p" sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6, mb: 2 }}>
             {t('public.landing.contactTeaser.body')}
           </Typography>
           <Button component={RouterLink} to={ROUTES.contact} variant="contained" data-testid="landing-contact-link">

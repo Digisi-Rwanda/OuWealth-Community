@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ONBOARDING_STEP1_FIELDS,
   onboardingDefaults,
   onboardingSchema,
   toOnboardingPayload,
@@ -8,7 +9,6 @@ import {
 const valid: typeof onboardingDefaults = {
   ...onboardingDefaults,
   name: '  Public Scheme  ',
-  registrationNumber: ' rca / 2024 / 0123 ',
   contactEmail: 'Scheme@Example.COM',
   contactPhone: '+250 781 234 567',
   address: '  Kigali  ',
@@ -37,10 +37,12 @@ describe('onboardingSchema', () => {
     await expect(onboardingSchema.validate({ ...valid, name: '' })).rejects.toThrow(/required/i)
   })
 
-  it('rejects invalid registration numbers', async () => {
-    await expect(
-      onboardingSchema.validate({ ...valid, registrationNumber: 'ab' }),
-    ).rejects.toThrow(/registration number/i)
+  it('does not ask for a registration number anywhere in the public signup form', async () => {
+    expect(Object.keys(onboardingDefaults)).not.toContain('registrationNumber')
+    expect(ONBOARDING_STEP1_FIELDS as string[]).not.toContain('registrationNumber')
+    expect(Object.keys(onboardingSchema.fields)).not.toContain('registrationNumber')
+    // a form without one is valid, so step 1 can proceed
+    await expect(onboardingSchema.validate(valid)).resolves.toBeDefined()
   })
 
   it('rejects non-Rwandan cooperative phones', async () => {
@@ -73,7 +75,6 @@ describe('toOnboardingPayload', () => {
     expect(payload).toEqual({
       cooperative: {
         name: 'Public Scheme',
-        registrationNumber: 'RCA/2024/0123',
         contactEmail: 'scheme@example.com',
         contactPhone: '0781234567',
         address: 'Kigali',
@@ -93,6 +94,9 @@ describe('toOnboardingPayload', () => {
       },
     })
     expect(payload).not.toHaveProperty('role')
+    // nothing is invented for a registration number the user was never asked for
+    expect(payload.cooperative).not.toHaveProperty('registrationNumber')
+    expect(JSON.stringify(payload)).not.toMatch(/registrationNumber/i)
     expect(payload.cooperative).not.toHaveProperty('subscriptionInitialization')
     expect(payload.cooperative).not.toHaveProperty('status')
     expect(payload.creator).not.toHaveProperty('role')

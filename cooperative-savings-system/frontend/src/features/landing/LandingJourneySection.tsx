@@ -19,7 +19,21 @@ import {
 import type { SvgIconComponent } from '@mui/icons-material'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { keyframes } from '@mui/material/styles'
 import { OuWealthMark } from '@/features/branding/OuWealthMark'
+import {
+  LANDING_SECTION_PY,
+  landingCardSx,
+  landingLabelSx,
+  landingSectionSubtitleSx,
+  landingSectionTitleSx,
+} from './landingStyles'
+
+/** Gentle cross-fade when the selected step changes (disabled for prefers-reduced-motion). */
+const stepFadeIn = keyframes`
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+`
 
 const STEPS: {
   id: string
@@ -93,13 +107,13 @@ export function LandingJourneySection() {
       id="journey"
       data-testid="landing-journey"
       aria-labelledby={headingId}
-      sx={{ py: { xs: 6, md: 8 } }}
+      sx={{ py: LANDING_SECTION_PY }}
     >
       <Container maxWidth="lg">
-        <Typography id={headingId} variant="h3" component="h2" gutterBottom>
+        <Typography id={headingId} variant="h4" component="h2" sx={landingSectionTitleSx}>
           {t('public.landing.journey.title')}
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 640 }}>
+        <Typography color="text.secondary" sx={landingSectionSubtitleSx}>
           {t('public.landing.journey.subtitle')}
         </Typography>
 
@@ -138,7 +152,8 @@ export function LandingJourneySection() {
             <Icon sx={{ fontSize: 48, color: 'rgba(255,255,255,0.92)' }} />
             <Typography
               variant="subtitle1"
-              sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', maxWidth: 260 }}
+              component="p"
+              sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', fontWeight: 500, maxWidth: 260 }}
             >
               {t(step.titleKey)}
             </Typography>
@@ -179,31 +194,51 @@ export function LandingJourneySection() {
               id={panelId}
               aria-labelledby={`journey-tab-${step.id}`}
               data-testid={`journey-panel-${step.id}`}
-              sx={{
-                borderRadius: 3,
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                p: { xs: 2.5, md: 3 },
-                minHeight: { xs: 200, md: 240 },
-              }}
+              sx={[
+                landingCardSx('primary'),
+                {
+                  height: 'auto',
+                  p: { xs: 2.5, md: 3 },
+                  minHeight: { xs: 200, md: 240 },
+                  // A large reading panel should not jump on hover; keep only the soft border/shadow change.
+                  '@media (hover: hover) and (pointer: fine)': { '&:hover': { transform: 'none' } },
+                },
+              ]}
             >
-              <Typography variant="overline" color="secondary.main" sx={{ fontWeight: 700 }}>
-                {t('public.landing.journey.stepLabel', { step: index + 1 })}
-              </Typography>
-              <Typography variant="h5" component="h3" sx={{ mt: 0.5 }} data-testid="journey-step-title">
-                {t(step.titleKey)}
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 1.5 }} data-testid="journey-step-body">
-                {t(step.bodyKey)}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="primary.main"
-                sx={{ mt: 2, fontWeight: 600 }}
+              {/* Re-keyed per step so the content softly fades in; the tabpanel itself stays mounted. */}
+              <Box
+                key={step.id}
+                sx={{
+                  animation: `${stepFadeIn} 220ms ease`,
+                  '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+                }}
               >
-                {t(step.moduleKey)}
-              </Typography>
+                <Typography variant="overline" color="secondary.main" sx={landingLabelSx}>
+                  {t('public.landing.journey.stepLabel', { step: index + 1 })}
+                </Typography>
+                <Typography
+                  variant="h6"
+                  component="h3"
+                  sx={{ mt: 0.5, fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.3 }}
+                  data-testid="journey-step-title"
+                >
+                  {t(step.titleKey)}
+                </Typography>
+                <Typography
+                  color="text.secondary"
+                  sx={{ mt: 1.5, fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6 }}
+                  data-testid="journey-step-body"
+                >
+                  {t(step.bodyKey)}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="primary.main"
+                  sx={{ mt: 2, fontSize: '0.875rem', fontWeight: 500 }}
+                >
+                  {t(step.moduleKey)}
+                </Typography>
+              </Box>
             </Box>
 
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

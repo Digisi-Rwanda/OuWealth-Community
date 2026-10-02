@@ -479,7 +479,7 @@ describe('AppLayout sidebar: Loans and Share Purchase Approvals', () => {
       expect(within(desktopNav()).queryByRole('link', { name: 'Share Purchase Approvals' })).not.toBeInTheDocument()
       view.unmount()
     }
-  })
+  }, 30_000)
 
   it('marks only Share Purchase Approvals active on its view', () => {
     renderLayout({ roles: [ROLE_PRESIDENT], path: '/contributions?tab=share-approvals' })

@@ -2,12 +2,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@mui/material'
 import { configureStore } from '@reduxjs/toolkit'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
 import { LOGIN_SUCCESS_STATE } from '@/features/branding/loginSuccessSplash'
+import en from '@/i18n/locales/en.json'
+import rw from '@/i18n/locales/rw.json'
 import { onboardCooperative } from '@/shared/api/onboarding'
 import { ROUTES } from '@/shared/constants/routes'
 import { ROLE_MEMBER, ROLE_PRESIDENT, type AuthUser, type LoginResponse } from '@/shared/types/auth'
@@ -82,9 +85,6 @@ function schemeNameField() {
 
 function fillStep1() {
   fireEvent.change(schemeNameField(), { target: { value: 'Public Scheme' } })
-  fireEvent.change(screen.getByLabelText(/Registration number/i), {
-    target: { value: 'RCA/2024/0123' },
-  })
   fireEvent.change(screen.getByLabelText(/Contact email/i), {
     target: { value: 'scheme@example.com' },
   })
@@ -146,7 +146,7 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     expect(await screen.findByLabelText(/^First name/i)).toBeInTheDocument()
     await clickButton('Back')
     expect(await screen.findByRole('textbox', { name: /^Name/ })).toHaveValue('Public Scheme')
-    expect(screen.getByLabelText(/Registration number/i)).toHaveValue('RCA/2024/0123')
+    expect(screen.queryByLabelText(/Registration number/i)).not.toBeInTheDocument()
   })
 
   it('shows review details, pricing, and hides the password', async () => {
@@ -160,9 +160,11 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     expect(await screen.findByRole('button', { name: 'Create Saving Scheme' })).toBeInTheDocument()
     expect(screen.getByText('Public Scheme')).toBeInTheDocument()
     expect(screen.getByText('pat@example.com')).toBeInTheDocument()
+    // the review step never mentions a registration number
+    expect(screen.queryByText(/registration number/i)).not.toBeInTheDocument()
     expect(screen.getByText('4 months free')).toBeInTheDocument()
     expect(screen.getByText('RWF 2,000/month')).toBeInTheDocument()
-    expect(screen.getByText('RWF 18,000/year — save 25%')).toBeInTheDocument()
+    expect(screen.getByText('RWF 18,000/year (save 25%)')).toBeInTheDocument()
     expect(screen.queryByLabelText(/^Password/i)).not.toBeInTheDocument()
     expect(screen.queryByText('SignupPass1!')).not.toBeInTheDocument()
   })
@@ -184,6 +186,9 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     const payload = onboardMock.mock.calls[0][0]
     expect(payload.cooperative.name).toBe('Public Scheme')
     expect(payload.cooperative.currency).toBe('RWF')
+    // no registration number is sent, and none is invented from the scheme name
+    expect(payload.cooperative).not.toHaveProperty('registrationNumber')
+    expect(JSON.stringify(payload)).not.toMatch(/registrationNumber/i)
     expect(payload.creator).toEqual({
       firstName: 'Pat',
       lastName: 'President',
@@ -214,6 +219,72 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     expect(screen.getByText('Username already exists')).toBeInTheDocument()
     expect(screen.queryByText('login-success-route')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Create Saving Scheme' })).toBeInTheDocument()
+  })
+
+  it('has no Registration Number field, hint or placeholder on step 1', () => {
+    renderSignup()
+    expect(screen.queryByLabelText(/registration number/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/registration number/i)).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/RCA\//i)).not.toBeInTheDocument()
+    // the registration DATE is a different, still-required field
+    expect(screen.getByLabelText(/Registration date/i)).toBeInTheDocument()
+  })
+
+  it('lets step 1 proceed without any registration number', async () => {
+    renderSignup()
+    fillStep1()
+    await goNext()
+    expect(await screen.findByLabelText(/^First name/i)).toBeInTheDocument()
+    expect(screen.queryByText(/registration number/i)).not.toBeInTheDocument()
+  })
+
+  it('does not mention a registration number in the signup failure copy (EN and RW)', () => {
+    expect(en.errors.signupFailed).not.toMatch(/registration/i)
+    expect(rw.errors.signupFailed).not.toMatch(/registration|iyandikish/i)
+  })
+
+  it('renders compact medium Back, Next and Create buttons grouped at the end, not full-width stretchers', async () => {
+    renderSignup()
+    expect(screen.getByTestId('signup-actions')).toBeInTheDocument()
+    const next = screen.getByRole('button', { name: 'Next' })
+    expect(next).toHaveClass('MuiButton-sizeMedium')
+    expect(next).not.toHaveClass('MuiButton-sizeLarge')
+
+    fillStep1()
+    await goNext()
+    expect(await screen.findByLabelText(/^First name/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back' })).toHaveClass('MuiButton-sizeMedium')
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveClass('MuiButton-sizeMedium')
+
+    fillStep2()
+    await goNext()
+    const create = await screen.findByRole('button', { name: 'Create Saving Scheme' })
+    expect(create).toHaveClass('MuiButton-sizeMedium')
+    expect(create).not.toBeDisabled()
+  })
+
+  it('keeps Next, Back and Create reachable and activatable from the keyboard', async () => {
+    onboardMock.mockResolvedValue(loginData)
+    const user = userEvent.setup({ delay: null })
+    renderSignup()
+    fillStep1()
+
+    screen.getByRole('button', { name: 'Next' }).focus()
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByLabelText(/^First name/i)).toBeInTheDocument()
+
+    screen.getByRole('button', { name: 'Back' }).focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('textbox', { name: /^Name/ })).toHaveValue('Public Scheme')
+
+    await goNext()
+    fillStep2()
+    await goNext()
+    screen.getByRole('button', { name: 'Create Saving Scheme' }).focus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByText('login-success-route')).toBeInTheDocument()
+    expect(onboardMock).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a mobile-friendly stepped structure with all step labels visible', () => {

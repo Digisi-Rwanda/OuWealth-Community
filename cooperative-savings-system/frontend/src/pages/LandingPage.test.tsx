@@ -1,7 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from 'i18next'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import en from '@/i18n/locales/en.json'
+import rw from '@/i18n/locales/rw.json'
 import { LandingPage } from '@/pages/LandingPage'
 import { AppProviders } from '@/app/providers/AppProviders'
 import { ROUTES } from '@/shared/constants/routes'
@@ -103,5 +106,143 @@ describe('LandingPage Phase E', () => {
     expect(screen.getByTestId('pricing-card-trial')).toBeInTheDocument()
     expect(screen.getByTestId('pricing-card-monthly')).toBeInTheDocument()
     expect(screen.getByTestId('pricing-card-annual')).toBeInTheDocument()
+  })
+})
+
+const DASHES = /[\u2014\u2013]/
+
+function collectStrings(value: unknown, acc: string[] = []): string[] {
+  if (typeof value === 'string') acc.push(value)
+  else if (value && typeof value === 'object') Object.values(value).forEach((v) => collectStrings(v, acc))
+  return acc
+}
+
+describe('LandingPage sections and routing', () => {
+  it('still renders every public section with the CTAs routed as before', () => {
+    renderLanding()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Manage your Saving Scheme with confidence/i)
+    for (const testId of ['landing-hero-visual', 'landing-journey', 'landing-pricing']) {
+      expect(screen.getByTestId(testId)).toBeInTheDocument()
+    }
+    expect(screen.getByTestId('landing-cta-signup')).toHaveAttribute('href', ROUTES.signup)
+    expect(screen.getByTestId('landing-cta-login')).toHaveAttribute('href', ROUTES.login)
+    expect(screen.getByTestId('pricing-cta-signup')).toHaveAttribute('href', ROUTES.signup)
+    expect(screen.getByTestId('pricing-cta-login')).toHaveAttribute('href', ROUTES.login)
+    expect(screen.getByTestId('landing-about-link')).toHaveAttribute('href', ROUTES.about)
+    expect(screen.getByTestId('landing-contact-link')).toHaveAttribute('href', ROUTES.contact)
+  })
+
+  it('keeps the how-it-works, capability and pricing cards', () => {
+    renderLanding()
+    const how = screen.getByRole('region', { name: /how it works|how/i })
+    expect(within(how).getAllByRole('heading', { level: 3 })).toHaveLength(6)
+    expect(within(how).getByText(/step 1/i)).toBeInTheDocument()
+
+    const capabilities = screen.getByRole('region', { name: new RegExp(en.public.landing.capabilities.title, 'i') })
+    expect(within(capabilities).getAllByRole('heading', { level: 3 })).toHaveLength(10)
+
+    const pricing = screen.getByTestId('landing-pricing-cards')
+    for (const id of ['pricing-card-trial', 'pricing-card-monthly', 'pricing-card-annual']) {
+      expect(within(pricing).getByTestId(id)).toBeInTheDocument()
+    }
+  })
+
+  it('keeps a sensible heading hierarchy: one h1, h2 sections, h3 card titles, no skipped levels', () => {
+    renderLanding()
+    const landing = screen.getByTestId('landing-page')
+    const levels = Array.from(landing.querySelectorAll('h1,h2,h3,h4,h5,h6')).map((h) => Number(h.tagName[1]))
+    expect(levels[0]).toBe(1)
+    expect(levels.filter((level) => level === 1)).toHaveLength(1)
+    expect(levels.filter((level) => level === 2)).toHaveLength(7)
+    levels.forEach((level, index) => {
+      if (index > 0) expect(level).toBeLessThanOrEqual(levels[index - 1] + 1)
+    })
+  })
+
+  it('keeps pricing values and the trial length unchanged', () => {
+    renderLanding()
+    const pricing = screen.getByTestId('landing-pricing')
+    expect(pricing).toHaveTextContent(/4 months/)
+    expect(within(pricing).getByTestId('pricing-monthly-amount')).toHaveTextContent(/RWF\s*2[\s,]?000/)
+    expect(within(pricing).getByTestId('pricing-annual-amount')).toHaveTextContent(/RWF\s*18[\s,]?000/)
+    expect(within(pricing).getByTestId('pricing-annual-discount')).toHaveTextContent(/25%/)
+  })
+
+  it('shows the annual list price as a parenthetical, not behind a dash', () => {
+    renderLanding()
+    const list = screen.getByTestId('pricing-annual-list')
+    expect(list).toHaveTextContent(/RWF\s*24[\s,]?000\s*\(normal annual value\)/)
+    expect(list.textContent).not.toMatch(DASHES)
+  })
+})
+
+describe('LandingPage journey behavior', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not auto-rotate the journey', () => {
+    vi.useFakeTimers()
+    renderLanding()
+    expect(screen.getByTestId('journey-panel-community')).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(120_000)
+    })
+    expect(screen.getByTestId('journey-panel-community')).toBeInTheDocument()
+    expect(screen.queryByTestId('journey-panel-contributions')).not.toBeInTheDocument()
+  })
+
+  it('operates the journey tabs and previous/next controls from the keyboard', async () => {
+    const user = userEvent.setup({ delay: null })
+    renderLanding()
+
+    screen.getByTestId('journey-step-tab-loans').focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('journey-panel-loans')).toBeInTheDocument()
+    expect(screen.getByTestId('journey-step-tab-loans')).toHaveAttribute('aria-selected', 'true')
+
+    screen.getByTestId('journey-next').focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByTestId('journey-panel-investments')).toBeInTheDocument()
+
+    screen.getByTestId('journey-prev').focus()
+    await user.keyboard(' ')
+    expect(screen.getByTestId('journey-panel-loans')).toBeInTheDocument()
+    expect(screen.getByRole('tablist')).toBeInTheDocument()
+  })
+})
+
+describe('LandingPage copy has no decorative dash separators', () => {
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage('en')
+    })
+  })
+
+  it('renders landing copy without em/en dash continuation punctuation (English)', () => {
+    renderLanding()
+    const text = screen.getByTestId('landing-page').textContent ?? ''
+    expect(text).not.toMatch(DASHES)
+    expect(text).toMatch(/stay clear with reports in one place\./)
+    expect(text).toMatch(/See how a Saving Scheme grows and how OuWealth keeps every step organized\./)
+    expect(text).toMatch(/in the scheme without replacing human judgment on loans or investments\./)
+  })
+
+  it('renders landing copy without em/en dash continuation punctuation (Kinyarwanda)', async () => {
+    await act(async () => {
+      await i18n.changeLanguage('rw')
+    })
+    renderLanding()
+    const text = screen.getByTestId('landing-page').textContent ?? ''
+    expect(text).not.toMatch(DASHES)
+  })
+
+  it('keeps the shared public strings (landing and footer) dash-free in both languages', () => {
+    for (const locale of [en, rw]) {
+      for (const section of [locale.public.landing, locale.public.footer]) {
+        const offenders = collectStrings(section).filter((value) => DASHES.test(value))
+        expect(offenders).toEqual([])
+      }
+    }
   })
 })

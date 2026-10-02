@@ -33,7 +33,6 @@ describe('onboardCooperative', () => {
     const payload = {
       cooperative: {
         name: 'Public Scheme',
-        registrationNumber: 'RCA/2024/0123',
         contactEmail: 'scheme@example.com',
         contactPhone: '0781234567',
         currency: 'RWF',
@@ -56,5 +55,7 @@ describe('onboardCooperative', () => {
     expect(postMock).toHaveBeenCalledWith('/onboarding/signup', payload)
     expect(result.accessToken).toBe('token')
     expect(result.user.cooperativeIds).toEqual(['c1'])
+    // the public payload carries no registration number
+    expect(postMock.mock.calls[0][1]).not.toHaveProperty('cooperative.registrationNumber')
   })
 })

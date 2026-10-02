@@ -17,20 +17,20 @@
       "createScheme": "Kora Ikimina"
     },
     "footer": {
-      "tagline": "Porogaramu y'ibimina — gucunga abanyamuryango, amafaranga, inguzanyo, n'ibikorwa by'amafaranga mu buryo bworoshye.",
+      "tagline": "Porogaramu y'ibimina. Gucunga abanyamuryango, amafaranga, inguzanyo, n'ibikorwa by'amafaranga mu buryo bworoshye.",
       "navAria": "Amahuza yo hepfo",
       "copyright": "© {{year}} OuWealth Community"
     },
     "landing": {
       "hero": {
         "title": "Gucunga Ikimina cyawe mu buryo bwizewe.",
-        "subtitle": "OuWealth Community ifasha ibimina gucunga abanyamuryango, kwandika amafaranga ashyizweho, gucunga inguzanyo n'uko wishyurwa, gukurikirana ishoramari, no gukora raporo — ahantu hamwe.",
+        "subtitle": "OuWealth Community ifasha ibimina gucunga abanyamuryango, kwandika amafaranga ashyizweho, gucunga inguzanyo n'uko wishyurwa, gukurikirana ishoramari, no gukora raporo ahantu hamwe.",
         "visualTitle": "Imiryango yubaka ubukungu hamwe",
-        "visualSubtitle": "Ahantu h'ikirango cy'ikimina — amafoto yemewe ashobora kongerwaho nyuma."
+        "visualSubtitle": "Ahantu h'ikirango cy'ikimina. Amafoto yemewe ashobora kongerwaho nyuma."
       },
       "journey": {
         "title": "Kuva ku mafaranga ashyizweho kugeza ku majyambere asangiwe",
-        "subtitle": "Inkuru yoroshye y'uko ikimina gikura — n'uko OuWealth igumana buri ntambwe itegekanijwe.",
+        "subtitle": "Reba uko ikimina gikura n'uko OuWealth igumana buri ntambwe itegekanijwe.",
         "stepsAria": "Intambwe z'urugendo rw'ikimina",
         "stepLabel": "Intambwe {{step}}",
         "prev": "Intambwe ibanziriza",
@@ -135,7 +135,7 @@
       },
       "value": {
         "title": "Ubunyangamugayo ku kimina cyose",
-        "body": "OuWealth Community yagenewe gufasha ubuyobozi n'abanyamuryango kureba ibibera mu kimina — nta guhahiriza icyemezo ku nguzanyo cyangwa ishoramari.",
+        "body": "OuWealth Community yagenewe gufasha ubuyobozi n'abanyamuryango kureba ibibera mu kimina nta guhahiriza icyemezo ku nguzanyo cyangwa ishoramari.",
         "organize": "Tegura inyandiko z'abanyamuryango n'amafaranga mu sisitemu imwe",
         "visibility": "Menya ibikorwa by'abanyamuryango n'inshingano z'ikimina",
         "obligations": "Kurikirana amafaranga, inguzanyo, amahane, n'ubufasha bw'imibereho",
@@ -143,7 +143,7 @@
         "visual": "Inyandiko zisangiwe. Inshingano zisangiwe. Ibyemezo bisobanutse."
       },
       "aboutTeaser": {
-        "title": "Abo turi bo — OuWealth Community",
+        "title": "Abo turi bo, OuWealth Community",
         "body": "Yubatswe ku bikimina n'imiryango y'amafaranga ikeneye ibikoresho byoroshye mu bikorwa bya buri munsi.",
         "cta": "Menya byinshi"
       },
@@ -278,7 +278,7 @@
     "trialBody": "Igihe cyo kugerageza cy'amezi 4 gitangira Ikimina gifunguwe.",
     "afterTrial": "Nyuma y'igihe cyo kugerageza:",
     "monthlyPrice": "RWF 2,000/ukwezi",
-    "annualPrice": "RWF 18,000/umwaka — kuzigama 25%",
+    "annualPrice": "RWF 18,000/umwaka (kuzigama 25%)",
     "manageLater": "Ushobora gucunga kwiyandikisha kwa OuWealth nyuma. Nta kwishyura bisabwa none."
   },
   "forgotPassword": {
@@ -2363,7 +2363,7 @@
     "unauthorized": "Injira kugira ngo ukomeze.",
     "notFound": "Urupapuro ntirubonetse",
     "loginFailed": "Izina cyangwa ijambo ry'ibanga ntabwo ari byo.",
-    "signupFailed": "Ikimina nticyashoboye gufungurwa. Gerageza irindi zina, imeri, cyangwa numero y'iyandikishwa.",
+    "signupFailed": "Ikimina nticyashoboye gufungurwa. Gerageza irindi zina cyangwa imeri.",
     "subscriptionInactive": "Kwiyandikisha kwa OuWealth kw'iki Kimina ntigikora."
   },
   "pages": {

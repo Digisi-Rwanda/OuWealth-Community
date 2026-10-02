@@ -51,6 +51,14 @@ const DUE_DAYS = Array.from(
 
 const STEPS = ['signup.steps.scheme', 'signup.steps.account', 'signup.steps.review'] as const
 
+/** Medium wizard buttons: full width only on phones, compact and right-aligned from the sm breakpoint up. */
+const WIZARD_BUTTON_SX = {
+  minHeight: 44,
+  minWidth: { sm: 128 },
+  px: 3,
+  whiteSpace: 'nowrap',
+} as const
+
 export function SignupPage() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -161,18 +169,6 @@ export function SignupPage() {
                     error={Boolean(errors.name)}
                     helperText={errors.name?.message}
                     {...register('name')}
-                  />
-                  <TextField
-                    label={t('cooperatives.fields.registrationNumber')}
-                    required
-                    fullWidth
-                    placeholder={t('cooperatives.fields.registrationNumberPlaceholder')}
-                    error={Boolean(errors.registrationNumber)}
-                    helperText={
-                      errors.registrationNumber?.message ??
-                      t('cooperatives.fields.registrationNumberHint')
-                    }
-                    {...register('registrationNumber')}
                   />
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                     <TextField
@@ -371,10 +367,6 @@ export function SignupPage() {
                 <>
                   <ReviewSection title={t('signup.reviewScheme')}>
                     <ReviewRow label={t('cooperatives.fields.name')} value={values.name} />
-                    <ReviewRow
-                      label={t('cooperatives.fields.registrationNumber')}
-                      value={values.registrationNumber}
-                    />
                     <ReviewRow label={t('cooperatives.fields.contactEmail')} value={values.contactEmail} />
                     <ReviewRow label={t('cooperatives.fields.contactPhone')} value={values.contactPhone} />
                     {values.address.trim() ? (
@@ -420,26 +412,30 @@ export function SignupPage() {
 
               {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Stack
+                direction={{ xs: 'column-reverse', sm: 'row' }}
+                spacing={1.5}
+                data-testid="signup-actions"
+                sx={{ justifyContent: { sm: 'flex-end' }, alignItems: { xs: 'stretch', sm: 'center' } }}
+              >
                 {step > 0 ? (
-                  <Button type="button" variant="outlined" size="large" onClick={goBack} sx={{ flex: 1 }}>
+                  <Button type="button" variant="outlined" onClick={goBack} sx={WIZARD_BUTTON_SX}>
                     {t('signup.back')}
                   </Button>
                 ) : null}
                 {step < STEPS.length - 1 ? (
-                  <Button type="submit" variant="contained" size="large" sx={{ flex: 1 }}>
+                  <Button type="submit" variant="contained" sx={WIZARD_BUTTON_SX}>
                     {t('signup.next')}
                   </Button>
                 ) : (
                   <Button
                     type="submit"
                     variant="contained"
-                    size="large"
                     disabled={mutation.isPending}
                     startIcon={
                       mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
                     }
-                    sx={{ flex: 1 }}
+                    sx={WIZARD_BUTTON_SX}
                   >
                     {t('signup.submit')}
                   </Button>
