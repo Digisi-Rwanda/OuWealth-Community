@@ -13,6 +13,7 @@ import MenuBookIcon from '@mui/icons-material/MenuBook'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import PersonIcon from '@mui/icons-material/Person'
+import PriceCheckIcon from '@mui/icons-material/PriceCheck'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import SavingsIcon from '@mui/icons-material/Savings'
@@ -23,7 +24,6 @@ import { ROUTES } from '@/shared/constants/routes'
 import {
   BILLING_MANAGER_ROLES,
   FINANCE_ACCESS_ROLES,
-  LOAN_COMMITTEE_ROLES,
   LOAN_OPS_ROLES,
   ROLE_SUPER_ADMIN,
   SECRETARY_ACCESS_ROLES,
@@ -163,10 +163,12 @@ export const adminModuleNavItems: NavItem[] = [
     sidebarGroup: 'operations',
   },
   {
-    labelKey: 'nav.loanApprovals',
-    path: `${ROUTES.loans}?tab=approvals`,
-    icon: AssignmentTurnedInIcon,
-    roles: LOAN_COMMITTEE_ROLES,
+    // Replaces the old "Loan Approvals" shortcut. Loan approvals are still reachable from the Loans page
+    // (Approvals tab). Same roles as the Regular Contribution Approvals item: the share-purchase reviewers.
+    labelKey: 'nav.sharePurchaseApprovals',
+    path: `${ROUTES.contributions}?tab=share-approvals`,
+    icon: PriceCheckIcon,
+    roles: FINANCE_ACCESS_ROLES,
     group: 'main',
     sidebarGroup: 'operations',
   },

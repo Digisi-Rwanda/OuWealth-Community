@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation } from 'react-router-dom'
 import { selectIsCooperativeAdmin, selectIsSuperAdmin } from '@/app/store/authSlice'
-import { useAppSelector } from '@/app/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
+import { selectSidebarPinned, setSidebarPinned } from '@/app/store/uiSlice'
 import { fetchUnreadCount } from '@/shared/api/notifications'
 import { CooperativeSelector } from '@/shared/components/CooperativeSelector'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
@@ -19,15 +20,22 @@ import { AppTopBar } from './AppTopBar'
 export function AppLayout() {
   const { t } = useTranslation()
   const theme = useTheme()
+  const dispatch = useAppDispatch()
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'))
   const location = useLocation()
   const userRoles = useAppSelector((s) => s.auth.user?.roles ?? [])
   const isCoopAdmin = useAppSelector(selectIsCooperativeAdmin)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
+  const sidebarPinned = useAppSelector(selectSidebarPinned)
   const isMember = !isCoopAdmin && !isSuperAdmin
   const accessToken = useAppSelector((s) => s.auth.accessToken)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  /** Temporary drawer: mobile always, and desktop while the sidebar is unpinned. */
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const showCooperativeSelector = isCoopAdmin || isMember
+
+  // The pin preference only exists on desktop; mobile never has a permanent sidebar.
+  const showPermanentSidebar = isMdUp && sidebarPinned
+  const sidebarHidden = !showPermanentSidebar
 
   const unreadQuery = useQuery({
     queryKey: ['notifications-unread-count'],
@@ -40,10 +48,17 @@ export function AppLayout() {
   const unreadCount = unreadQuery.data ?? 0
 
   useEffect(() => {
-    setMobileOpen(false)
+    setDrawerOpen(false)
   }, [location.pathname, location.search])
 
+  // Re-pinning (or growing to a pinned desktop layout) must never leave a stale overlay open.
+  useEffect(() => {
+    if (showPermanentSidebar) setDrawerOpen(false)
+  }, [showPermanentSidebar])
+
   const dark = theme.palette.mode === 'dark'
+
+  const closeDrawer = () => setDrawerOpen(false)
 
   const mobileDrawerExtras = (
     <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -55,8 +70,8 @@ export function AppLayout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh', bgcolor: 'background.default' }}>
-      {/* Desktop permanent sidebar */}
-      {isMdUp ? (
+      {/* Desktop permanent sidebar (pinned) */}
+      {showPermanentSidebar ? (
         <Box
           component="aside"
           data-testid="app-sidebar-desktop"
@@ -69,19 +84,26 @@ export function AppLayout() {
             height: '100dvh',
           }}
         >
-          <AppSidebar userRoles={userRoles} unreadCount={unreadCount} onDarkBrand={dark} />
+          <AppSidebar
+            userRoles={userRoles}
+            unreadCount={unreadCount}
+            onDarkBrand={dark}
+            pinControl={{ pinned: true, onToggle: () => dispatch(setSidebarPinned(false)) }}
+          />
         </Box>
       ) : null}
 
-      {/* Mobile temporary drawer */}
-      {!isMdUp ? (
+      {/* Temporary drawer: mobile, or desktop while the sidebar is unpinned */}
+      {sidebarHidden ? (
         <Drawer
           variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }}
+          open={drawerOpen}
+          onClose={closeDrawer}
+          ModalProps={{ keepMounted: !isMdUp }}
           aria-label={t('nav.sidebarAria')}
           sx={{
+            // On desktop the top bar would otherwise cover the drawer header, which holds the Pin action.
+            ...(isMdUp ? { zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2 } : {}),
             '& .MuiDrawer-paper': {
               width: APP_SIDEBAR_WIDTH,
               boxSizing: 'border-box',
@@ -92,10 +114,25 @@ export function AppLayout() {
             userRoles={userRoles}
             unreadCount={unreadCount}
             onDarkBrand={dark}
-            onNavigate={() => setMobileOpen(false)}
+            onNavigate={closeDrawer}
+            pinControl={
+              isMdUp
+                ? {
+                    pinned: false,
+                    onToggle: () => {
+                      dispatch(setSidebarPinned(true))
+                      closeDrawer()
+                    },
+                  }
+                : undefined
+            }
           />
-          <Divider />
-          {mobileDrawerExtras}
+          {!isMdUp ? (
+            <>
+              <Divider />
+              {mobileDrawerExtras}
+            </>
+          ) : null}
         </Drawer>
       ) : null}
 
@@ -110,7 +147,8 @@ export function AppLayout() {
         <AppTopBar
           isMdUp={isMdUp}
           showCooperativeSelector={showCooperativeSelector}
-          onOpenMobileNav={() => setMobileOpen(true)}
+          sidebarHidden={sidebarHidden}
+          onOpenNav={() => setDrawerOpen(true)}
           showBackToDashboard={isMember && location.pathname !== ROUTES.dashboard}
         />
         <OfflineBanner />
@@ -125,7 +163,16 @@ export function AppLayout() {
             bgcolor: 'background.default',
           }}
         >
-          <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 1440, mx: 'auto', width: '100%' }}>
+          <Box
+            data-testid="app-main-content"
+            sx={{
+              p: { xs: 2, sm: 3 },
+              // Unpinned desktop is the "no sidebar" mode: let the content use the whole available width.
+              maxWidth: isMdUp && !sidebarPinned ? 'none' : 1440,
+              mx: 'auto',
+              width: '100%',
+            }}
+          >
             <Outlet />
           </Box>
         </Box>

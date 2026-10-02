@@ -225,7 +225,11 @@
       "governance": "Administration",
       "platform": "Platform",
       "account": "Account"
-    }
+    },
+    "sharePurchaseApprovals": "Share Purchase Approvals",
+    "pinSidebar": "Pin sidebar",
+    "unpinSidebar": "Unpin sidebar",
+    "openNavigation": "Open navigation"
   },
   "login": {
     "title": "Sign in",
@@ -824,7 +828,8 @@
       "mine": "My contributions",
       "special": "Special campaigns",
       "submit": "Submit Regular Contribution",
-      "approvals": "Regular Contribution Approvals"
+      "approvals": "Regular Contribution Approvals",
+      "share-approvals": "Share Purchase Approvals"
     },
     "myContributions": "Showing your contributions",
     "savePeriod": "Save period",

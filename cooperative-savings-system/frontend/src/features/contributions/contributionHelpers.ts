@@ -80,15 +80,30 @@ export function deriveContributionStatus(
   return 'PARTIALLY_PAID'
 }
 
+export type ContributionTab =
+  | 'monthly'
+  | 'submit'
+  | 'approvals'
+  | 'share-approvals'
+  | 'history'
+  | 'special'
+
+/**
+ * Tabs of the Contributions page. `share-approvals` (Share Purchase Approvals) is its own direct view and is
+ * only offered to users who may review share purchases (`canReviewShares`, i.e. the existing
+ * selectCanReviewSharePurchases rule); it is never added for users who cannot record contributions.
+ */
 export function contributionTabsForUser(
   canRecord: boolean,
   isSuperAdmin: boolean,
-): Array<'monthly' | 'submit' | 'approvals' | 'history' | 'special'> {
+  canReviewShares = false,
+): ContributionTab[] {
+  const shareApprovals: ContributionTab[] = canRecord && canReviewShares ? ['share-approvals'] : []
   if (isSuperAdmin) {
-    return ['monthly', 'approvals', 'history', 'special']
+    return ['monthly', 'approvals', ...shareApprovals, 'history', 'special']
   }
   if (canRecord) {
-    return ['monthly', 'submit', 'approvals', 'history', 'special']
+    return ['monthly', 'submit', 'approvals', ...shareApprovals, 'history', 'special']
   }
   return ['submit', 'history', 'special']
 }

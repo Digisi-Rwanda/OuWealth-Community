@@ -70,13 +70,13 @@ describe('notificationHelpers', () => {
     expect(notificationTargetPath({ entityType: 'Loan', entityId: null })).toBeNull()
   })
 
-  it('routes SharePurchase notifications to contribution approvals', () => {
+  it('routes SharePurchase notifications to the Share Purchase Approvals view', () => {
     expect(
       notificationTargetPath({
         entityType: 'SharePurchase',
         entityId: 'sp-1',
       }),
-    ).toBe(`${ROUTES.contributions}?tab=approvals`)
+    ).toBe(`${ROUTES.contributions}?tab=share-approvals`)
   })
 
   it('builds pending approval copy items only for counts greater than zero', () => {
@@ -108,7 +108,7 @@ describe('notificationHelpers', () => {
       {
         kind: 'shares',
         count: 2,
-        path: `${ROUTES.contributions}?tab=approvals`,
+        path: `${ROUTES.contributions}?tab=share-approvals`,
       },
     ])
     expect(pendingApprovalLabelKey('contributions', 3)).toBe(

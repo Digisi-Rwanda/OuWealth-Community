@@ -16,14 +16,17 @@ import { APP_SIDEBAR_WIDTH } from './AppSidebar'
 interface AppTopBarProps {
   isMdUp: boolean
   showCooperativeSelector: boolean
-  onOpenMobileNav: () => void
+  /** True whenever the sidebar is not permanently visible: on mobile, or on desktop while unpinned. */
+  sidebarHidden: boolean
+  onOpenNav: () => void
   showBackToDashboard: boolean
 }
 
 export function AppTopBar({
   isMdUp,
   showCooperativeSelector,
-  onOpenMobileNav,
+  sidebarHidden,
+  onOpenNav,
   showBackToDashboard,
 }: AppTopBarProps) {
   const { t } = useTranslation()
@@ -42,11 +45,11 @@ export function AppTopBar({
       }}
     >
       <Toolbar sx={{ gap: { xs: 0.5, md: 1.5 }, minHeight: { xs: 64, sm: 68 } }}>
-        {!isMdUp ? (
+        {sidebarHidden ? (
           <IconButton
             edge="start"
-            aria-label={t('common.openMenu')}
-            onClick={onOpenMobileNav}
+            aria-label={isMdUp ? t('nav.openNavigation') : t('common.openMenu')}
+            onClick={onOpenNav}
             sx={{ minWidth: 44, minHeight: 44, color: '#FFFFFF' }}
           >
             <MenuIcon />
@@ -64,7 +67,7 @@ export function AppTopBar({
           </IconButton>
         ) : null}
 
-        {!isMdUp ? (
+        {sidebarHidden ? (
           <Box
             component={NavLink}
             to={ROUTES.dashboard}

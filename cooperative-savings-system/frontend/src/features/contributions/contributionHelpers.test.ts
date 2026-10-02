@@ -68,6 +68,30 @@ describe('contributionTabsForUser', () => {
   it('keeps member self-service tabs for ordinary members', () => {
     expect(contributionTabsForUser(false, false)).toEqual(['submit', 'history', 'special'])
   })
+
+  it('adds a dedicated Share Purchase Approvals tab right after approvals for share reviewers', () => {
+    expect(contributionTabsForUser(true, false, true)).toEqual([
+      'monthly',
+      'submit',
+      'approvals',
+      'share-approvals',
+      'history',
+      'special',
+    ])
+    expect(contributionTabsForUser(true, true, true)).toEqual([
+      'monthly',
+      'approvals',
+      'share-approvals',
+      'history',
+      'special',
+    ])
+  })
+
+  it('never offers the share approvals tab to users who cannot review shares', () => {
+    expect(contributionTabsForUser(true, false, false)).not.toContain('share-approvals')
+    expect(contributionTabsForUser(true, false)).not.toContain('share-approvals')
+    expect(contributionTabsForUser(false, false, true)).toEqual(['submit', 'history', 'special'])
+  })
 })
 
 describe('isNonNegativeMoney', () => {

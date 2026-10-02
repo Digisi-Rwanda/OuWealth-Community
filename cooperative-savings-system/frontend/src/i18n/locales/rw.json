@@ -225,7 +225,11 @@
       "governance": "Ubuyobozi",
       "platform": "Urubuga",
       "account": "Konti"
-    }
+    },
+    "sharePurchaseApprovals": "Kwemeza kugura imigabane",
+    "pinSidebar": "Gumisha menu",
+    "unpinSidebar": "Reka kugumisha menu",
+    "openNavigation": "Fungura aho ugenda"
   },
   "login": {
     "title": "Injira",
@@ -820,7 +824,8 @@
       "mine": "Amafaranga yanjye",
       "special": "Ibikorwa byihariye",
       "submit": "Tanga amafaranga y'ukwezi",
-      "approvals": "Kwemeza amafaranga y'ukwezi"
+      "approvals": "Kwemeza amafaranga y'ukwezi",
+      "share-approvals": "Kwemeza kugura imigabane"
     },
     "myContributions": "Amafaranga yawe",
     "savePeriod": "Bika ukwezi",

@@ -1,5 +1,5 @@
 import { Box, Stack, Tab, Tabs } from '@mui/material'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAppSelector } from '@/app/store/hooks'
@@ -16,15 +16,17 @@ import {
   SpecialCampaignsPanel,
 } from '@/features/contributions'
 import { SharePurchaseApprovalsPanel } from '@/features/shares'
-import { contributionTabsForUser } from '@/features/contributions/contributionHelpers'
+import {
+  contributionTabsForUser,
+  type ContributionTab,
+} from '@/features/contributions/contributionHelpers'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
 import { ROUTES } from '@/shared/constants/routes'
 
-type ContributionTab = 'monthly' | 'submit' | 'approvals' | 'history' | 'special'
-
-function initialTabFromQuery(tabParam: string | null, tabs: ContributionTab[]): number {
+/** An unknown or not-permitted ?tab= value safely falls back to the first tab the user is allowed to see. */
+function activeTabFromQuery(tabParam: string | null, tabs: ContributionTab[]): number {
   const requested = tabParam === 'mine' ? 'history' : tabParam
   if (requested && tabs.includes(requested as ContributionTab)) {
     return tabs.indexOf(requested as ContributionTab)
@@ -35,17 +37,34 @@ function initialTabFromQuery(tabParam: string | null, tabs: ContributionTab[]): 
 export function ContributionsPage() {
   const { t } = useTranslation()
   const { campaignId } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
   const canRecord = useAppSelector(selectCanRecordContributions)
   const canReviewShares = useAppSelector(selectCanReviewSharePurchases)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
   const tabs = useMemo(
-    () => contributionTabsForUser(canRecord, isSuperAdmin),
-    [canRecord, isSuperAdmin],
+    () => contributionTabsForUser(canRecord, isSuperAdmin, canReviewShares),
+    [canRecord, isSuperAdmin, canReviewShares],
   )
-  const [tab, setTab] = useState(() => initialTabFromQuery(searchParams.get('tab'), tabs))
+  // The URL is the source of truth, so sidebar links and notification links that only change ?tab= switch
+  // the visible tab (and the active sidebar item stays in step with what is shown).
+  const tab = activeTabFromQuery(searchParams.get('tab'), tabs)
   const active = tabs[tab] ?? tabs[0]
+
+  const selectTab = useCallback(
+    (item: ContributionTab) => {
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous)
+        if (item === tabs[0]) {
+          next.delete('tab')
+        } else {
+          next.set('tab', item)
+        }
+        return next
+      })
+    },
+    [setSearchParams, tabs],
+  )
 
   if (!cooperativeId) {
     return (
@@ -95,7 +114,7 @@ export function ContributionsPage() {
               <SubscriptionAwareButton
                 variant="contained"
                 size="small"
-                onClick={() => setTab(Math.max(0, tabs.indexOf('submit')))}
+                onClick={() => selectTab('submit')}
               >
                 {t('contributions.submit.action')}
               </SubscriptionAwareButton>
@@ -104,9 +123,18 @@ export function ContributionsPage() {
               <SubscriptionAwareButton
                 variant="outlined"
                 size="small"
-                onClick={() => setTab(Math.max(0, tabs.indexOf('approvals')))}
+                onClick={() => selectTab('approvals')}
               >
                 {t('contributions.tabs.approvals')}
+              </SubscriptionAwareButton>
+            ) : null}
+            {tabs.includes('share-approvals') ? (
+              <SubscriptionAwareButton
+                variant="outlined"
+                size="small"
+                onClick={() => selectTab('share-approvals')}
+              >
+                {t('contributions.tabs.share-approvals')}
               </SubscriptionAwareButton>
             ) : null}
           </Stack>
@@ -115,7 +143,7 @@ export function ContributionsPage() {
 
       <Tabs
         value={tab}
-        onChange={(_, value: number) => setTab(value)}
+        onChange={(_, value: number) => selectTab(tabs[value])}
         variant="scrollable"
         allowScrollButtonsMobile
         sx={{ mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
@@ -139,12 +167,10 @@ export function ContributionsPage() {
         <MemberContributionSubmitPanel cooperativeId={cooperativeId} />
       ) : null}
       {active === 'approvals' ? (
-        <Stack spacing={4}>
-          <ContributionApprovalsPanel cooperativeId={cooperativeId} />
-          {canReviewShares ? (
-            <SharePurchaseApprovalsPanel cooperativeId={cooperativeId} />
-          ) : null}
-        </Stack>
+        <ContributionApprovalsPanel cooperativeId={cooperativeId} />
+      ) : null}
+      {active === 'share-approvals' ? (
+        <SharePurchaseApprovalsPanel cooperativeId={cooperativeId} />
       ) : null}
       {active === 'history' ? (
         <HistoryPanel cooperativeId={cooperativeId} isAdmin={canRecord} />

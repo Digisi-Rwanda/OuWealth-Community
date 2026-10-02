@@ -7,7 +7,7 @@ import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer from '@/app/store/authSlice'
-import uiReducer from '@/app/store/uiSlice'
+import uiReducer, { readStoredSidebarPinned, SIDEBAR_PINNED_STORAGE_KEY } from '@/app/store/uiSlice'
 import { BRAND_LOGO_ALT } from '@/shared/components/BrandLogo'
 import {
   ROLE_ACCOUNTANT,
@@ -77,6 +77,7 @@ function renderLayout({
   mode = 'light' as 'light' | 'dark',
   selectedCooperativeId = 'coop-1',
   isSuperAdmin = false,
+  sidebarPinned = true,
 }: {
   roles: string[]
   mdUp?: boolean
@@ -84,6 +85,7 @@ function renderLayout({
   mode?: 'light' | 'dark'
   selectedCooperativeId?: string | null
   isSuperAdmin?: boolean
+  sidebarPinned?: boolean
 }) {
   stubMatchMedia(mdUp)
   const store = configureStore({
@@ -105,7 +107,7 @@ function renderLayout({
         selectedCooperativeId,
         status: 'authenticated' as const,
       },
-      ui: { sidebarOpen: false, themePreference: mode },
+      ui: { sidebarOpen: false, themePreference: mode, sidebarPinned },
     },
   })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -127,6 +129,7 @@ function renderLayout({
                 <Route path="/billing" element={<div data-testid="page-billing">Billing</div>} />
                 <Route path="/settings" element={<div data-testid="page-settings">Settings</div>} />
                 <Route path="/contributions" element={<div data-testid="page-contrib">Contributions</div>} />
+                <Route path="/social-fund" element={<div data-testid="page-social">Social</div>} />
                 <Route path="/ledger" element={<div data-testid="page-ledger">Ledger</div>} />
                 <Route path="/profile" element={<div data-testid="page-profile">Profile</div>} />
                 <Route path="*" element={<div data-testid="page-other">Other</div>} />
@@ -150,6 +153,7 @@ function desktopNav() {
 describe('AppLayout sidebar (Phase B)', () => {
   beforeEach(() => {
     stubMatchMedia(true)
+    localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
   })
 
   it('renders a permanent desktop sidebar and slim top bar', () => {
@@ -209,7 +213,9 @@ describe('AppLayout sidebar (Phase B)', () => {
     renderLayout({ roles: [ROLE_LOAN_OFFICER] })
     const nav = desktopNav()
     expect(within(nav).getByRole('link', { name: /^Loans$/i })).toBeInTheDocument()
-    expect(within(nav).getByRole('link', { name: /Loan Approvals/i })).toBeInTheDocument()
+    // Loan approvals live inside the Loans page now; the sidebar shortcut was replaced.
+    expect(within(nav).queryByRole('link', { name: /Loan Approvals/i })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /Share Purchase Approvals/i })).not.toBeInTheDocument()
     expect(within(nav).queryByRole('link', { name: /^Billing$/i })).not.toBeInTheDocument()
     expect(within(nav).queryByRole('link', { name: /^Members$/i })).not.toBeInTheDocument()
   })
@@ -308,5 +314,186 @@ describe('AppLayout sidebar (Phase B)', () => {
     expect(within(sidebar).getByRole('img', { name: BRAND_LOGO_ALT })).toBeInTheDocument()
     expect(within(sidebar).getByText('Wealth')).toBeInTheDocument()
     expect(within(screen.getByRole('banner')).queryByText('Wealth')).not.toBeInTheDocument()
+  })
+})
+
+describe('AppLayout desktop sidebar pin', () => {
+  beforeEach(() => {
+    stubMatchMedia(true)
+    localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
+  })
+
+  const drawerPaper = () => document.querySelector('.MuiDrawer-paper') as HTMLElement | null
+  const drawerClosed = () => waitFor(() => expect(drawerPaper()).toBeNull(), { timeout: 10_000 })
+
+  it('is pinned and visible by default, with an Unpin control and no navigation toggle', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const sidebar = screen.getByTestId('app-sidebar-desktop')
+    expect(within(sidebar).getByRole('button', { name: 'Unpin sidebar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pin sidebar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
+    // the logo stays in the sidebar, not duplicated in the top bar
+    expect(within(sidebar).getByRole('img', { name: BRAND_LOGO_ALT })).toBeInTheDocument()
+    expect(within(screen.getByRole('banner')).queryByText('Wealth')).not.toBeInTheDocument()
+  })
+
+  it('Unpin hides the permanent sidebar and lets the content use the full width', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    expect(screen.getByTestId('app-main-content')).toHaveStyle({ maxWidth: '1440px' })
+
+    await user.click(screen.getByRole('button', { name: 'Unpin sidebar' }))
+
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(screen.getByTestId('page-dashboard')).toBeInTheDocument() // main layout still rendered
+    expect(screen.getByTestId('app-main-content')).toHaveStyle({ maxWidth: 'none' })
+    expect(localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY)).toBe('false')
+  })
+
+  it('shows an Open navigation button and the logo in the top bar while the sidebar is hidden', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    await user.click(screen.getByRole('button', { name: 'Unpin sidebar' }))
+
+    const top = screen.getByTestId('app-top-bar')
+    expect(within(top).getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
+    // the brand must not disappear with the sidebar
+    expect(within(top).getByRole('link', { name: /wealth|ouwealth/i })).toHaveAttribute('href', '/dashboard')
+    expect(within(top).getByText('Wealth')).toBeInTheDocument()
+  })
+
+  it('opens a temporary sidebar from the top bar without re-pinning it', async () => {
+    const user = userEvent.setup()
+    const { store } = renderLayout({ roles: [ROLE_PRESIDENT], sidebarPinned: false })
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(drawerPaper()).toBeNull()
+
+    await user.click(within(screen.getByTestId('app-top-bar')).getByRole('button', { name: 'Open navigation' }))
+
+    const paper = drawerPaper() as HTMLElement
+    expect(paper).toBeTruthy()
+    expect(within(paper).getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
+    expect(within(paper).getByRole('button', { name: 'Pin sidebar' })).toBeInTheDocument()
+    // still unpinned: no permanent sidebar and the preference was not changed
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(store.getState().ui.sidebarPinned).toBe(false)
+    expect(localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY)).not.toBe('true')
+  })
+
+  it('navigates from the temporary sidebar, closes it, and stays unpinned', async () => {
+    const user = userEvent.setup()
+    const { store } = renderLayout({ roles: [ROLE_PRESIDENT], sidebarPinned: false })
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await user.click(within(drawerPaper() as HTMLElement).getByRole('link', { name: /^Members$/i }))
+
+    expect(screen.getByTestId('page-members')).toBeInTheDocument()
+    await drawerClosed()
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(store.getState().ui.sidebarPinned).toBe(false)
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
+  }, 20_000)
+
+  it('Pin in the temporary sidebar closes it and restores the permanent sidebar', async () => {
+    const user = userEvent.setup()
+    const { store } = renderLayout({ roles: [ROLE_PRESIDENT], sidebarPinned: false })
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    await user.click(within(drawerPaper() as HTMLElement).getByRole('button', { name: 'Pin sidebar' }))
+
+    expect(await screen.findByTestId('app-sidebar-desktop')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('app-sidebar-desktop')).getByRole('button', { name: 'Unpin sidebar' })).toBeInTheDocument()
+    expect(store.getState().ui.sidebarPinned).toBe(true)
+    expect(localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY)).toBe('true')
+    await drawerClosed()
+    expect(screen.getByTestId('app-main-content')).toHaveStyle({ maxWidth: '1440px' })
+  }, 20_000)
+
+  it('persists the preference through localStorage across a re-render', async () => {
+    const user = userEvent.setup()
+    const first = renderLayout({ roles: [ROLE_PRESIDENT] })
+    await user.click(screen.getByRole('button', { name: 'Unpin sidebar' }))
+    expect(localStorage.getItem(SIDEBAR_PINNED_STORAGE_KEY)).toBe('false')
+    first.unmount()
+
+    // a fresh app start reads the stored value: hidden on desktop
+    renderLayout({ roles: [ROLE_PRESIDENT], sidebarPinned: readStoredSidebarPinned() })
+    expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument()
+    document.body.innerHTML = ''
+
+    localStorage.setItem(SIDEBAR_PINNED_STORAGE_KEY, 'true')
+    renderLayout({ roles: [ROLE_PRESIDENT], sidebarPinned: readStoredSidebarPinned() })
+    expect(screen.getByTestId('app-sidebar-desktop')).toBeInTheDocument()
+  })
+
+  it('does not change mobile: hamburger opens a temporary drawer with no pin controls', async () => {
+    const user = userEvent.setup()
+    for (const sidebarPinned of [true, false]) {
+      const view = renderLayout({ roles: [ROLE_PRESIDENT], mdUp: false, sidebarPinned })
+      expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Open navigation' })).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /open menu/i }))
+      const paper = drawerPaper() as HTMLElement
+      expect(within(paper).getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /pin sidebar/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /unpin sidebar/i })).not.toBeInTheDocument()
+      view.unmount()
+    }
+  })
+})
+
+describe('AppLayout sidebar: Loans and Share Purchase Approvals', () => {
+  beforeEach(() => {
+    stubMatchMedia(true)
+    localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
+  })
+
+  it('shows Loans but no Loan Approvals shortcut, and puts Share Purchase Approvals right after Loans', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const nav = desktopNav()
+    const names = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.textContent)
+    expect(names).toContain('Loans')
+    expect(names).not.toContain('Loan Approvals')
+    expect(names.indexOf('Share Purchase Approvals')).toBe(names.indexOf('Loans') + 1)
+  })
+
+  it('links Share Purchase Approvals to its dedicated view', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    expect(within(desktopNav()).getByRole('link', { name: 'Share Purchase Approvals' })).toHaveAttribute(
+      'href',
+      '/contributions?tab=share-approvals',
+    )
+  })
+
+  it('shows Share Purchase Approvals only to authorized roles', () => {
+    for (const role of [ROLE_PRESIDENT, ROLE_VICE_PRESIDENT, ROLE_ACCOUNTANT, ROLE_SUPER_ADMIN]) {
+      const view = renderLayout({ roles: [role] })
+      expect(within(desktopNav()).getByRole('link', { name: 'Share Purchase Approvals' })).toBeInTheDocument()
+      view.unmount()
+    }
+    for (const role of [ROLE_SECRETARY, ROLE_LOAN_OFFICER, ROLE_MEMBER]) {
+      const view = renderLayout({ roles: [role] })
+      expect(within(desktopNav()).queryByRole('link', { name: 'Share Purchase Approvals' })).not.toBeInTheDocument()
+      view.unmount()
+    }
+  })
+
+  it('marks only Share Purchase Approvals active on its view', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/contributions?tab=share-approvals' })
+    const nav = desktopNav()
+    expect(within(nav).getByRole('link', { name: 'Share Purchase Approvals' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Regular Contribution Approvals' })).not.toHaveAttribute('aria-current')
+    expect(within(nav).getByRole('link', { name: /^Contributions$/ })).not.toHaveAttribute('aria-current')
+  })
+
+  it('marks only Regular Contribution Approvals active on its view', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/contributions?tab=approvals' })
+    const nav = desktopNav()
+    expect(within(nav).getByRole('link', { name: 'Regular Contribution Approvals' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Share Purchase Approvals' })).not.toHaveAttribute('aria-current')
+    expect(within(nav).getByRole('link', { name: /^Contributions$/ })).not.toHaveAttribute('aria-current')
   })
 })

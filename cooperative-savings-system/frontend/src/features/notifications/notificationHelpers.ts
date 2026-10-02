@@ -77,7 +77,7 @@ export function pendingApprovalItems(
     items.push({
       kind: 'shares',
       count: shareCount,
-      path: `${ROUTES.contributions}?tab=approvals`,
+      path: `${ROUTES.contributions}?tab=share-approvals`,
     })
   }
   return items
@@ -101,7 +101,7 @@ export function notificationTargetPath(
     return `${ROUTES.contributions}?tab=history`
   }
   if (type === 'sharepurchase') {
-    return `${ROUTES.contributions}?tab=approvals`
+    return `${ROUTES.contributions}?tab=share-approvals`
   }
   if (type === 'loan' && notification.entityId) {
     return ROUTES.loanDetail(notification.entityId)

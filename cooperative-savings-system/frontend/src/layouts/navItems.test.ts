@@ -7,9 +7,19 @@ import {
   isCooperativeAdminUser,
   isNavItemActive,
   isSuperAdminUser,
+  adminModuleNavItems,
   type NavItem,
 } from '@/layouts/navItems'
-import { ROLE_MEMBER, ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
+import {
+  ROLE_ACCOUNTANT,
+  ROLE_COOPERATIVE_ADMIN,
+  ROLE_LOAN_OFFICER,
+  ROLE_MEMBER,
+  ROLE_PRESIDENT,
+  ROLE_SECRETARY,
+  ROLE_SUPER_ADMIN,
+  ROLE_VICE_PRESIDENT,
+} from '@/shared/types/auth'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 
 const memberItem: NavItem = {
@@ -130,5 +140,68 @@ describe('isNavItemActive', () => {
       true,
     )
     expect(isNavItemActive('/contributions', '', '/contributions')).toBe(true)
+  })
+})
+
+describe('Loans and Share Purchase Approvals sidebar items', () => {
+  const SHARE_PATH = '/contributions?tab=share-approvals'
+  const operationsPaths = (roles: string[]) =>
+    getSidebarNavGroups(roles)
+      .find((group) => group.id === 'operations')
+      ?.items.map((item) => item.path) ?? []
+
+  it('no longer has a direct Loan Approvals sidebar item for any role', () => {
+    expect(adminModuleNavItems.some((item) => item.labelKey === 'nav.loanApprovals')).toBe(false)
+    expect(adminModuleNavItems.some((item) => item.path === '/loans?tab=approvals')).toBe(false)
+    for (const role of [ROLE_PRESIDENT, ROLE_VICE_PRESIDENT, ROLE_LOAN_OFFICER, ROLE_ACCOUNTANT, ROLE_SUPER_ADMIN]) {
+      expect(getMobileNavItems([role]).some((item) => item.path === '/loans?tab=approvals')).toBe(false)
+    }
+  })
+
+  it('keeps Loans for the loan-operations roles', () => {
+    for (const role of [ROLE_PRESIDENT, ROLE_LOAN_OFFICER, ROLE_ACCOUNTANT, ROLE_SUPER_ADMIN]) {
+      expect(getMobileNavItems([role]).some((item) => item.path === '/loans')).toBe(true)
+    }
+    expect(getMobileNavItems([ROLE_SECRETARY]).some((item) => item.path === '/loans')).toBe(false)
+  })
+
+  it('shows Share Purchase Approvals only to the roles that can review share purchases', () => {
+    for (const role of [
+      ROLE_PRESIDENT,
+      ROLE_VICE_PRESIDENT,
+      ROLE_COOPERATIVE_ADMIN,
+      ROLE_ACCOUNTANT,
+      ROLE_SUPER_ADMIN,
+    ]) {
+      expect(getMobileNavItems([role]).some((item) => item.path === SHARE_PATH)).toBe(true)
+    }
+    for (const role of [ROLE_SECRETARY, ROLE_LOAN_OFFICER, ROLE_MEMBER]) {
+      expect(getMobileNavItems([role]).some((item) => item.path === SHARE_PATH)).toBe(false)
+    }
+  })
+
+  it('links Share Purchase Approvals straight to the dedicated view', () => {
+    const item = adminModuleNavItems.find((i) => i.labelKey === 'nav.sharePurchaseApprovals')
+    expect(item?.path).toBe(SHARE_PATH)
+    expect(item?.sidebarGroup).toBe('operations')
+  })
+
+  it('places Share Purchase Approvals directly after Loans', () => {
+    const paths = operationsPaths([ROLE_PRESIDENT])
+    expect(paths.indexOf(SHARE_PATH)).toBe(paths.indexOf('/loans') + 1)
+  })
+
+  it('keeps contribution approvals and share purchase approvals independently active', () => {
+    const CONTRIB_APPROVALS = '/contributions?tab=approvals'
+    expect(isNavItemActive('/contributions', '?tab=share-approvals', SHARE_PATH)).toBe(true)
+    expect(isNavItemActive('/contributions', '?tab=share-approvals', CONTRIB_APPROVALS)).toBe(false)
+    expect(isNavItemActive('/contributions', '?tab=share-approvals', '/contributions')).toBe(false)
+
+    expect(isNavItemActive('/contributions', '?tab=approvals', CONTRIB_APPROVALS)).toBe(true)
+    expect(isNavItemActive('/contributions', '?tab=approvals', SHARE_PATH)).toBe(false)
+    expect(isNavItemActive('/contributions', '?tab=approvals', '/contributions')).toBe(false)
+
+    expect(isNavItemActive('/contributions', '', '/contributions')).toBe(true)
+    expect(isNavItemActive('/contributions', '', SHARE_PATH)).toBe(false)
   })
 })
