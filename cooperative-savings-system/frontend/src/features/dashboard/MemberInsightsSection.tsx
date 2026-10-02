@@ -1,7 +1,6 @@
-import { Box, Link, List, ListItem, Paper, Stack, Typography } from '@mui/material'
+import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectCanManageMembers } from '@/app/store/authSlice'
@@ -15,6 +14,9 @@ import {
   canViewAnyMemberInsights,
 } from '@/shared/types/auth'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { CHART_COLORS } from './chartPalette'
+import { fineFollowUpBars, overdueLoanBars, topContributorBars } from './dashboardVisuals'
+import { RankedBarChart } from './RankedBarChart'
 
 interface MemberInsightsSectionProps {
   cooperativeId: string
@@ -33,31 +35,16 @@ export function MemberInsightsSection({ cooperativeId }: MemberInsightsSectionPr
     enabled: Boolean(cooperativeId) && canViewAnyMemberInsights(userRoles),
   })
 
-  if (!canViewAnyMemberInsights(userRoles)) return null
-
   const data = query.data
   const currency = data?.currency || 'RWF'
   const money = (v: string | number | null | undefined) => formatMoney(v ?? 0, { currency })
+  const hrefFor = canManageMembers ? (memberId: string) => `${ROUTES.members}/${memberId}` : undefined
 
-  const memberLink = (memberId: string, displayName: string) => {
-    if (!canManageMembers) {
-      return (
-        <Typography component="span" sx={{ fontWeight: 600 }}>
-          {displayName}
-        </Typography>
-      )
-    }
-    return (
-      <Link
-        component={RouterLink}
-        to={`${ROUTES.members}/${memberId}`}
-        underline="hover"
-        sx={{ fontWeight: 600 }}
-      >
-        {displayName}
-      </Link>
-    )
-  }
+  const contributors = topContributorBars(data?.topContributors ?? [], hrefFor)
+  const fines = fineFollowUpBars(data?.fineFollowUp ?? [], hrefFor)
+  const overdue = overdueLoanBars(data?.overdueLoans ?? [], hrefFor)
+
+  if (!canViewAnyMemberInsights(userRoles)) return null
 
   return (
     <Box sx={{ mb: 3 }} data-testid="member-insights">
@@ -81,89 +68,97 @@ export function MemberInsightsSection({ cooperativeId }: MemberInsightsSectionPr
         useFlexGap
       >
         {showFinance ? (
-          <InsightRankCard
+          <InsightChartCard
             testId="top-contributors-card"
             title={t('dashboard.memberInsights.topContributors')}
             hint={t('dashboard.memberInsights.topContributorsHint')}
             empty={t('dashboard.memberInsights.topContributorsEmpty')}
             loading={query.isLoading}
-            rows={(data?.topContributors ?? []).map((row) => ({
-              key: row.memberId,
-              rank: row.rank,
-              primary: memberLink(row.memberId, row.displayName),
-              secondary: money(row.amount),
-            }))}
-          />
+            hasRows={contributors.length > 0}
+          >
+            <RankedBarChart
+              data={contributors}
+              ariaLabel={t('dashboard.memberInsights.topContributors')}
+              nameLabel={t('dashboard.advancedInsights.member')}
+              valueLabel={t('dashboard.memberInsights.contributionAmount')}
+              formatValue={money}
+              color={CHART_COLORS.blue}
+            />
+          </InsightChartCard>
         ) : null}
 
         {showFinance ? (
-          <InsightRankCard
+          <InsightChartCard
             testId="fine-follow-up-card"
             title={t('dashboard.memberInsights.fineFollowUp')}
             hint={t('dashboard.memberInsights.fineFollowUpHint')}
             empty={t('dashboard.memberInsights.fineFollowUpEmpty')}
             loading={query.isLoading}
-            rows={(data?.fineFollowUp ?? []).map((row) => ({
-              key: row.memberId,
-              rank: row.rank,
-              primary: memberLink(row.memberId, row.displayName),
-              secondary: money(row.outstandingAmount),
-              meta: t('dashboard.memberInsights.fineFollowUpMeta', {
-                count: row.fineCount,
-                issued: money(row.issuedAmount),
-              }),
-            }))}
-          />
+            hasRows={fines.length > 0}
+          >
+            <RankedBarChart
+              data={fines}
+              ariaLabel={t('dashboard.memberInsights.fineFollowUp')}
+              nameLabel={t('dashboard.advancedInsights.member')}
+              valueLabel={t('dashboard.memberInsights.outstandingAmount')}
+              formatValue={money}
+              color={CHART_COLORS.red}
+              detailColumns={[
+                { key: 'fineCount', label: t('dashboard.memberInsights.fineCount') },
+                {
+                  key: 'issuedAmount',
+                  label: t('dashboard.memberInsights.issuedAmount'),
+                  format: (value) => money(value),
+                },
+              ]}
+            />
+          </InsightChartCard>
         ) : null}
 
         {showLoans ? (
-          <InsightRankCard
+          <InsightChartCard
             testId="overdue-loans-card"
             title={t('dashboard.memberInsights.overdueLoans')}
             hint={t('dashboard.memberInsights.overdueLoansHint')}
             empty={t('dashboard.memberInsights.overdueLoansEmpty')}
             loading={query.isLoading}
-            rows={(data?.overdueLoans ?? []).map((row) => ({
-              key: row.memberId,
-              rank: row.rank,
-              primary: memberLink(row.memberId, row.displayName),
-              secondary: money(row.outstandingPrincipal),
-              meta: t('dashboard.memberInsights.overdueLoansMeta', {
-                count: row.overdueLoanCount,
-              }),
-            }))}
-          />
+            hasRows={overdue.length > 0}
+          >
+            <RankedBarChart
+              data={overdue}
+              ariaLabel={t('dashboard.memberInsights.overdueLoans')}
+              nameLabel={t('dashboard.advancedInsights.member')}
+              valueLabel={t('dashboard.memberInsights.overduePrincipal')}
+              formatValue={money}
+              color={CHART_COLORS.orange}
+              detailColumns={[
+                { key: 'overdueLoanCount', label: t('dashboard.memberInsights.overdueCount') },
+              ]}
+            />
+          </InsightChartCard>
         ) : null}
       </Stack>
     </Box>
   )
 }
 
-interface RankRow {
-  key: string
-  rank: number
-  primary: ReactNode
-  secondary: string
-  meta?: string
-}
-
-function InsightRankCard({
+function InsightChartCard({
   title,
   hint,
   empty,
-  rows,
   loading,
+  hasRows,
   testId,
+  children,
 }: {
   title: string
   hint: string
   empty: string
-  rows: RankRow[]
   loading?: boolean
+  hasRows: boolean
   testId: string
+  children: ReactNode
 }) {
-  const { t } = useTranslation()
-
   return (
     <Paper
       elevation={0}
@@ -185,60 +180,13 @@ function InsightRankCard({
       </Typography>
 
       {loading ? (
-        <Typography color="text.secondary">{t('common.loading')}</Typography>
-      ) : rows.length === 0 ? (
+        <Skeleton variant="rounded" height={140} />
+      ) : !hasRows ? (
         <Typography color="text.secondary" data-testid={`${testId}-empty`}>
           {empty}
         </Typography>
       ) : (
-        <List dense disablePadding>
-          {rows.map((row) => (
-            <ListItem
-              key={row.key}
-              disableGutters
-              sx={{
-                py: 0.75,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 1,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                '&:last-of-type': { borderBottom: 'none' },
-              }}
-            >
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ minWidth: 20, fontVariantNumeric: 'tabular-nums' }}
-              >
-                {row.rank}.
-              </Typography>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 1,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {row.primary}
-                  <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
-                  >
-                    {row.secondary}
-                  </Typography>
-                </Box>
-                {row.meta ? (
-                  <Typography variant="caption" color="text.secondary">
-                    {row.meta}
-                  </Typography>
-                ) : null}
-              </Box>
-            </ListItem>
-          ))}
-        </List>
+        children
       )}
     </Paper>
   )

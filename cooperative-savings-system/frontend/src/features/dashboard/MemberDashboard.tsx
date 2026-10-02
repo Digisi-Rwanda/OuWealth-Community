@@ -4,6 +4,7 @@ import { useAppSelector } from '@/app/store/hooks'
 import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
 import { isActionNeeded } from '@/features/subscription/subscriptionAccess'
 import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
+import { MemberQuickActionsSection } from './MemberQuickActionsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
 
@@ -32,7 +33,11 @@ export function MemberDashboard({ cooperativeId }: MemberDashboardProps) {
       {showCard ? <DashboardSubscriptionCard subscription={subscription} variant="member" /> : null}
 
       <Box sx={{ mb: 3 }}>
-        <MyMemberStatusSection cooperativeId={cooperativeId} showQuickLinks />
+        <MemberQuickActionsSection cooperativeId={cooperativeId} />
+      </Box>
+
+      <Box sx={{ mb: 3 }}>
+        <MyMemberStatusSection cooperativeId={cooperativeId} />
       </Box>
 
       <MonthlyContributionsChart cooperativeId={cooperativeId} currency="RWF" />

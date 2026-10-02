@@ -508,7 +508,13 @@
       "overdueLoans": "Loan Follow-up",
       "overdueLoansHint": "Members with overdue loan balances that may require follow-up.",
       "overdueLoansEmpty": "No overdue loans.",
-      "overdueLoansMeta": "{{count}} overdue loans"
+      "overdueLoansMeta": "{{count}} overdue loans",
+      "contributionAmount": "Contributions",
+      "outstandingAmount": "Outstanding fines",
+      "fineCount": "Fines",
+      "issuedAmount": "Issued",
+      "overduePrincipal": "Overdue principal",
+      "overdueCount": "Overdue loans"
     },
     "advancedInsights": {
       "title": "Advanced Insights",
@@ -544,6 +550,43 @@
       "paidLate": "Late",
       "pastDue": "Past due",
       "evaluated": "Evaluated"
+    },
+    "glance": {
+      "title": "Saving Scheme at a glance",
+      "subtitle": "A visual snapshot of members, contributions, and loan and fine activity.",
+      "summaryTitle": "What's happening",
+      "summaryUnavailable": "Summary figures are not available yet.",
+      "membersTitle": "Members",
+      "activeMembers": "Active",
+      "inactiveMembers": "Inactive",
+      "totalMembers": "members",
+      "membersEmpty": "No members registered yet.",
+      "contributionMixTitle": "Contribution mix",
+      "regular": "Regular",
+      "special": "Special",
+      "totalContributions": "Total",
+      "contributionMixEmpty": "No contributions recorded yet.",
+      "outstandingPrincipal": "Outstanding loan principal",
+      "fineActivityEmpty": "No fines issued or collected this month yet.",
+      "summary": {
+        "membersActive_one": "{{active}} of {{count}} member is active in this Saving Scheme.",
+        "membersActive_other": "{{active}} of {{count}} members are active in this Saving Scheme.",
+        "thisMonth": "This month, {{parts}}.",
+        "partContributions": "{{amount}} was collected in contributions",
+        "partLoansIssued": "{{amount}} was issued in loans",
+        "partLoansRepaid": "{{amount}} was repaid on loans",
+        "partFines": "{{amount}} was collected in fines",
+        "and": "and",
+        "outstanding": "Outstanding loan principal is {{amount}}.",
+        "outstandingWithOverdue_one": "Outstanding loan principal is {{amount}}, with {{count}} overdue loan.",
+        "outstandingWithOverdue_other": "Outstanding loan principal is {{amount}}, with {{count}} overdue loans.",
+        "overdueOnly_one": "{{count}} loan is overdue.",
+        "overdueOnly_other": "{{count}} loans are overdue."
+      }
+    },
+    "chartData": {
+      "rank": "Rank",
+      "metric": "Measure"
     }
   },
   "common": {

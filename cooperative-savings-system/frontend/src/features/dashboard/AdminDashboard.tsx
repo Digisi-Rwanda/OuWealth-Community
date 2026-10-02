@@ -11,6 +11,7 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Box, Button, Grid, Paper, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
@@ -45,9 +46,11 @@ import {
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { MemberFinancialSummarySection } from './MemberFinancialSummarySection'
 import { MemberInsightsSection } from './MemberInsightsSection'
+import { MemberQuickActionsSection } from './MemberQuickActionsSection'
 import { AdvancedInsightsSection } from './AdvancedInsightsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
+import { SchemeAtAGlanceSection, type GlanceVisibility } from './SchemeAtAGlanceSection'
 import { ThisMonthInsightsSection } from './ThisMonthInsightsSection'
 
 const METRIC_COLS = { xs: 12, sm: 6, md: 4, lg: 3 }
@@ -69,14 +72,17 @@ type MetricKey =
   | 'activeInvestments'
   | 'pendingPayouts'
 
+/**
+ * Headline KPI cards. Metrics that the "Saving Scheme at a glance" section already shows as its primary value
+ * (member count, regular/special contribution split) or that the repayments banner already shows (overdue
+ * loans) are not repeated as cards. Role visibility is unchanged.
+ */
 function rolePrimaryMetrics(role: AppRole): MetricKey[] {
   switch (role) {
     case ROLE_SECRETARY:
-      return ['totalMembers']
+      return []
     case ROLE_ACCOUNTANT:
       return [
-        'regularContributions',
-        'specialContributions',
         'actualContributions',
         'totalInterest',
         'availableInterest',
@@ -84,19 +90,12 @@ function rolePrimaryMetrics(role: AppRole): MetricKey[] {
         'pendingPayouts',
       ]
     case ROLE_LOAN_OFFICER:
-      return ['outstandingLoans', 'overdueLoans', 'loanInterest']
+      return ['outstandingLoans', 'loanInterest']
     case ROLE_PRESIDENT:
     case ROLE_VICE_PRESIDENT:
     case ROLE_SUPER_ADMIN:
     default:
-      return [
-        'totalMembers',
-        'regularContributions',
-        'specialContributions',
-        'actualContributions',
-        'totalInterest',
-        'availableInterest',
-      ]
+      return ['actualContributions', 'totalInterest', 'availableInterest']
   }
 }
 
@@ -118,7 +117,6 @@ function roleObligationMetrics(role: AppRole): MetricKey[] {
         'totalFines',
         'membersWithFines',
         'pendingFinePayments',
-        'overdueLoans',
       ]
   }
 }
@@ -162,6 +160,16 @@ function showLoanInsights(role: AppRole): boolean {
   return role !== ROLE_SECRETARY
 }
 
+/** Member counts were a KPI for leadership and the Secretary only. */
+function canSeeMemberCounts(role: AppRole): boolean {
+  return role !== ROLE_ACCOUNTANT && role !== ROLE_LOAN_OFFICER
+}
+
+/** Regular/special contribution totals were KPIs for leadership and the Accountant only. */
+function canSeeContributionTotals(role: AppRole): boolean {
+  return role !== ROLE_SECRETARY && role !== ROLE_LOAN_OFFICER
+}
+
 interface AdminDashboardProps {
   cooperativeId: string
 }
@@ -177,6 +185,15 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
   const officeRole = primaryRole(userRoles)
   const primaryKeys = rolePrimaryMetrics(officeRole)
   const obligationKeys = roleObligationMetrics(officeRole)
+  const glanceVisibility = useMemo<GlanceVisibility>(
+    () => ({
+      members: canSeeMemberCounts(officeRole),
+      contributions: canSeeContributionTotals(officeRole),
+      loans: showLoanInsights(officeRole),
+      fines: showFullFinancialInsights(officeRole),
+    }),
+    [officeRole],
+  )
 
   const cooperativesQuery = useQuery({
     queryKey: ['cooperatives', 'mine'],
@@ -440,32 +457,28 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
         </Box>
       ) : null}
 
+      <SchemeAtAGlanceSection cooperativeId={cooperativeId} show={glanceVisibility} />
+
+      {showFundsHero(officeRole) ? (
+        <FundsHero summary={summary} money={money} t={t} />
+      ) : null}
+
+      {primaryKeys.length > 0 ? (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {primaryKeys.map((key) => (
+            <Grid key={key} size={METRIC_COLS}>
+              {renderMetric(key)}
+            </Grid>
+          ))}
+        </Grid>
+      ) : null}
+
       {showThisMonthInsights(officeRole) ? (
         <ThisMonthInsightsSection
           cooperativeId={cooperativeId}
           showFullFinancials={showFullFinancialInsights(officeRole)}
           showLoanAnalytics={showLoanInsights(officeRole)}
         />
-      ) : null}
-
-      {canViewAnyMemberInsights(userRoles) ? (
-        <MemberInsightsSection cooperativeId={cooperativeId} />
-      ) : null}
-
-      {canViewAnyMemberInsights(userRoles) ? (
-        <AdvancedInsightsSection cooperativeId={cooperativeId} />
-      ) : null}
-
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {primaryKeys.map((key) => (
-          <Grid key={key} size={METRIC_COLS}>
-            {renderMetric(key)}
-          </Grid>
-        ))}
-      </Grid>
-
-      {showFundsHero(officeRole) ? (
-        <FundsHero summary={summary} money={money} t={t} />
       ) : null}
 
       {obligationKeys.length > 0 ? (
@@ -488,19 +501,32 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       ) : null}
 
       {!isSuperAdmin ? (
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2.5, md: 3 },
-            mb: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'rgba(27, 77, 140, 0.04)',
-          }}
-        >
-          <MyMemberStatusSection cooperativeId={cooperativeId} compact showQuickLinks />
-        </Paper>
+        <>
+          <Box sx={{ mb: 3 }}>
+            <MemberQuickActionsSection cooperativeId={cooperativeId} />
+          </Box>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              bgcolor: 'rgba(27, 77, 140, 0.04)',
+            }}
+          >
+            <MyMemberStatusSection cooperativeId={cooperativeId} compact />
+          </Paper>
+        </>
+      ) : null}
+
+      {canViewAnyMemberInsights(userRoles) ? (
+        <MemberInsightsSection cooperativeId={cooperativeId} />
+      ) : null}
+
+      {canViewAnyMemberInsights(userRoles) ? (
+        <AdvancedInsightsSection cooperativeId={cooperativeId} />
       ) : null}
 
       {showMemberTable(officeRole, canManageMembers) ? (

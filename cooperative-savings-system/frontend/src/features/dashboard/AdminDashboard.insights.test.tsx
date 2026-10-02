@@ -288,13 +288,16 @@ describe('AdminDashboard this-month insights (Phase C1)', () => {
     expect(await within(card).findByText(/no prior-month baseline/i)).toBeInTheDocument()
   })
 
-  it('shows loans issued amount, count, MoM, repayments, and outstanding', async () => {
+  it('shows loans issued amount, count, MoM, repayments, and outstanding principal', async () => {
     renderAdmin([ROLE_PRESIDENT])
     const issued = await screen.findByTestId('insight-loans-issued')
     expect(await within(issued).findByText(/8 loans/i)).toBeInTheDocument()
     expect(await within(issued).findByText(/40\.0% vs last month/i)).toBeInTheDocument()
     expect(await screen.findByTestId('insight-loan-repayments')).toBeInTheDocument()
-    expect(screen.getByTestId('insight-outstanding-loans')).toBeInTheDocument()
+    // Outstanding principal is shown once as a callout on the loan activity card (not repeated as a KPI here).
+    const callout = await screen.findByTestId('loan-outstanding-callout')
+    expect(callout).toHaveTextContent(/1[\s,.]*600[\s,.]*000/)
+    expect(screen.queryByTestId('insight-outstanding-loans')).not.toBeInTheDocument()
   })
 
   it('shows fines collected and issued-vs-repaid chart', async () => {

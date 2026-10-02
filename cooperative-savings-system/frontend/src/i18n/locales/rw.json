@@ -504,7 +504,13 @@
       "overdueLoans": "Gukurikirana inguzanyo",
       "overdueLoansHint": "Abanyamuryango bafite inguzanyo zatinze.",
       "overdueLoansEmpty": "Nta nguzanyo zatinze.",
-      "overdueLoansMeta": "Inguzanyo {{count}} zatinze"
+      "overdueLoansMeta": "Inguzanyo {{count}} zatinze",
+      "contributionAmount": "Imisanzu",
+      "outstandingAmount": "Amahane asigaye",
+      "fineCount": "Amahane",
+      "issuedAmount": "Yatanzwe",
+      "overduePrincipal": "Inguzanyo itinze",
+      "overdueCount": "Inguzanyo zitinze"
     },
     "advancedInsights": {
       "title": "Amakuru arambuye",
@@ -540,6 +546,43 @@
       "paidLate": "Byatinze",
       "pastDue": "Bitarishyurwa",
       "evaluated": "Byagenzuwe"
+    },
+    "glance": {
+      "title": "Incamake y'ikimina",
+      "subtitle": "Ishusho y'abanyamuryango, imisanzu n'ibikorwa by'inguzanyo n'amahane.",
+      "summaryTitle": "Ibiri kuba",
+      "summaryUnavailable": "Imibare y'incamake ntiragaragara.",
+      "membersTitle": "Abanyamuryango",
+      "activeMembers": "Bakora",
+      "inactiveMembers": "Badakora",
+      "totalMembers": "abanyamuryango",
+      "membersEmpty": "Nta munyamuryango uraandikwa.",
+      "contributionMixTitle": "Imiterere y'imisanzu",
+      "regular": "Isanzwe",
+      "special": "Yihariye",
+      "totalContributions": "Yose hamwe",
+      "contributionMixEmpty": "Nta musanzu uraandikwa.",
+      "outstandingPrincipal": "Inguzanyo isigaye yo gusubizwa",
+      "fineActivityEmpty": "Nta mahane yatanzwe cyangwa yakusanyijwe muri uku kwezi.",
+      "summary": {
+        "membersActive_one": "Umunyamuryango {{active}} muri {{count}} arakora muri iki kimina.",
+        "membersActive_other": "Abanyamuryango {{active}} muri {{count}} barakora muri iki kimina.",
+        "thisMonth": "Muri uku kwezi, {{parts}}.",
+        "partContributions": "{{amount}} yakusanyijwe mu misanzu",
+        "partLoansIssued": "{{amount}} yatanzwe mu nguzanyo",
+        "partLoansRepaid": "{{amount}} yishyuwe ku nguzanyo",
+        "partFines": "{{amount}} yakusanyijwe mu mahane",
+        "and": "na",
+        "outstanding": "Inguzanyo isigaye ni {{amount}}.",
+        "outstandingWithOverdue_one": "Inguzanyo isigaye ni {{amount}}, harimo inguzanyo {{count}} itinze.",
+        "outstandingWithOverdue_other": "Inguzanyo isigaye ni {{amount}}, harimo inguzanyo {{count}} zitinze.",
+        "overdueOnly_one": "Inguzanyo {{count}} iratinze.",
+        "overdueOnly_other": "Inguzanyo {{count}} ziratinze."
+      }
+    },
+    "chartData": {
+      "rank": "Umwanya",
+      "metric": "Igipimo"
     }
   },
   "common": {

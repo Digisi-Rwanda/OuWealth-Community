@@ -4,8 +4,10 @@ import { MemberDashboard } from './MemberDashboard'
 import { SuperAdminDashboard } from './SuperAdminDashboard'
 import { MemberFinancialSummarySection } from './MemberFinancialSummarySection'
 import { MemberInsightsSection } from './MemberInsightsSection'
+import { MemberQuickActionsSection } from './MemberQuickActionsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
+import { SchemeAtAGlanceSection } from './SchemeAtAGlanceSection'
 import { ThisMonthInsightsSection } from './ThisMonthInsightsSection'
 
 export {
@@ -15,7 +17,9 @@ export {
   SuperAdminDashboard,
   MemberFinancialSummarySection,
   MemberInsightsSection,
+  MemberQuickActionsSection,
   MonthlyContributionsChart,
   MyMemberStatusSection,
+  SchemeAtAGlanceSection,
   ThisMonthInsightsSection,
 }

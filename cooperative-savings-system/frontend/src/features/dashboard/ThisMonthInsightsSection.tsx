@@ -8,9 +8,7 @@ import { fetchDashboardInsights } from '@/shared/api/dashboard'
 import { getErrorMessage } from '@/shared/api/client'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { formatMoney } from '@/shared/utils/formatMoney'
-import { FineActivityCard } from './FineActivityCard'
 import { InsightKpiCard } from './InsightKpiCard'
-import { LoansIssuedVsRepaidChart } from './LoansIssuedVsRepaidChart'
 
 const KPI_COLS = { xs: 12, sm: 6, md: 4, lg: 4 }
 
@@ -64,7 +62,7 @@ export function ThisMonthInsightsSection({
         </Box>
       ) : null}
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
+      <Grid container spacing={2}>
         {showFullFinancials ? (
           <Grid size={KPI_COLS}>
             <InsightKpiCard
@@ -113,16 +111,6 @@ export function ThisMonthInsightsSection({
                 momSemantics="favorable-up"
               />
             </Grid>
-            <Grid size={KPI_COLS}>
-              <InsightKpiCard
-                data-testid="insight-outstanding-loans"
-                label={t('dashboard.insights.outstandingLoans')}
-                value={insights ? money(insights.loans.outstandingPrincipal) : '—'}
-                icon={<AccountBalanceWalletIcon fontSize="small" />}
-                loading={loading}
-                showMom={false}
-              />
-            </Grid>
           </>
         ) : null}
 
@@ -138,24 +126,6 @@ export function ThisMonthInsightsSection({
               changeState={insights?.fines.collectedChangeState}
               momSemantics="neutral"
             />
-          </Grid>
-        ) : null}
-      </Grid>
-
-      <Grid container spacing={2}>
-        {showLoanAnalytics ? (
-          <Grid size={{ xs: 12, md: showFullFinancials ? 7 : 12 }}>
-            <LoansIssuedVsRepaidChart
-              issuedAmount={insights?.loans.issuedAmountCurrentMonth ?? 0}
-              repaidAmount={insights?.loans.repaidCurrentMonth ?? 0}
-              currency={currency}
-              loading={loading}
-            />
-          </Grid>
-        ) : null}
-        {showFullFinancials ? (
-          <Grid size={{ xs: 12, md: showLoanAnalytics ? 5 : 12 }}>
-            <FineActivityCard fines={insights?.fines} currency={currency} loading={loading} />
           </Grid>
         ) : null}
       </Grid>

@@ -1,4 +1,4 @@
-import { Box, Paper, Typography } from '@mui/material'
+import { Box, Paper, Skeleton, Typography, useTheme } from '@mui/material'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -12,29 +12,44 @@ import {
   YAxis,
 } from 'recharts'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { AccessibleDataTable } from './AccessibleDataTable'
+import { ChartTooltip } from './ChartTooltip'
+import { CHART_COLORS, compactNumber } from './chartPalette'
+import { toFiniteNumber } from './dashboardVisuals'
 
 interface LoansIssuedVsRepaidChartProps {
   issuedAmount: string | number
   repaidAmount: string | number
   currency?: string
   loading?: boolean
+  /** Shown as a callout under the chart. Outstanding principal is a balance, not a share of the bars. */
+  outstandingPrincipal?: string | number | null
 }
 
+const CHART_HEIGHT = 190
+
+/**
+ * Compact bars for this month's loan flows. Issued and repaid are separate flows (not parts of one
+ * total), so this is a bar chart, never a pie.
+ */
 export function LoansIssuedVsRepaidChart({
   issuedAmount,
   repaidAmount,
   currency = 'RWF',
   loading,
+  outstandingPrincipal,
 }: LoansIssuedVsRepaidChartProps) {
   const { t } = useTranslation()
-  const issued = Number(issuedAmount) || 0
-  const repaid = Number(repaidAmount) || 0
+  const theme = useTheme()
+  const issued = toFiniteNumber(issuedAmount)
+  const repaid = toFiniteNumber(repaidAmount)
   const empty = issued === 0 && repaid === 0
+  const money = (value: number) => formatMoney(value, { currency })
 
   const data = useMemo(
     () => [
-      { name: t('dashboard.insights.loansIssued'), amount: issued, fill: '#1B4D8C' },
-      { name: t('dashboard.insights.loansRepaid'), amount: repaid, fill: '#FF7A00' },
+      { name: t('dashboard.insights.loansIssued'), amount: issued, fill: CHART_COLORS.blue },
+      { name: t('dashboard.insights.loansRepaid'), amount: repaid, fill: CHART_COLORS.orange },
     ],
     [issued, repaid, t],
   )
@@ -44,24 +59,22 @@ export function LoansIssuedVsRepaidChart({
       elevation={0}
       data-testid="loans-issued-vs-repaid-chart"
       sx={{
-        p: { xs: 2.5, md: 3 },
+        p: { xs: 2, md: 2.5 },
         height: '100%',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: 2,
       }}
     >
-      <Typography variant="h6" sx={{ mb: 1.5 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
         {t('dashboard.insights.issuedVsRepaidTitle')}
       </Typography>
 
       {loading ? (
-        <Box sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="text.secondary">{t('common.loading')}</Typography>
-        </Box>
+        <Skeleton variant="rounded" height={CHART_HEIGHT} />
       ) : empty ? (
         <Box
-          sx={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
+          sx={{ height: CHART_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
           data-testid="loans-issued-vs-repaid-empty"
         >
           <Typography color="text.secondary" align="center">
@@ -69,27 +82,61 @@ export function LoansIssuedVsRepaidChart({
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ width: '100%', height: 240 }}>
-          <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tickLine={false} axisLine={false} />
-              <YAxis tickLine={false} axisLine={false} width={56} />
-              <Tooltip
-                formatter={(value) => [
-                  formatMoney(String(value ?? 0), { currency }),
-                  t('dashboard.insights.amount'),
-                ]}
-              />
-              <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={64}>
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Box>
+        <>
+          <Box aria-hidden="true" sx={{ width: '100%', height: CHART_HEIGHT }}>
+            <ResponsiveContainer>
+              <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={44}
+                  tickFormatter={(value: unknown) => compactNumber(value)}
+                  tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                />
+                <Tooltip
+                  cursor={{ fill: theme.palette.action.hover }}
+                  content={({ active, payload }) => {
+                    const item = active ? payload?.[0]?.payload : undefined
+                    if (!item) return null
+                    return (
+                      <ChartTooltip
+                        title={item.name}
+                        lines={[{ label: t('dashboard.insights.amount'), value: money(item.amount), color: item.fill }]}
+                      />
+                    )
+                  }}
+                />
+                <Bar dataKey="amount" radius={[4, 4, 0, 0]} maxBarSize={56} isAnimationActive={false}>
+                  {data.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+          <AccessibleDataTable
+            caption={t('dashboard.insights.issuedVsRepaidTitle')}
+            columns={[t('dashboard.chartData.metric'), t('dashboard.insights.amount')]}
+            rows={data.map((entry) => ({ key: entry.name, cells: [entry.name, money(entry.amount)] }))}
+          />
+        </>
       )}
+
+      {outstandingPrincipal !== undefined && outstandingPrincipal !== null && !loading ? (
+        <Box
+          data-testid="loan-outstanding-callout"
+          sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 700 }}>
+            {t('dashboard.glance.outstandingPrincipal')}
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            {money(toFiniteNumber(outstandingPrincipal))}
+          </Typography>
+        </Box>
+      ) : null}
     </Paper>
   )
 }

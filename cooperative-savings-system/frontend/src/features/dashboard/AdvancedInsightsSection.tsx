@@ -1,22 +1,7 @@
-import {
-  Box,
-  LinearProgress,
-  Link,
-  MenuItem,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { Box, MenuItem, Paper, Skeleton, Stack, TextField, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { useMemo, useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectCanManageMembers } from '@/app/store/authSlice'
@@ -30,8 +15,12 @@ import {
   canViewAnyMemberInsights,
 } from '@/shared/types/auth'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { CHART_COLORS } from './chartPalette'
+import { frequentBorrowerBars, investmentBars, reliabilityBars } from './dashboardVisuals'
 import { InvestmentByMonthChart } from './InvestmentByMonthChart'
 import { LoansDisbursedByMonthChart } from './LoansDisbursedByMonthChart'
+import { RankedBarChart } from './RankedBarChart'
+import { StackedShareBarChart } from './StackedShareBarChart'
 
 interface AdvancedInsightsSectionProps {
   cooperativeId: string
@@ -62,33 +51,11 @@ export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSecti
   const currency = data?.currency || 'RWF'
   const money = (v: string | number | null | undefined) => formatMoney(v ?? 0, { currency })
   const reliability = data?.repaymentReliability
-  const reliabilityMembers = reliability?.members ?? []
+  const hrefFor = canManageMembers ? (memberId: string) => `${ROUTES.members}/${memberId}` : undefined
 
-  const memberLink = (memberId: string, displayName: string) => {
-    if (!canManageMembers) {
-      return (
-        <Typography component="span" sx={{ fontWeight: 600 }}>
-          {displayName}
-        </Typography>
-      )
-    }
-    return (
-      <Link
-        component={RouterLink}
-        to={`${ROUTES.members}/${memberId}`}
-        underline="hover"
-        sx={{ fontWeight: 600 }}
-      >
-        {displayName}
-      </Link>
-    )
-  }
-
-  const formatRate = (value: string | number | null | undefined) => {
-    const n = Number(value)
-    if (!Number.isFinite(n)) return '—'
-    return `${n.toFixed(1)}%`
-  }
+  const borrowers = frequentBorrowerBars(data?.frequentBorrowers ?? [], hrefFor)
+  const investments = investmentBars(data?.largestActiveInvestments ?? [])
+  const reliabilityData = reliabilityBars(reliability?.members ?? [], hrefFor)
 
   return (
     <Box sx={{ mb: 3 }} data-testid="advanced-insights">
@@ -163,196 +130,143 @@ export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSecti
         useFlexGap
       >
         {showLoans ? (
-          <Paper
-            elevation={0}
-            data-testid="frequent-borrowers-card"
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              p: { xs: 2, md: 2.5 },
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-            }}
+          <InsightCard
+            testId="frequent-borrowers-card"
+            title={t('dashboard.advancedInsights.frequentBorrowers')}
+            hint={t('dashboard.advancedInsights.frequentBorrowersHint')}
+            emptyTestId="frequent-borrowers-empty"
+            empty={t('dashboard.advancedInsights.frequentBorrowersEmpty')}
+            loading={query.isLoading}
+            hasRows={borrowers.length > 0}
           >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {t('dashboard.advancedInsights.frequentBorrowers')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {t('dashboard.advancedInsights.frequentBorrowersHint')}
-            </Typography>
-            {query.isLoading ? (
-              <Typography color="text.secondary">{t('common.loading')}</Typography>
-            ) : (data?.frequentBorrowers ?? []).length === 0 ? (
-              <Typography color="text.secondary" data-testid="frequent-borrowers-empty">
-                {t('dashboard.advancedInsights.frequentBorrowersEmpty')}
-              </Typography>
-            ) : (
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small" aria-label={t('dashboard.advancedInsights.frequentBorrowers')}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>#</TableCell>
-                      <TableCell>{t('dashboard.advancedInsights.member')}</TableCell>
-                      <TableCell align="right">{t('dashboard.advancedInsights.loans')}</TableCell>
-                      <TableCell align="right">
-                        {t('dashboard.advancedInsights.totalBorrowed')}
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(data?.frequentBorrowers ?? []).map((row) => (
-                      <TableRow key={row.memberId}>
-                        <TableCell>{row.rank}</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>{row.displayName}</TableCell>
-                        <TableCell align="right">{row.numberOfLoansDisbursed}</TableCell>
-                        <TableCell align="right">{money(row.totalPrincipalBorrowed)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-          </Paper>
+            <RankedBarChart
+              data={borrowers}
+              ariaLabel={t('dashboard.advancedInsights.frequentBorrowers')}
+              nameLabel={t('dashboard.advancedInsights.member')}
+              valueLabel={t('dashboard.advancedInsights.totalBorrowed')}
+              formatValue={money}
+              color={CHART_COLORS.blue}
+              detailColumns={[{ key: 'loans', label: t('dashboard.advancedInsights.loans') }]}
+            />
+          </InsightCard>
         ) : null}
 
         {showFinance ? (
-          <Paper
-            elevation={0}
-            data-testid="largest-active-investments-card"
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              p: { xs: 2, md: 2.5 },
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-            }}
+          <InsightCard
+            testId="largest-active-investments-card"
+            title={t('dashboard.advancedInsights.largestInvestments')}
+            hint={t('dashboard.advancedInsights.largestInvestmentsHint')}
+            emptyTestId="largest-active-investments-empty"
+            empty={t('dashboard.advancedInsights.largestInvestmentsEmpty')}
+            loading={query.isLoading}
+            hasRows={investments.length > 0}
           >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {t('dashboard.advancedInsights.largestInvestments')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {t('dashboard.advancedInsights.largestInvestmentsHint')}
-            </Typography>
-            {query.isLoading ? (
-              <Typography color="text.secondary">{t('common.loading')}</Typography>
-            ) : (data?.largestActiveInvestments ?? []).length === 0 ? (
-              <Typography color="text.secondary" data-testid="largest-active-investments-empty">
-                {t('dashboard.advancedInsights.largestInvestmentsEmpty')}
-              </Typography>
-            ) : (
-              <Box sx={{ overflowX: 'auto' }}>
-                <Table size="small" aria-label={t('dashboard.advancedInsights.largestInvestments')}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('dashboard.advancedInsights.investmentName')}</TableCell>
-                      <TableCell align="right">
-                        {t('dashboard.advancedInsights.originalCapital')}
-                      </TableCell>
-                      <TableCell align="right">
-                        {t('dashboard.advancedInsights.remainingCapital')}
-                      </TableCell>
-                      <TableCell align="right">
-                        {t('dashboard.advancedInsights.profitReturned')}
-                      </TableCell>
-                      <TableCell>{t('dashboard.advancedInsights.status')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(data?.largestActiveInvestments ?? []).map((row) => (
-                      <TableRow key={row.investmentId}>
-                        <TableCell sx={{ fontWeight: 600 }}>{row.name}</TableCell>
-                        <TableCell align="right">{money(row.originalCapital)}</TableCell>
-                        <TableCell align="right">{money(row.remainingCapital)}</TableCell>
-                        <TableCell align="right">{money(row.profitReturned)}</TableCell>
-                        <TableCell>{row.status}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-          </Paper>
+            <RankedBarChart
+              data={investments}
+              ariaLabel={t('dashboard.advancedInsights.largestInvestments')}
+              nameLabel={t('dashboard.advancedInsights.investmentName')}
+              valueLabel={t('dashboard.advancedInsights.remainingCapital')}
+              formatValue={money}
+              color={CHART_COLORS.purple}
+              detailColumns={[
+                {
+                  key: 'originalCapital',
+                  label: t('dashboard.advancedInsights.originalCapital'),
+                  format: (value) => money(value),
+                },
+                {
+                  key: 'profitReturned',
+                  label: t('dashboard.advancedInsights.profitReturned'),
+                  format: (value) => money(value),
+                },
+                { key: 'status', label: t('dashboard.advancedInsights.status') },
+              ]}
+            />
+          </InsightCard>
         ) : null}
       </Stack>
 
       {showLoans ? (
-        <Paper
-          elevation={0}
-          data-testid="repayment-reliability-card"
-          sx={{
-            mt: 2,
-            p: { xs: 2, md: 2.5 },
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            {t('dashboard.advancedInsights.repaymentReliability')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {t('dashboard.advancedInsights.repaymentReliabilityHint')}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-            {t('dashboard.advancedInsights.repaymentReliabilityMinSample', {
+        <Box sx={{ mt: 2 }}>
+          <InsightCard
+            testId="repayment-reliability-card"
+            title={t('dashboard.advancedInsights.repaymentReliability')}
+            hint={t('dashboard.advancedInsights.repaymentReliabilityHint')}
+            note={t('dashboard.advancedInsights.repaymentReliabilityMinSample', {
               count: reliability?.minimumSample ?? 3,
             })}
-          </Typography>
-          {query.isLoading ? (
-            <Typography color="text.secondary">{t('common.loading')}</Typography>
-          ) : reliabilityMembers.length === 0 ? (
-            <Typography color="text.secondary" data-testid="repayment-reliability-empty">
-              {t('dashboard.advancedInsights.repaymentReliabilityEmpty')}
-            </Typography>
-          ) : (
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="small" aria-label={t('dashboard.advancedInsights.repaymentReliability')}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('dashboard.advancedInsights.member')}</TableCell>
-                    <TableCell sx={{ minWidth: 140 }}>
-                      {t('dashboard.advancedInsights.onTimeRate')}
-                    </TableCell>
-                    <TableCell align="right">{t('dashboard.advancedInsights.onTime')}</TableCell>
-                    <TableCell align="right">{t('dashboard.advancedInsights.paidLate')}</TableCell>
-                    <TableCell align="right">{t('dashboard.advancedInsights.pastDue')}</TableCell>
-                    <TableCell align="right">{t('dashboard.advancedInsights.evaluated')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {reliabilityMembers.map((row) => {
-                    const rate = Number(row.onTimeRate) || 0
-                    return (
-                      <TableRow key={row.memberId}>
-                        <TableCell>{memberLink(row.memberId, row.displayName)}</TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {formatRate(row.onTimeRate)}
-                            </Typography>
-                            <LinearProgress
-                              variant="determinate"
-                              value={Math.max(0, Math.min(100, rate))}
-                              aria-label={formatRate(row.onTimeRate)}
-                              sx={{ height: 6, borderRadius: 1 }}
-                            />
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="right">{row.installmentsPaidOnTime}</TableCell>
-                        <TableCell align="right">{row.installmentsPaidLate}</TableCell>
-                        <TableCell align="right">{row.installmentsUnpaidPastDue}</TableCell>
-                        <TableCell align="right">{row.installmentsDue}</TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </Box>
-          )}
-        </Paper>
+            emptyTestId="repayment-reliability-empty"
+            empty={t('dashboard.advancedInsights.repaymentReliabilityEmpty')}
+            loading={query.isLoading}
+            hasRows={reliabilityData.length > 0}
+          >
+            <StackedShareBarChart
+              data={reliabilityData}
+              ariaLabel={t('dashboard.advancedInsights.repaymentReliability')}
+            />
+          </InsightCard>
+        </Box>
       ) : null}
     </Box>
+  )
+}
+
+function InsightCard({
+  title,
+  hint,
+  note,
+  empty,
+  emptyTestId,
+  loading,
+  hasRows,
+  testId,
+  children,
+}: {
+  title: string
+  hint: string
+  note?: string
+  empty: string
+  emptyTestId: string
+  loading?: boolean
+  hasRows: boolean
+  testId: string
+  children: ReactNode
+}) {
+  const { t } = useTranslation()
+  return (
+    <Paper
+      elevation={0}
+      data-testid={testId}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        p: { xs: 2, md: 2.5 },
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+      }}
+    >
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: note ? 0.5 : 1.5 }}>
+        {hint}
+      </Typography>
+      {note ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+          {note}
+        </Typography>
+      ) : null}
+
+      {loading ? (
+        <Skeleton variant="rounded" height={140} aria-label={t('common.loading')} />
+      ) : !hasRows ? (
+        <Typography color="text.secondary" data-testid={emptyTestId}>
+          {empty}
+        </Typography>
+      ) : (
+        children
+      )}
+    </Paper>
   )
 }
