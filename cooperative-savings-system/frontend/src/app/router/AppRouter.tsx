@@ -1,11 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AppLayout } from '@/layouts/AppLayout'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { LandingPage } from '@/pages/LandingPage'
 import { AboutPage } from '@/pages/AboutPage'
 import { ContactPage } from '@/pages/ContactPage'
-import { PrivacyPage } from '@/pages/PrivacyPage'
 import { TermsPage } from '@/pages/TermsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { LoginSuccessSplashPage } from '@/pages/LoginSuccessSplashPage'
@@ -52,6 +51,9 @@ import { AuthBootstrap } from './AuthBootstrap'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 
+/** The retired standalone privacy page. Kept only so old links still land somewhere useful. */
+const LEGACY_PRIVACY_PATH = '/privacy'
+
 export function AppRouter() {
   return (
     <BrowserRouter>
@@ -61,7 +63,8 @@ export function AppRouter() {
             <Route path={ROUTES.home} element={<LandingPage />} />
             <Route path={ROUTES.about} element={<AboutPage />} />
             <Route path={ROUTES.contact} element={<ContactPage />} />
-            <Route path={ROUTES.privacy} element={<PrivacyPage />} />
+            {/* The standalone privacy page is gone; old links land on the privacy section of the Terms. */}
+            <Route path={LEGACY_PRIVACY_PATH} element={<Navigate to={`${ROUTES.terms}#privacy`} replace />} />
             <Route path={ROUTES.terms} element={<TermsPage />} />
           </Route>
 

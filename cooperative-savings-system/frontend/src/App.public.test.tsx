@@ -64,16 +64,21 @@ describe('App public site', () => {
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
     contact.unmount()
 
-    go('/privacy')
-    const privacy = render(<App />)
-    expect(await screen.findByTestId('privacy-page')).toBeInTheDocument()
-    expect(screen.getByTestId('privacy-placeholder')).toHaveTextContent(/being finalized/i)
-    privacy.unmount()
-
     go('/terms')
     render(<App />)
     expect(await screen.findByTestId('terms-page')).toBeInTheDocument()
-    expect(screen.getByTestId('terms-placeholder')).toHaveTextContent(/being finalized/i)
+    expect(screen.getByTestId('terms-effective')).toHaveTextContent('3 October 2026')
+    expect(screen.getByRole('heading', { level: 2, name: 'Acceptable use' })).toBeInTheDocument()
+  })
+
+  it('sends old /privacy links to the privacy section of the Terms', async () => {
+    go('/privacy')
+    render(<App />)
+    expect(await screen.findByTestId('terms-page')).toBeInTheDocument()
+    expect(screen.queryByTestId('privacy-page')).not.toBeInTheDocument()
+    expect(window.location.pathname).toBe('/terms')
+    expect(window.location.hash).toBe('#privacy')
+    expect(screen.getByRole('heading', { level: 2, name: 'Privacy and personal data' })).toBeInTheDocument()
   })
 
   it('routes landing CTAs to login and signup', async () => {
@@ -92,7 +97,8 @@ describe('App public site', () => {
     render(<App />)
     const footer = await screen.findByTestId('public-footer')
     expect(within(footer).getByRole('link', { name: 'About' })).toHaveAttribute('href', ROUTES.about)
-    expect(within(footer).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', ROUTES.privacy)
+    // there is no standalone privacy page any more; privacy is a section of the Terms
+    expect(within(footer).queryByRole('link', { name: /privacy/i })).not.toBeInTheDocument()
     expect(within(footer).getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute(
       'href',
       ROUTES.terms,

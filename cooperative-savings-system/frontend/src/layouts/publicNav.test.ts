@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPublicNavActive, publicNavTarget, publicPrimaryLinks } from './publicNav'
+import { isPublicNavActive, publicFooterLinks, publicNavTarget, publicPrimaryLinks } from './publicNav'
 import { ROUTES } from '@/shared/constants/routes'
 
 describe('publicNav', () => {
@@ -7,6 +7,12 @@ describe('publicNav', () => {
     const pricing = publicPrimaryLinks.find((l) => l.hash === 'pricing')
     expect(pricing).toBeTruthy()
     expect(publicNavTarget(pricing!)).toEqual({ pathname: ROUTES.home, hash: 'pricing' })
+  })
+
+  it('has no privacy page link in the header or footer, and keeps Terms and Contact in the footer', () => {
+    const all = [...publicPrimaryLinks, ...publicFooterLinks]
+    expect(all.some((l) => l.path === '/privacy' || l.labelKey.includes('privacy'))).toBe(false)
+    expect(publicFooterLinks.map((l) => l.path)).toEqual(expect.arrayContaining([ROUTES.terms, ROUTES.contact, ROUTES.about]))
   })
 
   it('activates Pricing only when hash matches', () => {

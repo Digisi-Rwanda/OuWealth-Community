@@ -18,7 +18,6 @@ export const publicPrimaryLinks: PublicNavLink[] = [
 export const publicFooterLinks: PublicNavLink[] = [
   { labelKey: 'public.nav.about', path: ROUTES.about },
   { labelKey: 'public.nav.pricing', path: ROUTES.home, hash: 'pricing' },
-  { labelKey: 'public.nav.privacy', path: ROUTES.privacy },
   { labelKey: 'public.nav.terms', path: ROUTES.terms },
   { labelKey: 'public.nav.contact', path: ROUTES.contact },
   { labelKey: 'public.nav.login', path: ROUTES.login },

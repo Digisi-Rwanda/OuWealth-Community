@@ -11,6 +11,7 @@ describe('public sitemap', () => {
     expect(xml).toContain('https://wealthcommunity.ousuite.com/')
     expect(xml).toContain('https://wealthcommunity.ousuite.com/about')
     expect(xml).toContain('https://wealthcommunity.ousuite.com/contact')
+    // privacy is a section of the Terms now; the retired page must never be advertised
     expect(xml).not.toContain('/privacy')
     expect(xml).not.toContain('/terms')
     expect(xml).not.toContain('/login')

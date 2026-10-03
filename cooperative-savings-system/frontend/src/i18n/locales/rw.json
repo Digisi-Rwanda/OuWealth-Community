@@ -11,7 +11,6 @@
       "pricing": "Ibiciro",
       "about": "Abo turi bo",
       "contact": "Twandikire",
-      "privacy": "Politiki y'ibanga",
       "terms": "Amabwiriza n'amasezerano",
       "login": "Injira",
       "createScheme": "Kora Ikimina"
@@ -203,15 +202,90 @@
         "tooLong": "Ibi ni birebire cyane"
       }
     },
-    "privacy": {
-      "title": "Politiki y'ibanga",
-      "effective": "Itariki itangira gukurikizwa: izatangazwa hamwe na politiki yemewe.",
-      "placeholder": "Politiki yacu y'ibanga irategurwa kandi izatangazwa hano."
-    },
     "terms": {
-      "title": "Amabwiriza n'amasezerano",
-      "effective": "Itariki itangira gukurikizwa: izatangazwa hamwe n'amabwiriza yemewe.",
-      "placeholder": "Amabwiriza n'amasezerano yacu arategurwa kandi azatangazwa hano."
+      "title": "Amabwiriza n’Amategeko",
+      "effective": "Itariki itangiriraho: {{date}}",
+      "effectiveDate": "3 Ukwakira 2026",
+      "sections": {
+        "acceptance": {
+          "title": "Kwemera aya mabwiriza",
+          "body": [
+            "Iyo ufunguye konti cyangwa ugakoresha OuWealth Community (\"OuWealth\", \"twe\"), uba wemeye aya Mabwiriza n’Amategeko. Niba utayemera, ntukoreshe urubuga."
+          ]
+        },
+        "service": {
+          "title": "Serivisi",
+          "body": [
+            "OuWealth ni porogaramu y'ibimina: abanyamuryango, imisanzu, inguzanyo, ibihano, ikigega cy'imibereho, ishoramari, kugabana inyungu na raporo. Turi abatanga porogaramu. Ntituri banki, ntituri abatanga inguzanyo kandi ntituri abajyanama mu by'imari."
+          ]
+        },
+        "accounts": {
+          "title": "Konti n’inshingano",
+          "body": [
+            "Bika ibanga ry'uko winjira kandi utange amakuru nyayo. Abaperezida n'abayobozi b'ibimina bashinzwe inyandiko binjiza n'ibyemezo batanga, no gukoresha neza uruhare rwa buri wese."
+          ]
+        },
+        "data": {
+          "title": "Amakuru y'ikimina",
+          "body": [
+            "Ikimina cyawe ni cyo gifite inyandiko zacyo. Ugomba kuba ufite uburenganzira bwo kwinjiza amakuru y'abanyamuryango bawe. Dufata amakuru bwite nk'uko bisobanurwa mu gice cy'Ibanga n'amakuru bwite kiri hasi."
+          ]
+        },
+        "privacy": {
+          "title": "Ibanga n’amakuru bwite",
+          "body": [
+            "Dutunganya amakuru bwite gusa kugira ngo dukoreshe OuWealth. Muri rusange, ni aya:"
+          ],
+          "items": [
+            "Amakuru ya konti: amazina, izina ry'ukoresha, imeri na nimero ya telefone.",
+            "Amakuru y'abanyamuryango: nimero y'indangamuntu n'aderesi aho ikimina cyawe kibibika, itariki yo kwinjira n'imigabane.",
+            "Amakuru y'imari y'ikimina: imisanzu, inguzanyo, ibihano, ikigega cy'imibereho, ishoramari, kugabana inyungu n'ibikorwa by'amafaranga.",
+            "Dosiye ushyiraho, nk'ibimenyetso by'uko wishyuye, n'amateka y'uko winjiye n'ay'ibikorwa byakozwe."
+          ],
+          "after": [
+            "Tuyakoresha mu gutanga no kurinda serivisi, kwereka inyandiko abo ikimina cyawe cyemereye, kohereza ubutumwa bukuri ku kimina cyawe, gucunga ifatabuguzi no gutanga ubufasha.",
+            "Kugera ku makuru bishingira ku ruhare: buri munyamuryango abona ibyo uruhare rwe rwemerera, naho abayobozi babyemerewe babona gusa inyandiko z'ikimina cyabo. Ntitugurisha amakuru bwite.",
+            "Ushobora gusaba kubona, gukosora, kugabanya imikoreshereze cyangwa gusiba amakuru yawe bwite, kwanga ko amwe mu mikoreshereze yayo ikorwa, no gukoresha ubundi burenganzira bwose bwemewe n'amategeko akurikizwa. Zimwe mu nyandiko z'imari n'iz'igenzura zishobora gukomeza kubikwa."
+          ],
+          "contact": "Uwo muvugana ku bijyanye n'ibanga"
+        },
+        "subscription": {
+          "title": "Ifatabuguzi",
+          "body": [
+            "Ibimina bishya bishobora gutangira n'igihe cy'igerageza kitishyurwa, hanyuma bigakomeza ku ifatabuguzi ry'ukwezi cyangwa iry'umwaka ku giciro kigaragara ku rubuga rwacu. Ifatabuguzi nirirangira, ibikorwa byandika cyangwa bihindura amakuru y'imari bishobora kugabanywa kugeza ryongeye gushyirwaho. Kureba inyandiko no gukuramo raporo biracyakunda."
+          ]
+        },
+        "use": {
+          "title": "Imikoreshereze yemewe",
+          "body": [
+            "Ntukoreshe urubuga mu bikorwa binyuranyije n'amategeko, ntugire undi uha konti yawe, ntushyireho dosiye zangiza, kandi ntugerageze guhungabanya cyangwa kwinjira muri serivisi ku ngufu."
+          ]
+        },
+        "liability": {
+          "title": "Kuboneka n’inshingano",
+          "body": [
+            "Dukora ibishoboka ngo urubuga rukomeze kuboneka kandi rube ruhamye, ariko ntidushobora kwemeza ko rutazigera ruhagarara. Mu rugero amategeko yemera, OuWealth ntiryirengera igihombo kitaziguye cyangwa ibyemezo bifashwe hashingiwe ku nyandiko zinjijwe n'abanyamuryango b'ikimina."
+          ]
+        },
+        "suspension": {
+          "title": "Guhagarika konti",
+          "body": [
+            "Dushobora guhagarika konti ica aya mabwiriza cyangwa ishyira urubuga cyangwa abandi bakoresha mu kaga."
+          ]
+        },
+        "changes": {
+          "title": "Impinduka n’amategeko agenga",
+          "body": [
+            "Dushobora kuvugurura aya mabwiriza tugashyira hano verisiyo nshya ifite itariki nshya itangiriraho. Gukomeza gukoresha OuWealth bivuze ko wemeye ivugurura. Aya mabwiriza agengwa n'amategeko ya Repubulika y'u Rwanda."
+          ]
+        },
+        "contact": {
+          "title": "Twandikire",
+          "body": [
+            "Ufite ibibazo kuri aya mabwiriza? Vugana n'itsinda ryacu ry'ubufasha:"
+          ]
+        }
+      }
     }
   },
   "nav": {

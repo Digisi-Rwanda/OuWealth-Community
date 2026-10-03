@@ -11,7 +11,6 @@
       "pricing": "Pricing",
       "about": "About",
       "contact": "Contact",
-      "privacy": "Privacy Policy",
       "terms": "Terms & Conditions",
       "login": "Login",
       "createScheme": "Create Saving Scheme"
@@ -203,15 +202,90 @@
         "tooLong": "This is too long"
       }
     },
-    "privacy": {
-      "title": "Privacy Policy",
-      "effective": "Effective date: to be published with the approved policy.",
-      "placeholder": "Our Privacy Policy is being finalized and will be published here."
-    },
     "terms": {
       "title": "Terms & Conditions",
-      "effective": "Effective date: to be published with the approved terms.",
-      "placeholder": "Our Terms & Conditions are being finalized and will be published here."
+      "effective": "Effective date: {{date}}",
+      "effectiveDate": "3 October 2026",
+      "sections": {
+        "acceptance": {
+          "title": "Acceptance of these terms",
+          "body": [
+            "By creating an account or using OuWealth Community (\"OuWealth\", \"we\"), you agree to these Terms & Conditions. If you do not agree, please do not use the platform."
+          ]
+        },
+        "service": {
+          "title": "The service",
+          "body": [
+            "OuWealth is software for Saving Schemes: members, contributions, loans, fines, social fund, investments, payouts and reports. We are a software provider. We are not a bank, a lender or a financial adviser."
+          ]
+        },
+        "accounts": {
+          "title": "Accounts and responsibilities",
+          "body": [
+            "Keep your sign-in details private and give accurate information. Scheme presidents and officers are responsible for the records they enter and the approvals they give, and for using roles correctly."
+          ]
+        },
+        "data": {
+          "title": "Scheme data",
+          "body": [
+            "Your scheme owns its records. You must have the right to enter the information of your members. We handle personal information as described in the Privacy and personal data section below."
+          ]
+        },
+        "privacy": {
+          "title": "Privacy and personal data",
+          "body": [
+            "We process personal information only to run OuWealth. In general, this means:"
+          ],
+          "items": [
+            "Account details: name, username, email and phone number.",
+            "Member records: national ID and address where your scheme records them, membership date and shares.",
+            "Financial records of the scheme: contributions, loans, fines, social fund, investments, payouts and transactions.",
+            "Files you upload, such as proof of payment, and sign-in and audit records."
+          ],
+          "after": [
+            "We use it to provide and secure the service, show records to the people your scheme authorizes, send notifications about your scheme, manage subscriptions and give support.",
+            "Access depends on role: each member sees what their role allows, and authorized officers see the records of their own Saving Scheme only. We do not sell personal information.",
+            "You may request access, correction, restriction or deletion of your personal information, object to certain processing, and exercise other rights available under applicable law. Some financial and audit records may have to be kept."
+          ],
+          "contact": "Privacy contact"
+        },
+        "subscription": {
+          "title": "Subscription",
+          "body": [
+            "New schemes may start with a free trial, then continue on a monthly or annual subscription at the prices shown on our website. When a subscription ends, actions that record or change financial data may be limited until it is renewed. Reading records and downloading reports stays available."
+          ]
+        },
+        "use": {
+          "title": "Acceptable use",
+          "body": [
+            "Do not use the platform for unlawful activity, share your account, upload harmful files, or try to disrupt or break into the service."
+          ]
+        },
+        "liability": {
+          "title": "Availability and liability",
+          "body": [
+            "We work to keep the platform available and accurate, but we cannot promise it will never be interrupted. To the extent the law allows, OuWealth is not responsible for indirect losses or for decisions made from records entered by scheme members."
+          ]
+        },
+        "suspension": {
+          "title": "Suspension",
+          "body": [
+            "We may suspend an account that breaks these terms or puts the platform or other users at risk."
+          ]
+        },
+        "changes": {
+          "title": "Changes and governing law",
+          "body": [
+            "We may update these terms and will publish the new version here with a new effective date. Continuing to use OuWealth means you accept the update. These terms are governed by the laws of the Republic of Rwanda."
+          ]
+        },
+        "contact": {
+          "title": "Contact us",
+          "body": [
+            "Questions about these terms? Reach our support team:"
+          ]
+        }
+      }
     }
   },
   "nav": {

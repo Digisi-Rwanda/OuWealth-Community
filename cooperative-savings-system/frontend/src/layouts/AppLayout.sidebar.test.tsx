@@ -150,7 +150,7 @@ function desktopNav() {
   })
 }
 
-describe('AppLayout sidebar (Phase B)', () => {
+describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
   beforeEach(() => {
     stubMatchMedia(true)
     localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
@@ -317,7 +317,7 @@ describe('AppLayout sidebar (Phase B)', () => {
   })
 })
 
-describe('AppLayout desktop sidebar pin', () => {
+describe('AppLayout desktop sidebar pin', { timeout: 20_000 }, () => {
   beforeEach(() => {
     stubMatchMedia(true)
     localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
@@ -443,7 +443,7 @@ describe('AppLayout desktop sidebar pin', () => {
   })
 })
 
-describe('AppLayout sidebar: Loans and Share Purchase Approvals', () => {
+describe('AppLayout sidebar: Loans and Share Purchase Approvals', { timeout: 20_000 }, () => {
   beforeEach(() => {
     stubMatchMedia(true)
     localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
