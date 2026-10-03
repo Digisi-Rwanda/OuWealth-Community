@@ -505,19 +505,10 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
           <Box sx={{ mb: 3 }}>
             <MemberQuickActionsSection cooperativeId={cooperativeId} />
           </Box>
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 2.5, md: 3 },
-              mb: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              bgcolor: 'rgba(27, 77, 140, 0.04)',
-            }}
-          >
+          {/* The section draws its own bordered surface, so it is not wrapped in another Paper. */}
+          <Box sx={{ mb: 3 }}>
             <MyMemberStatusSection cooperativeId={cooperativeId} compact />
-          </Paper>
+          </Box>
         </>
       ) : null}
 

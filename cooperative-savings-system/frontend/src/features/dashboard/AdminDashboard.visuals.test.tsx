@@ -2,6 +2,7 @@ import { ThemeProvider } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -288,6 +289,46 @@ describe('dashboard section order and quick actions', () => {
     expect(screen.getAllByTestId('member-quick-actions')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: new RegExp(en.shares.buy.action) })).toHaveLength(1)
     expect(screen.queryByTestId('scheme-at-a-glance')).not.toBeInTheDocument()
+  })
+})
+
+describe('My Member Status is collapsible on every dashboard', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const statusButton = () => screen.getByRole('button', { name: en.dashboard.member.myStatusTitle })
+  const card = () => screen.queryByText(en.dashboard.member.totalContributions)
+
+  it('officer dashboard: header visible, cards collapsed, Quick Actions still first and not duplicated', async () => {
+    renderAdmin([ROLE_PRESIDENT])
+    const status = await screen.findByTestId('my-member-status')
+    const actions = await screen.findByTestId('member-quick-actions')
+    expect(precedes(actions, status)).toBe(true)
+    expect(statusButton()).toHaveAttribute('aria-expanded', 'false')
+    expect(card()).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('member-quick-actions')).toHaveLength(1)
+    expect(screen.getAllByTestId('my-member-status')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: new RegExp(en.shares.buy.action) })).toHaveLength(1)
+  })
+
+  it('officer dashboard: expanding shows the cards inside the section, once', async () => {
+    renderAdmin([ROLE_PRESIDENT])
+    await userEvent.click(await screen.findByRole('button', { name: en.dashboard.member.myStatusTitle }))
+    const status = screen.getByTestId('my-member-status')
+    expect(await within(status).findAllByText(en.dashboard.member.totalContributions)).toHaveLength(1)
+    expect(screen.getAllByTestId('member-quick-actions')).toHaveLength(1)
+  })
+
+  it('member dashboard: header visible, cards collapsed, then shown once on click', async () => {
+    wrap(<MemberDashboard cooperativeId="coop-1" />, [ROLE_MEMBER], [])
+    const actions = await screen.findByTestId('member-quick-actions')
+    const status = await screen.findByTestId('my-member-status')
+    expect(precedes(actions, status)).toBe(true)
+    expect(statusButton()).toHaveAttribute('aria-expanded', 'false')
+    expect(card()).not.toBeInTheDocument()
+
+    await userEvent.click(statusButton())
+    expect(await within(status).findAllByText(en.dashboard.member.totalContributions)).toHaveLength(1)
+    expect(screen.getAllByTestId('member-quick-actions')).toHaveLength(1)
   })
 })
 
