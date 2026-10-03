@@ -10,6 +10,7 @@ import {
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import type { SpecialContributionSubmitRequest } from '@/shared/types/specialContribution'
 import {
   specialSubmitDefaults,
@@ -59,6 +60,7 @@ export function SubmitSpecialDialog({
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>{t('contributions.campaigns.submitTitle')}</DialogTitle>
       <form
+        noValidate
         onSubmit={handleSubmit((values) => {
           onSubmit(toSpecialSubmitPayload(values))
         })}
@@ -75,17 +77,23 @@ export function SubmitSpecialDialog({
             <TextField
               type="date"
               label={t('contributions.fields.paymentDate')}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+              error={Boolean(errors.contributionDate)}
+              helperText={errors.contributionDate?.message}
               {...register('contributionDate')}
               fullWidth
             />
             <TextField
               label={t('contributions.fields.reference')}
+              error={Boolean(errors.paymentReference)}
+              helperText={errors.paymentReference?.message}
               {...register('paymentReference')}
               fullWidth
             />
             <TextField
               label={t('contributions.fields.notes')}
+              error={Boolean(errors.notes)}
+              helperText={errors.notes?.message}
               {...register('notes')}
               fullWidth
               multiline

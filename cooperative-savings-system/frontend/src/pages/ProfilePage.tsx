@@ -41,16 +41,21 @@ interface ProfileFormValues {
 }
 
 const profileSchema = yup.object({
-  firstName: yup.string().trim().required('First name is required').max(128),
-  lastName: yup.string().trim().required('Last name is required').max(128),
+  firstName: yup.string().trim().required('First name is required').max(128, 'At most 128 characters'),
+  lastName: yup.string().trim().required('Last name is required').max(128, 'At most 128 characters'),
   username: yup
     .string()
     .trim()
     .required('Username is required')
     .min(3, 'At least 3 characters')
-    .max(64)
+    .max(64, 'At most 64 characters')
     .matches(/^[a-zA-Z0-9._-]+$/, 'Use letters, numbers, . _ - only'),
-  email: yup.string().trim().required('Email is required').email('Enter a valid email'),
+  email: yup
+    .string()
+    .trim()
+    .required('Email is required')
+    .max(255, 'At most 255 characters')
+    .email('Enter a valid email'),
 })
 
 function fromUser(user: AuthUser): ProfileFormValues {

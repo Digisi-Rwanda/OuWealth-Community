@@ -355,3 +355,81 @@ describe('LoanRequestPanel hook lifecycle', () => {
     })
   })
 })
+
+describe('LoanRequestPanel input validation', { timeout: 30_000 }, () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchLoanSettingsMock.mockResolvedValue(settings)
+    fetchMembersMock.mockResolvedValue(members)
+    fetchPreviewMock.mockResolvedValue(applicationForm)
+    fetchEligibilityMock.mockResolvedValue({
+      eligible: true,
+      reason: 'Eligible',
+      existingLoanAmount: '0',
+      amountAlreadyRepaid: '0',
+      outstandingBalance: '0',
+    } as never)
+    previewRepaymentMock.mockResolvedValue({
+      prorataEnabled: false,
+      scheduleFinalized: true,
+      installments: [],
+    } as never)
+    createLoanMock.mockResolvedValue({ id: 'loan-1' } as never)
+  })
+
+  async function openForm() {
+    renderPanel(memberUser, false)
+    await screen.findByRole('heading', { name: 'Apply for Loan' })
+    await waitFor(() => expect(fetchEligibilityMock).toHaveBeenCalled())
+  }
+
+  const amountField = () => screen.getByLabelText(/^amount/i)
+  const submitButton = () => screen.getByRole('button', { name: 'Apply for Loan' })
+
+  it.each(['abc', '1e3', '-5'])(
+    'typing "%s" as the amount does not crash the page or reach the preview/eligibility requests',
+    async (typed) => {
+      await openForm()
+      fetchEligibilityMock.mockClear()
+      await userEvent.type(amountField(), typed)
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(screen.queryByTestId('render-crashed')).not.toBeInTheDocument()
+      // Intermediate keystrokes such as "1" are valid amounts; the invalid text itself must never be sent.
+      const isValid = (value: unknown) => value === '' || /^\d+(\.\d+)?$/.test(String(value))
+      for (const call of previewRepaymentMock.mock.calls) expect(isValid(call[1].amount)).toBe(true)
+      for (const call of fetchEligibilityMock.mock.calls) expect(isValid(call[2])).toBe(true)
+    },
+  )
+
+  it('does not submit an invalid amount and keeps what was typed', async () => {
+    await openForm()
+    await userEvent.type(amountField(), 'abc')
+    await userEvent.type(screen.getByLabelText(/purpose/i), 'Farm inputs')
+    await userEvent.click(submitButton())
+    expect(await screen.findByText('Enter a valid amount')).toBeInTheDocument()
+    expect(createLoanMock).not.toHaveBeenCalled()
+    expect(amountField()).toHaveValue('abc')
+  })
+
+  it('does not submit a term above 600 months', async () => {
+    await openForm()
+    await userEvent.type(amountField(), '50000')
+    await userEvent.type(screen.getByLabelText(/purpose/i), 'Farm inputs')
+    await userEvent.type(screen.getByLabelText(/repayment period/i), '601')
+    await userEvent.click(submitButton())
+    expect(await screen.findByText('Enter a valid term in months (1 to 600)')).toBeInTheDocument()
+    expect(createLoanMock).not.toHaveBeenCalled()
+  })
+
+  it('submits a valid request exactly once', async () => {
+    await openForm()
+    await userEvent.type(amountField(), '50000')
+    await userEvent.type(screen.getByLabelText(/purpose/i), 'Farm inputs')
+    await userEvent.type(screen.getByLabelText(/repayment period/i), '12')
+    await userEvent.click(submitButton())
+    await waitFor(() => expect(createLoanMock).toHaveBeenCalledTimes(1))
+    expect(createLoanMock.mock.calls[0][1]).toMatchObject({ amount: '50000', termMonths: 12 })
+  })
+})

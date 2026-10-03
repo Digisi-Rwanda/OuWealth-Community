@@ -10,7 +10,7 @@ import {
 import { yupResolver } from '@hookform/resolvers/yup'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as yup from 'yup'
@@ -21,6 +21,8 @@ import {
 } from '@/shared/api/contributions'
 import { uploadCooperativeFile } from '@/shared/api/files'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { checkMoney, isFutureIsoDate, isValidIsoDate } from '@/shared/utils/formValidation'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 
 interface FormValues {
   year: string
@@ -46,7 +48,7 @@ const defaults: FormValues = {
   year: period.year,
   month: period.month,
   amount: '',
-  paymentDate: new Date().toISOString().slice(0, 10),
+  paymentDate: todayInKigaliIso(),
   paymentReference: '',
   evidenceFileKey: '',
   notes: '',
@@ -59,6 +61,7 @@ interface MemberContributionSubmitPanelProps {
 export function MemberContributionSubmitPanel({
   cooperativeId,
 }: MemberContributionSubmitPanelProps) {
+  const [remainingForValidation, setRemainingForValidation] = useState<string | null>(null)
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
@@ -70,17 +73,42 @@ export function MemberContributionSubmitPanel({
       yup.object({
         year: yup.string().trim().required(),
         month: yup.string().trim().required(),
+        // Backend: @DecimalMin("0.01") and the service rejects more than the remaining amount.
         amount: yup
           .string()
           .trim()
           .required(t('contributions.submit.amountRequired'))
-          .matches(/^\d+(\.\d{1,4})?$/, t('contributions.submit.amountInvalid')),
-        paymentDate: yup.string().trim().required(t('contributions.submit.dateRequired')),
-        paymentReference: yup.string().trim().max(128).default(''),
+          .test('amount', t('contributions.submit.amountInvalid'), (value) => {
+            const problem = checkMoney(value, { min: '0.01' })
+            return problem === null || problem === 'required'
+          })
+          .test(
+            'amount-remaining',
+            t('contributions.submit.amountExceedsRemaining', { remaining: remainingForValidation }),
+            (value) => {
+              if (remainingForValidation == null || checkMoney(value, { min: '0.01' }) !== null) return true
+              return Number(value) <= Number(remainingForValidation)
+            },
+          ),
+        paymentDate: yup
+          .string()
+          .trim()
+          .required(t('contributions.submit.dateRequired'))
+          .test('valid-date', t('contributions.validation.dateInvalid'), (value) => !value || isValidIsoDate(value))
+          .test(
+            'not-future',
+            t('contributions.validation.dateFuture'),
+            (value) => !value || !isValidIsoDate(value) || !isFutureIsoDate(value, todayInKigaliIso()),
+          ),
+        paymentReference: yup
+          .string()
+          .trim()
+          .max(128, t('contributions.validation.referenceTooLong'))
+          .default(''),
         evidenceFileKey: yup.string().trim().max(512).default(''),
-        notes: yup.string().trim().max(2000).default(''),
+        notes: yup.string().trim().max(2000, t('contributions.validation.notesTooLong')).default(''),
       }),
-    [t],
+    [t, remainingForValidation],
   )
 
   const {
@@ -107,8 +135,16 @@ export function MemberContributionSubmitPanel({
   })
 
   const preview = previewQuery.data
+  const previewRemaining =
+    preview?.remainingAmount != null && checkMoney(String(preview.remainingAmount), { allowZero: true }) === null
+      ? String(preview.remainingAmount)
+      : null
+  useEffect(() => {
+    setRemainingForValidation(previewRemaining)
+  }, [previewRemaining])
   const remaining = Number(preview?.remainingAmount ?? 0)
-  const payingNow = Number(amount || 0)
+  // Text that is not a valid amount counts as 0 here so the summary keeps rendering while the user types.
+  const payingNow = checkMoney(amount, { allowZero: true }) === null ? Number(amount) : 0
   const remainingAfter = Math.max(0, remaining - payingNow)
 
   const uploadMutation = useMutation({
@@ -152,6 +188,7 @@ export function MemberContributionSubmitPanel({
   return (
     <Box
       component="form"
+      noValidate
       onSubmit={handleSubmit((values) => submitMutation.mutate(values))}
       sx={{
         maxWidth: 560,
@@ -243,7 +280,7 @@ export function MemberContributionSubmitPanel({
         <TextField
           type="date"
           label={t('contributions.fields.paymentDate')}
-          slotProps={{ inputLabel: { shrink: true } }}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
           error={Boolean(errors.paymentDate)}
           helperText={errors.paymentDate?.message}
           {...register('paymentDate')}
@@ -251,6 +288,8 @@ export function MemberContributionSubmitPanel({
         />
         <TextField
           label={t('contributions.fields.reference')}
+          error={Boolean(errors.paymentReference)}
+          helperText={errors.paymentReference?.message}
           {...register('paymentReference')}
           fullWidth
         />
@@ -288,6 +327,8 @@ export function MemberContributionSubmitPanel({
         </Stack>
         <TextField
           label={t('contributions.fields.notes')}
+          error={Boolean(errors.notes)}
+          helperText={errors.notes?.message}
           {...register('notes')}
           fullWidth
           multiline

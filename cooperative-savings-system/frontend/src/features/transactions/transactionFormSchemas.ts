@@ -4,16 +4,11 @@ import type {
   IncomeExpenseCreateRequest,
   LedgerEffect,
 } from '@/shared/types/incomeExpense'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
+import { dateField, moneyField } from '@/shared/utils/yupRules'
 
-const positiveMoney = yup
-  .string()
-  .trim()
-  .required('Amount is required')
-  .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-  .test('positive', 'Amount must be greater than 0', (v) => {
-    if (!v) return false
-    return Number(v) > 0
-  })
+/** Backend: @DecimalMin("0.01"), at most 15 whole digits and 4 decimals. */
+const positiveMoney = moneyField({ label: 'Amount' })
 
 export type TransactionCreateFormValues = {
   category: IncomeExpenseCategory | ''
@@ -29,7 +24,7 @@ export type TransactionCreateFormValues = {
 export const transactionCreateDefaults = (): TransactionCreateFormValues => ({
   category: '',
   amount: '',
-  transactionDate: new Date().toISOString().slice(0, 10),
+  transactionDate: todayInKigaliIso(),
   reference: '',
   description: '',
   notes: '',
@@ -48,7 +43,8 @@ export const transactionCreateSchema: yup.ObjectSchema<TransactionCreateFormValu
       .required('Select a category')
       .test('required-category', 'Select a category', (v) => Boolean(v)),
     amount: positiveMoney,
-    transactionDate: yup.string().trim().required('Transaction date is required'),
+    // Backend: @NotNull @PastOrPresent.
+    transactionDate: dateField({ label: 'Transaction date' }),
     reference: yup.string().trim().max(128).default(''),
     description: yup.string().trim().max(2000).default(''),
     notes: yup.string().trim().max(2000).default(''),
@@ -58,10 +54,10 @@ export const transactionCreateSchema: yup.ObjectSchema<TransactionCreateFormValu
       .default('')
       .when('category', {
         is: 'ADJUSTMENT',
+        // The backend requires a credit/debit effect for adjustments. An empty string is not "missing" to
+        // yup's required(), so check the value explicitly.
         then: (schema) =>
-          schema
-            .oneOf(['CREDIT', 'DEBIT'], 'Select credit or debit')
-            .required('Select credit or debit'),
+          schema.test('adjustment-effect', 'Select credit or debit', (value) => value === 'CREDIT' || value === 'DEBIT'),
         otherwise: (schema) => schema.notRequired(),
       }),
     supportingFileKey: yup.string().trim().max(512).default(''),

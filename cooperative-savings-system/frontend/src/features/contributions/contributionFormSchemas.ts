@@ -1,6 +1,7 @@
 import * as yup from 'yup'
 import type { SpecialCampaignCreateRequest } from '@/shared/types/specialContribution'
 import type { SpecialContributionSubmitRequest } from '@/shared/types/specialContribution'
+import { dateField, moneyField } from '@/shared/utils/yupRules'
 
 const nonNegativeMoney = yup
   .string()
@@ -36,18 +37,18 @@ export const campaignFormSchema: yup.ObjectSchema<CampaignFormValues> = yup.obje
   name: yup.string().trim().required('Name is required').max(200),
   purpose: yup.string().trim().max(500).default(''),
   description: yup.string().trim().max(2000).default(''),
-  suggestedAmount: yup
-    .string()
-    .trim()
-    .default('')
-    .test('money', 'Enter a valid non-negative amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v)),
-  targetAmount: yup
-    .string()
-    .trim()
-    .default('')
-    .test('money', 'Enter a valid non-negative amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v)),
-  startDate: yup.string().trim().default(''),
-  endDate: yup.string().trim().default(''),
+  suggestedAmount: moneyField({ allowEmpty: true, allowZero: true, label: 'Suggested amount' }),
+  targetAmount: moneyField({ allowEmpty: true, allowZero: true, label: 'Target amount' }),
+  startDate: dateField({ required: false, noFuture: false, label: 'Start date' }),
+  endDate: dateField({ required: false, noFuture: false, label: 'End date' }).test(
+    'range',
+    'End date must be on or after the start date',
+    function (value) {
+      const start = String(this.parent.startDate ?? '').trim()
+      if (!value || !start) return true
+      return value >= start
+    },
+  ),
 })
 
 export function toCampaignCreatePayload(values: CampaignFormValues): SpecialCampaignCreateRequest {
@@ -77,8 +78,9 @@ export const specialSubmitDefaults: SpecialSubmitFormValues = {
 }
 
 export const specialSubmitSchema: yup.ObjectSchema<SpecialSubmitFormValues> = yup.object({
-  amount: nonNegativeMoney,
-  contributionDate: yup.string().trim().default(''),
+  // Backend: @DecimalMin("0.01"); zero is rejected.
+  amount: moneyField({ label: 'Amount' }),
+  contributionDate: dateField({ required: false, label: 'Contribution date' }),
   paymentReference: yup.string().trim().max(128).default(''),
   notes: yup.string().trim().max(2000).default(''),
 })

@@ -755,6 +755,17 @@ public class ContributionService {
             throw new BusinessException(
                     "This member has a contribution awaiting Accountant review and cannot be edited from the period grid");
         }
+        // A waived or cancelled contribution keeps its terminal state. applyLine derives the status from the
+        // amounts when none is sent, so without this guard an omitted status would silently reopen it.
+        // Re-stating the same terminal status explicitly is the only batch input that leaves it unchanged.
+        boolean existing = contribution.getId() != null;
+        boolean terminal = contribution.getStatus() == ContributionStatus.WAIVED
+                || contribution.getStatus() == ContributionStatus.CANCELLED;
+        if (existing && terminal && line.getStatus() != contribution.getStatus()) {
+            throw new BusinessException("This member's contribution is "
+                    + contribution.getStatus().name().toLowerCase(Locale.ROOT)
+                    + " and cannot be changed from the period grid");
+        }
 
         applyLine(contribution, cooperative, line, recordedBy);
         contribution = contributionRepository.save(contribution);

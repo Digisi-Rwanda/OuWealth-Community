@@ -18,6 +18,8 @@ import { uploadCooperativeFile } from '@/shared/api/files'
 import { fetchShareValuation, submitSharePurchase } from '@/shared/api/shares'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { exceedsLength, isFutureIsoDate, isValidIsoDate } from '@/shared/utils/formValidation'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 
 interface BuySharesDialogProps {
   open: boolean
@@ -54,7 +56,17 @@ export function BuySharesDialog({
   const price = Number(valuation?.currentShareValue ?? 0)
   const shares = Number(quantity)
   const validQuantity = Number.isInteger(shares) && shares >= 1 && shares <= 1000
-  const validDate = Boolean(paymentDate.trim())
+  // Backend: paymentDate @NotNull @PastOrPresent, reference @Size(128), notes @Size(2000).
+  const dateProblem = !paymentDate.trim()
+    ? t('contributions.submit.dateRequired')
+    : !isValidIsoDate(paymentDate)
+      ? t('contributions.validation.dateInvalid')
+      : isFutureIsoDate(paymentDate, todayInKigaliIso())
+        ? t('contributions.validation.dateFuture')
+        : null
+  const validDate = dateProblem === null
+  const referenceTooLong = exceedsLength(paymentReference, 128)
+  const notesTooLong = exceedsLength(notes, 2000)
   const hasProof = Boolean(evidenceFileKey.trim())
   const total = validQuantity ? price * shares : 0
 
@@ -72,7 +84,7 @@ export function BuySharesDialog({
 
   const resetForm = () => {
     setQuantity('1')
-    setPaymentDate(new Date().toISOString().slice(0, 10))
+    setPaymentDate(todayInKigaliIso())
     setPaymentReference('')
     setEvidenceFileKey('')
     setUploadedName(null)
@@ -116,6 +128,7 @@ export function BuySharesDialog({
     <Dialog
       open={open}
       onClose={() => {
+        if (uploadMutation.isPending || submitMutation.isPending) return
         resetForm()
         onClose()
       }}
@@ -167,7 +180,9 @@ export function BuySharesDialog({
               label={t('contributions.fields.paymentDate')}
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+              error={!validDate}
+              helperText={dateProblem ?? undefined}
               required
               fullWidth
             />
@@ -175,6 +190,8 @@ export function BuySharesDialog({
               label={t('contributions.fields.reference')}
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
+              error={referenceTooLong}
+              helperText={referenceTooLong ? t('contributions.validation.referenceTooLong') : undefined}
               fullWidth
             />
             <Stack spacing={1}>
@@ -211,6 +228,8 @@ export function BuySharesDialog({
               label={t('contributions.fields.notes')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              error={notesTooLong}
+              helperText={notesTooLong ? t('contributions.validation.notesTooLong') : undefined}
               fullWidth
               multiline
               minRows={2}
@@ -220,6 +239,7 @@ export function BuySharesDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button
+          disabled={uploadMutation.isPending || submitMutation.isPending}
           onClick={() => {
             resetForm()
             onClose()
@@ -234,6 +254,8 @@ export function BuySharesDialog({
             !valuation?.canPurchase ||
             !validQuantity ||
             !validDate ||
+            referenceTooLong ||
+            notesTooLong ||
             !hasProof ||
             submitMutation.isPending
           }

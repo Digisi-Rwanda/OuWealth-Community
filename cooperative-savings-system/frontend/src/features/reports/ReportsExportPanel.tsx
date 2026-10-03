@@ -27,7 +27,6 @@ import {
 } from '@/shared/api/reports'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
-import { CONTRIBUTION_STATUSES } from '@/shared/types/contribution'
 import { LEDGER_TRANSACTION_TYPES } from '@/shared/types/ledger'
 import { memberDisplayName } from '@/shared/types/member'
 import { MEMBER_PRIMARY_REPORTS, STAFF_PRIMARY_REPORTS } from '@/shared/types/report'
@@ -35,7 +34,9 @@ import {
   defaultExportFilename,
   defaultReportFromDate,
   defaultReportToDate,
+  isReportStatusValidFor,
   isValidReportWhatsAppRecipient,
+  reportStatusOptions,
   reportSupportsFromTo,
   reportSupportsMember,
   reportSupportsStatus,
@@ -114,6 +115,19 @@ export function ReportsExportPanel({
     ? reportSupportsTransactionType(reportType, selectedMeta)
     : false
 
+  const statusOptions = reportStatusOptions(reportType)
+  const phoneInvalid =
+    Boolean(recipientPhone.trim()) && !isValidReportWhatsAppRecipient(recipientPhone)
+
+  // An "All" filter must be visible: MUI renders nothing for an empty select value unless displayEmpty is set.
+  const allFilterSelect = (labelOf: (value: string) => string | undefined) => ({
+    select: {
+      displayEmpty: true,
+      renderValue: (value: unknown) => (value ? (labelOf(String(value)) ?? String(value)) : t('common.all')),
+    },
+    inputLabel: { shrink: true },
+  })
+
   const timelineIssue = validateReportTimeline(fromDate, toDate, today)
   const timelineValid = timelineIssue == null
 
@@ -122,7 +136,10 @@ export function ReportsExportPanel({
     fromDate,
     toDate,
     memberUserId: includeFilters && showMember && memberUserId ? memberUserId : null,
-    status: includeFilters && showStatus && status ? status : null,
+    status:
+      includeFilters && showStatus && status && isReportStatusValidFor(type, status)
+        ? status
+        : null,
     transactionType: includeFilters && showTxnType && transactionType ? transactionType : null,
   })
 
@@ -420,7 +437,11 @@ export function ReportsExportPanel({
           required
           label={t('reports.export.reportType')}
           value={reportType}
-          onChange={(e) => setReportType(e.target.value)}
+          onChange={(e) => {
+            setReportType(e.target.value)
+            // a status from the previous report type is meaningless for the new one
+            setStatus('')
+          }}
           fullWidth
         >
           {types.length === 0 ? (
@@ -449,6 +470,10 @@ export function ReportsExportPanel({
             value={memberUserId}
             onChange={(e) => setMemberUserId(e.target.value)}
             fullWidth
+            slotProps={allFilterSelect((id) => {
+              const member = (membersQuery.data?.content ?? []).find((m) => m.userId === id)
+              return member ? memberDisplayName(member) : undefined
+            })}
           >
             <MenuItem value="">{t('common.all')}</MenuItem>
             {(membersQuery.data?.content ?? []).map((member) => (
@@ -463,14 +488,18 @@ export function ReportsExportPanel({
           <TextField
             select
             label={t('reports.export.status')}
-            value={status}
+            value={isReportStatusValidFor(reportType, status) ? status : ''}
             onChange={(e) => setStatus(e.target.value)}
             fullWidth
+            slotProps={allFilterSelect((value) => {
+              const option = statusOptions.find((o) => o.value === value)
+              return option ? t(option.labelKey, { defaultValue: value }) : undefined
+            })}
           >
             <MenuItem value="">{t('common.all')}</MenuItem>
-            {CONTRIBUTION_STATUSES.map((s) => (
-              <MenuItem key={s} value={s}>
-                {t(`contributions.status.${s}`, { defaultValue: s })}
+            {statusOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {t(option.labelKey, { defaultValue: option.value })}
               </MenuItem>
             ))}
           </TextField>
@@ -483,6 +512,7 @@ export function ReportsExportPanel({
             value={transactionType}
             onChange={(e) => setTransactionType(e.target.value)}
             fullWidth
+            slotProps={allFilterSelect((value) => t(`ledger.types.${value}`, { defaultValue: value }))}
           >
             <MenuItem value="">{t('common.all')}</MenuItem>
             {LEDGER_TRANSACTION_TYPES.map((type) => (
@@ -532,11 +562,10 @@ export function ReportsExportPanel({
             label={t('reports.whatsapp.phone')}
             value={recipientPhone}
             onChange={(e) => setRecipientPhone(e.target.value)}
-            helperText={t('reports.whatsapp.phoneHint')}
-            error={
-              Boolean(recipientPhone.trim()) &&
-              !isValidReportWhatsAppRecipient(recipientPhone)
+            helperText={
+              phoneInvalid ? t('reports.whatsapp.phoneInvalid') : t('reports.whatsapp.phoneHint')
             }
+            error={phoneInvalid}
             disabled={shareMutation.isPending}
             placeholder="07XXXXXXXX"
           />

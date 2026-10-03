@@ -4,22 +4,15 @@ import type {
   InvestmentLossRequest,
   InvestmentReturnCreateRequest,
 } from '@/shared/types/investment'
+import { isValidIsoDate } from '@/shared/utils/formValidation'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
+import { dateField, moneyField } from '@/shared/utils/yupRules'
 
-const positiveMoney = yup
-  .string()
-  .trim()
-  .required('Amount is required')
-  .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-  .test('positive', 'Amount must be greater than 0', (v) => {
-    if (!v) return false
-    return Number(v) > 0
-  })
+/** Backend: @DecimalMin("0.01"), at most 15 whole digits and 4 decimals. */
+const positiveMoney = moneyField({ label: 'Amount' })
 
-const optionalMoney = yup
-  .string()
-  .trim()
-  .default('')
-  .test('money', 'Enter a valid amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v))
+/** Backend: portions and expected return @DecimalMin(0); blank means none. */
+const optionalMoney = (label: string) => moneyField({ allowEmpty: true, allowZero: true, label })
 
 export type InvestmentCreateFormValues = {
   name: string
@@ -43,8 +36,18 @@ export const investmentCreateSchema: yup.ObjectSchema<InvestmentCreateFormValues
   yup.object({
     name: yup.string().trim().required('Name is required').max(200),
     amount: positiveMoney,
-    expectedReturnAmount: optionalMoney,
-    expectedReturnDate: yup.string().trim().default(''),
+    expectedReturnAmount: optionalMoney('Expected return amount'),
+    // Backend: @FutureOrPresent.
+    expectedReturnDate: yup
+      .string()
+      .trim()
+      .default('')
+      .test('expected-date', 'Enter a valid expected return date', (v) => !v || isValidIsoDate(v))
+      .test(
+        'expected-not-past',
+        'Expected return date cannot be in the past',
+        (v) => !v || !isValidIsoDate(v) || v >= todayInKigaliIso(),
+      ),
     description: yup.string().trim().max(2000).default(''),
     documentFileKey: yup.string().trim().max(512).default(''),
   })
@@ -71,7 +74,7 @@ export type InvestmentReturnFormValues = {
 }
 
 export const investmentReturnDefaults = (): InvestmentReturnFormValues => ({
-  returnDate: new Date().toISOString().slice(0, 10),
+  returnDate: todayInKigaliIso(),
   capitalPortion: '',
   profitPortion: '',
   notes: '',
@@ -80,9 +83,9 @@ export const investmentReturnDefaults = (): InvestmentReturnFormValues => ({
 
 export const investmentReturnSchema: yup.ObjectSchema<InvestmentReturnFormValues> =
   yup.object({
-    returnDate: yup.string().trim().required('Return date is required'),
-    capitalPortion: optionalMoney,
-    profitPortion: optionalMoney,
+    returnDate: dateField({ label: 'Return date' }),
+    capitalPortion: optionalMoney('Capital portion'),
+    profitPortion: optionalMoney('Profit portion'),
     notes: yup.string().trim().max(2000).default(''),
     reference: yup.string().trim().max(128).default(''),
   }).test(
@@ -91,7 +94,12 @@ export const investmentReturnSchema: yup.ObjectSchema<InvestmentReturnFormValues
     function (value) {
       const capital = Number(value?.capitalPortion) || 0
       const profit = Number(value?.profitPortion) || 0
-      return capital > 0 || profit > 0
+      if (capital > 0 || profit > 0) return true
+      // Attach to a field so the message is displayed (an object-level error has no input to show it on).
+      return this.createError({
+        path: 'capitalPortion',
+        message: 'Enter a capital and/or profit portion greater than 0',
+      })
     },
   )
 

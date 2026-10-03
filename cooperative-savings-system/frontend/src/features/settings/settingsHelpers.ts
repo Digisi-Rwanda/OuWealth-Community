@@ -4,6 +4,7 @@ import {
   type CooperativeSettings,
   type CooperativeSettingsUpdateRequest,
 } from '@/shared/types/cooperativeSettings'
+import { checkMoney } from '@/shared/utils/formValidation'
 
 export interface CooperativeSettingsFormValues {
   timezone: string
@@ -47,8 +48,10 @@ export function validateBaseSharePrice(value: string): true | string {
   if (trimmed === '') {
     return true
   }
-  const parsed = Number(trimmed)
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  const problem = checkMoney(trimmed)
+  if (problem === 'precision') return 'Use at most 4 decimal places'
+  if (problem === 'tooLarge') return 'Base share price is too large'
+  if (problem) {
     return 'Base share price must be greater than zero, or left empty to clear'
   }
   return true

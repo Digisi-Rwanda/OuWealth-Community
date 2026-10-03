@@ -19,6 +19,7 @@ import { useSnackbar } from 'notistack'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { getErrorMessage } from '@/shared/api/client'
 import { fetchMembers } from '@/shared/api/members'
 import { uploadCooperativeFile } from '@/shared/api/files'
@@ -298,6 +299,7 @@ export function SocialContributionsPanel({
       {hideSubmit ? null : (
       <Box
         component="form"
+        noValidate
         onSubmit={handleSubmit((values) => submitMutation.mutate(values))}
         sx={{
           maxWidth: 560,
@@ -343,7 +345,7 @@ export function SocialContributionsPanel({
           <TextField
             type="date"
             label={t('socialFund.fields.contributionDate')}
-            slotProps={{ inputLabel: { shrink: true } }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
             error={Boolean(errors.contributionDate)}
             helperText={errors.contributionDate?.message}
             {...register('contributionDate')}
@@ -501,6 +503,11 @@ export function SocialContributionsPanel({
             label={t('socialFund.contributions.rejectionReason')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
+            required
+            error={rejectReason.trim().length > 2000}
+            helperText={
+              rejectReason.trim().length > 2000 ? t('common.validation.reasonTooLong') : undefined
+            }
             fullWidth
             multiline
             minRows={2}
@@ -508,11 +515,13 @@ export function SocialContributionsPanel({
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setReviewTarget(null)}>{t('common.cancel')}</Button>
+          <Button onClick={() => setReviewTarget(null)} disabled={reviewMutation.isPending}>
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="contained"
             color="error"
-            disabled={!rejectReason.trim() || reviewMutation.isPending}
+            disabled={!rejectReason.trim() || rejectReason.trim().length > 2000 || reviewMutation.isPending}
             onClick={() => reviewMutation.mutate()}
           >
             {t('socialFund.actions.reject')}

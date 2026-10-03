@@ -35,6 +35,46 @@ const STATUS_TYPES = new Set([
   'PAYOUTS',
 ])
 
+/**
+ * Status values the backend accepts per report type (it silently ignores a value that does not belong to the
+ * report's own status enum, which would export unfiltered data). Each entry carries its i18n label key.
+ */
+const STATUS_OPTIONS: Record<string, { values: string[]; labelPrefix: string }> = {
+  CONTRIBUTIONS: {
+    values: ['PENDING', 'PARTIALLY_PAID', 'PAID', 'WAIVED', 'CANCELLED'],
+    labelPrefix: 'contributions.status',
+  },
+  SPECIAL_CONTRIBUTIONS: { values: ['PENDING', 'APPROVED', 'REJECTED'], labelPrefix: 'contributions.specialStatus' },
+  INCOME: { values: ['PENDING', 'APPROVED', 'REJECTED'], labelPrefix: 'transactions.status' },
+  EXPENSES: { values: ['PENDING', 'APPROVED', 'REJECTED'], labelPrefix: 'transactions.status' },
+  LOANS: {
+    values: ['PENDING', 'AWAITING_SECOND_APPROVAL', 'APPROVED', 'ACTIVE', 'OVERDUE', 'REJECTED', 'CLOSED', 'WRITTEN_OFF'],
+    labelPrefix: 'loans.status',
+  },
+  FINES: { values: ['UNPAID', 'PARTIALLY_PAID', 'PAID', 'WAIVED', 'CANCELLED'], labelPrefix: 'fines.status' },
+  INVESTMENTS: {
+    values: ['PLANNED', 'ACTIVE', 'PARTIALLY_RETURNED', 'COMPLETED', 'CANCELLED', 'LOSS_RECORDED'],
+    labelPrefix: 'investments.status',
+  },
+  PAYOUTS: { values: ['DRAFT', 'PREVIEWED', 'CONFIRMED', 'PAID', 'CANCELLED'], labelPrefix: 'payouts.status' },
+}
+
+export interface ReportStatusOption {
+  value: string
+  labelKey: string
+}
+
+export function reportStatusOptions(type: string): ReportStatusOption[] {
+  const entry = STATUS_OPTIONS[type]
+  if (!entry) return []
+  return entry.values.map((value) => ({ value, labelKey: `${entry.labelPrefix}.${value}` }))
+}
+
+/** A status filter is valid when it is empty (All) or belongs to the selected report type. */
+export function isReportStatusValidFor(type: string, status: string): boolean {
+  return !status || reportStatusOptions(type).some((option) => option.value === status)
+}
+
 const TRANSACTION_TYPE_TYPES = new Set(['FINANCIAL_LEDGER', 'FULL_FINANCIAL'])
 
 const NO_DATE_RANGE_TYPES = new Set(['MEMBERS'])

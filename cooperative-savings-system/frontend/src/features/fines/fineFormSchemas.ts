@@ -3,16 +3,10 @@ import type { FineCalculationMode } from '@/shared/types/fine'
 import type { FineCreateRequest } from '@/shared/types/fine'
 import type { FinePaymentCreateRequest, FinePaymentMethod } from '@/shared/types/fine'
 import type { FineSettingsUpdateRequest } from '@/shared/types/fine'
+import { checkMoney } from '@/shared/utils/formValidation'
+import { dateField, moneyField } from '@/shared/utils/yupRules'
 
-const positiveMoney = yup
-  .string()
-  .trim()
-  .required('Amount is required')
-  .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-  .test('positive', 'Amount must be greater than 0', (v) => {
-    if (!v) return false
-    return Number(v) > 0
-  })
+const positiveMoney = moneyField({ label: 'Amount' })
 
 export type FineIssueFormValues = {
   memberUserId: string
@@ -50,10 +44,23 @@ export const fineIssueSchema: yup.ObjectSchema<FineIssueFormValues> = yup.object
     .when('calculationMode', {
       is: 'FIXED',
       then: (schema) =>
-        schema
-          .required('Amount is required')
-          .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-          .test('positive', 'Amount must be greater than 0', (v) => Boolean(v) && Number(v) > 0),
+        schema.test('fixed-amount', function (value) {
+          const problem = checkMoney(value, { min: '0.01' })
+          return problem === null
+            ? true
+            : this.createError({
+                message:
+                  problem === 'required'
+                    ? 'Amount is required'
+                    : problem === 'invalid'
+                      ? 'Enter a valid amount'
+                      : problem === 'precision'
+                        ? 'Use at most 4 decimal places'
+                        : problem === 'tooLarge'
+                          ? 'Amount is too large'
+                          : 'Amount must be at least 0.01',
+              })
+        }),
       otherwise: (schema) => schema.default(''),
     }),
   baseAmount: yup
@@ -65,28 +72,42 @@ export const fineIssueSchema: yup.ObjectSchema<FineIssueFormValues> = yup.object
       then: (schema) =>
         schema
           .required('Base amount is required')
-          .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-          .test('nonneg', 'Amount must be 0 or greater', (v) => Boolean(v) && Number(v) >= 0),
+          .test('base-money', 'Enter a valid amount (0 or more, up to 4 decimals)', (v) =>
+            checkMoney(v, { allowZero: true }) === null,
+          )
+          .test('progressive-total', 'The fine total must be greater than 0', function (value) {
+            // Total = base + daily increment x overdue days. When the increment is blank the backend uses the
+            // cooperative's setting, so only a total that is provably 0 is rejected here.
+            const increment = String(this.parent.dailyIncrement ?? '').trim()
+            const days = String(this.parent.overdueDays ?? '').trim()
+            if (checkMoney(value, { allowZero: true }) !== null || !increment) return true
+            if (checkMoney(increment, { allowZero: true }) !== null) return true
+            const total = Number(value) + Number(increment) * Number(days || 0)
+            return total > 0
+          }),
       otherwise: (schema) => schema.default(''),
     }),
-  dailyIncrement: yup
-    .string()
-    .trim()
-    .default('')
-    .test('money', 'Enter a valid amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v)),
+  dailyIncrement: moneyField({ allowEmpty: true, allowZero: true, label: 'Daily increment' }),
   overdueDays: yup
     .string()
     .trim()
     .default('')
-    .test('days', 'Enter a valid number of days', (v) => {
+    .test('days', 'Enter a whole number of days (0 to 100000)', (v) => {
       if (!v) return true
-      const n = Number(v)
-      return Number.isInteger(n) && n >= 0
+      return /^\d+$/.test(v) && Number(v) <= 100000
     }),
   reason: yup.string().trim().required('Reason is required').max(2000),
   notes: yup.string().trim().max(2000).default(''),
-  issuedDate: yup.string().trim().default(''),
-  dueDate: yup.string().trim().default(''),
+  issuedDate: dateField({ required: false, label: 'Issued date' }),
+  dueDate: dateField({ required: false, noFuture: false, label: 'Due date' }).test(
+    'due-after-issued',
+    'Due date must be on or after the issued date',
+    function (value) {
+      const issued = String(this.parent.issuedDate ?? '').trim()
+      if (!value || !issued) return true
+      return value >= issued
+    },
+  ),
 })
 
 export function toFineCreatePayload(values: FineIssueFormValues): FineCreateRequest {
@@ -141,7 +162,7 @@ export function finePaymentSchema(
       if (outstanding == null || Number.isNaN(outstanding)) return true
       return Number(v) <= outstanding
     }),
-    paymentDate: yup.string().trim().required('Payment date is required'),
+    paymentDate: dateField({ label: 'Payment date' }),
     paymentMethod: yup
       .mixed<FinePaymentMethod>()
       .oneOf(['CASH', 'MOBILE_MONEY', 'BANK_TRANSFER', 'OTHER'])

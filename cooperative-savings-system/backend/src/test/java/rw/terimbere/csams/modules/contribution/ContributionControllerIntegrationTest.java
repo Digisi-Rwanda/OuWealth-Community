@@ -29,6 +29,7 @@ import rw.terimbere.csams.modules.notification.channel.EmailNotificationPublishe
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.membership.OpeningShareBalances;
 import rw.terimbere.csams.modules.membership.repository.CooperativeMembershipRepository;
+import rw.terimbere.csams.modules.contribution.entity.Contribution;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
 import rw.terimbere.csams.modules.ledger.entity.LedgerEntryStatus;
@@ -414,6 +415,181 @@ class ContributionControllerIntegrationTest {
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.contributions[0].id").value(contributionId.toString()));
+    }
+
+    @Test
+    void periodGrid_returnsMemberName_thatTheFrontendGridMapsToTheDisplayName() throws Exception {
+        // The grid row carries memberName (not fullName/username); the frontend maps memberName -> fullName.
+        mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .param("year", "2026")
+                        .param("month", "4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].memberName").value("Contrib Member"))
+                .andExpect(jsonPath("$.data[0].fullName").doesNotExist());
+    }
+
+    @Test
+    void batchUpsert_rejectsOverlongReferenceOrNotes_andPersistsNothing() throws Exception {
+        long before = contributionRepository.count();
+        String tooLongReference = "r".repeat(129);
+        String tooLongNotes = "n".repeat(2001);
+
+        for (String field : new String[] {
+            "\"paymentReference\": \"" + tooLongReference + "\"", "\"notes\": \"" + tooLongNotes + "\""
+        }) {
+            mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                            .header("Authorization", "Bearer " + superAdminToken)
+                            .param("year", "2026")
+                            .param("month", "6")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"lines":[{"memberUserId":"%s","paidAmount":500,"paymentDate":"2026-06-01",%s}]}
+                                    """.formatted(memberUserId, field)))
+                    .andExpect(status().isBadRequest());
+        }
+        assertThat(contributionRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void batchUpsert_acceptsReferenceAndNotesAtTheLimit() throws Exception {
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .param("year", "2026")
+                        .param("month", "7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lines":[{"memberUserId":"%s","paidAmount":500,"paymentDate":"2026-07-01",
+                                "paymentReference":"%s","notes":"%s"}]}
+                                """.formatted(memberUserId, "r".repeat(128), "n".repeat(2000))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void patch_rejectsOverlongReference() throws Exception {
+        MvcResult save = mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .param("year", "2026")
+                        .param("month", "8")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lines":[{"memberUserId":"%s","paidAmount":500,"paymentDate":"2026-08-01"}]}
+                                """.formatted(memberUserId)))
+                .andExpect(status().isOk())
+                .andReturn();
+        UUID contributionId = UUID.fromString(objectMapper
+                .readTree(save.getResponse().getContentAsString())
+                .path("data")
+                .path(0)
+                .path("id")
+                .asText());
+
+        mockMvc.perform(patch("/api/v1/cooperatives/" + cooperativeId + "/contributions/" + contributionId)
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"paymentReference\":\"" + "r".repeat(129) + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ------------------------------------------------------------ batch must not reopen or overwrite locked rows
+
+    private String batchBody(String extraLineFields, String paidAmount) {
+        return """
+                {"lines":[{"memberUserId":"%s","paidAmount":%s,"paymentDate":"2026-09-01"%s}]}
+                """.formatted(memberUserId, paidAmount, extraLineFields);
+    }
+
+    private void putBatch(int month, String body, int expectedStatus) throws Exception {
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .param("year", "2026")
+                        .param("month", String.valueOf(month))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().is(expectedStatus));
+    }
+
+    private Contribution stored(int month) {
+        return contributionRepository
+                .findByCooperativeIdAndMemberUserIdAndYearAndMonth(cooperativeId, memberUserId, 2026, month)
+                .orElseThrow();
+    }
+
+    @Test
+    void batch_cannotImplicitlyReopenAWaivedContribution() throws Exception {
+        putBatch(9, batchBody(",\"status\":\"WAIVED\"", "0"), 200);
+        assertThat(stored(9).getStatus()).isEqualTo(ContributionStatus.WAIVED);
+
+        // no status in the request: previously this silently turned the contribution back into PAID
+        putBatch(9, batchBody("", "1000"), 422);
+        // an explicit attempt to set an ordinary status is not a reopen path either
+        putBatch(9, batchBody(",\"status\":\"PAID\"", "1000"), 422);
+
+        Contribution after = stored(9);
+        assertThat(after.getStatus()).isEqualTo(ContributionStatus.WAIVED);
+        assertThat(after.getPaidAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void batch_cannotImplicitlyReopenACancelledContribution() throws Exception {
+        putBatch(10, batchBody(",\"status\":\"CANCELLED\"", "0"), 200);
+        assertThat(stored(10).getStatus()).isEqualTo(ContributionStatus.CANCELLED);
+
+        putBatch(10, batchBody("", "1000"), 422);
+
+        Contribution after = stored(10);
+        assertThat(after.getStatus()).isEqualTo(ContributionStatus.CANCELLED);
+        assertThat(after.getPaidAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void batch_restatingTheSameTerminalStatusStillWorks() throws Exception {
+        putBatch(11, batchBody(",\"status\":\"WAIVED\"", "0"), 200);
+        putBatch(11, batchBody(",\"status\":\"WAIVED\"", "0"), 200);
+        assertThat(stored(11).getStatus()).isEqualTo(ContributionStatus.WAIVED);
+    }
+
+    @Test
+    void batch_cannotOverwriteAContributionAwaitingReview() throws Exception {
+        String memberToken = loginAccessToken(memberUsername, memberPassword);
+        MvcResult submit = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/contributions/submissions")
+                        .header("Authorization", "Bearer " + memberToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"amount": 1000.0000, "paymentDate": "2026-04-05", "paymentReference": "MOMO-9"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reviewStatus").value("PENDING"))
+                .andReturn();
+        JsonNode submitted = objectMapper.readTree(submit.getResponse().getContentAsString()).path("data");
+        int year = submitted.path("year").asInt();
+        int month = submitted.path("month").asInt();
+
+        mockMvc.perform(put("/api/v1/cooperatives/" + cooperativeId + "/contributions/period")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .param("year", String.valueOf(year))
+                        .param("month", String.valueOf(month))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(batchBody("", "250")))
+                .andExpect(status().isUnprocessableEntity());
+
+        Contribution after = contributionRepository
+                .findByCooperativeIdAndMemberUserIdAndYearAndMonth(cooperativeId, memberUserId, year, month)
+                .orElseThrow();
+        assertThat(after.getReviewStatus()).isEqualTo(rw.terimbere.csams.modules.contribution.entity.ContributionReviewStatus.PENDING);
+        assertThat(after.getPaidAmount()).isEqualByComparingTo("0");
+        assertThat(after.getPaymentReference()).isEqualTo("MOMO-9");
+    }
+
+    @Test
+    void batch_ordinaryRecordingAndCorrectionStillSucceed() throws Exception {
+        putBatch(12, batchBody("", "500"), 200);
+        assertThat(stored(12).getStatus()).isEqualTo(ContributionStatus.PARTIALLY_PAID);
+
+        putBatch(12, batchBody("", "1000"), 200);
+        Contribution after = stored(12);
+        assertThat(after.getStatus()).isEqualTo(ContributionStatus.PAID);
+        assertThat(after.getPaidAmount()).isEqualByComparingTo("1000");
     }
 
     @Test

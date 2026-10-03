@@ -214,7 +214,8 @@ export function SpecialCampaignsPanel({
       {
         id: 'member',
         label: t('contributions.fields.member'),
-        render: (row) => row.fullName || row.username || row.memberUserId,
+        // Never fall back to the UUID: it means nothing to the reader.
+        render: (row) => row.fullName || row.username || t('contributions.unnamedMember'),
       },
       {
         id: 'amount',

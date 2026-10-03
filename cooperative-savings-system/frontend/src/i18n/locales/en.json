@@ -594,6 +594,10 @@
     }
   },
   "common": {
+    "validation": {
+      "reasonRequired": "A reason is required.",
+      "reasonTooLong": "The reason must be 2000 characters or fewer."
+    },
     "loading": "Loading…",
     "retry": "Retry",
     "save": "Save",
@@ -835,14 +839,28 @@
     "savePeriod": "Save period",
     "saveSuccess": "Contributions saved",
     "confirmSaveTitle": "Save monthly contributions?",
-    "confirmSaveMessage": "Save {{count}} member lines for {{month}}/{{year}}?",
+    "confirmSaveMessage_one": "Save changes for {{count}} member for {{month}}/{{year}}?",
+    "confirmSaveMessage_other": "Save changes for {{count}} members for {{month}}/{{year}}?",
+    "noChanges": "No changes to save",
+    "lock": {
+      "terminal": "{{status}}: this contribution cannot be edited from the monthly grid.",
+      "review": "Awaiting Accountant review: approve or reject it in Approvals."
+    },
     "periodEmptyTitle": "No members for this period",
     "periodEmptyDescription": "Active members will appear here once registered.",
     "historyEmptyTitle": "No contributions found",
     "historyEmptyDescription": "Try adjusting filters or record a monthly period.",
     "memberHistoryEmptyDescription": "No contribution records for this member yet.",
+    "unnamedMember": "Unnamed member",
     "validation": {
-      "nonNegativeAmount": "Paid amounts must be zero or greater."
+      "nonNegativeAmount": "Paid amounts must be zero or greater.",
+      "amountInvalid": "Enter a valid amount with at most 4 decimals.",
+      "amountTooLarge": "Amount is too large.",
+      "dateInvalid": "Enter a valid payment date.",
+      "dateFuture": "Payment date cannot be in the future.",
+      "referenceTooLong": "Reference must be 128 characters or fewer.",
+      "notesTooLong": "Notes must be 2000 characters or fewer.",
+      "rowsInvalid": "Fix the highlighted rows before saving (invalid rows: {{rows}}). First: {{member}}."
     },
     "fields": {
       "member": "Member",
@@ -883,6 +901,7 @@
       "success": "Contribution submitted for Accountant review",
       "amountRequired": "Amount is required",
       "amountInvalid": "Enter a valid amount",
+      "amountExceedsRemaining": "Amount cannot exceed the remaining amount ({{remaining}}).",
       "dateRequired": "Date is required",
       "paymentMonth": "Which month are you paying for?",
       "shares": "Number of shares",

@@ -4,16 +4,10 @@ import type {
   SocialDisbursementCreateRequest,
   SocialFundSettingsUpdateRequest,
 } from '@/shared/types/socialFund'
+import { dateField, moneyField } from '@/shared/utils/yupRules'
 
-const positiveMoney = yup
-  .string()
-  .trim()
-  .required('Amount is required')
-  .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount')
-  .test('positive', 'Amount must be greater than 0', (v) => {
-    if (!v) return false
-    return Number(v) > 0
-  })
+/** Backend: @DecimalMin("0.01"), at most 15 whole digits and 4 decimals. */
+const positiveMoney = moneyField({ label: 'Amount' })
 
 export type SocialContributionFormValues = {
   amount: string
@@ -36,7 +30,7 @@ export const socialContributionDefaults: SocialContributionFormValues = {
 export const socialContributionSchema: yup.ObjectSchema<SocialContributionFormValues> =
   yup.object({
     amount: positiveMoney,
-    contributionDate: yup.string().trim().required('Contribution date is required'),
+    contributionDate: dateField({ label: 'Contribution date' }),
     paymentReference: yup.string().trim().max(128).default(''),
     notes: yup.string().trim().max(2000).default(''),
     memberUserId: yup.string().trim().default(''),
@@ -83,7 +77,7 @@ export const socialDisbursementSchema: yup.ObjectSchema<SocialDisbursementFormVa
     beneficiaryMemberUserId: yup.string().trim().required('Select a beneficiary'),
     amount: positiveMoney,
     reason: yup.string().trim().required('Reason is required').max(2000),
-    disbursementDate: yup.string().trim().required('Disbursement date is required'),
+    disbursementDate: dateField({ label: 'Disbursement date' }),
     notes: yup.string().trim().max(2000).default(''),
     evidenceFileKey: yup.string().trim().max(512).default(''),
   })
@@ -113,11 +107,8 @@ export const socialFundSettingsDefaults: SocialFundSettingsFormValues = {
 
 export const socialFundSettingsSchema: yup.ObjectSchema<SocialFundSettingsFormValues> =
   yup.object({
-    suggestedContributionAmount: yup
-      .string()
-      .trim()
-      .default('')
-      .test('money', 'Enter a valid amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v)),
+    // Backend: @NotNull @DecimalMin(0.0). Blank is not silently sent as null; enter 0 for "no suggestion".
+    suggestedContributionAmount: moneyField({ allowZero: true, label: 'Suggested amount' }),
     enabled: yup.boolean().required(),
   })
 

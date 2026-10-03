@@ -14,7 +14,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as yup from 'yup'
 import type { AssignPresidentRequest } from '@/shared/types/cooperative'
-import { isValidCooperativeEmail } from '@/shared/utils/rwandaCooperative'
+import { findPresidentProblem } from './presidentValidation'
 
 type PresidentMode = 'new' | 'existing'
 
@@ -52,25 +52,17 @@ const schema: yup.ObjectSchema<AssignPresidentFormValues> = yup
     temporaryPassword: yup.string().default(''),
   })
   .test('president-fields', function (values) {
-    if (values.presidentMode === 'existing') {
-      if (!values.userId?.trim()) {
-        return this.createError({ path: 'userId', message: 'Enter the existing user ID' })
-      }
-      return true
-    }
-    if (!values.username?.trim()) {
-      return this.createError({ path: 'username', message: 'Username is required' })
-    }
-    if (!values.email?.trim() || !isValidCooperativeEmail(values.email)) {
-      return this.createError({ path: 'email', message: 'Enter a valid email address' })
-    }
-    if (!values.firstName?.trim()) {
-      return this.createError({ path: 'firstName', message: 'First name is required' })
-    }
-    if (!values.lastName?.trim()) {
-      return this.createError({ path: 'lastName', message: 'Last name is required' })
-    }
-    return true
+    const problem = findPresidentProblem({
+      mode: values.presidentMode,
+      userId: values.userId ?? '',
+      username: values.username ?? '',
+      email: values.email ?? '',
+      firstName: values.firstName ?? '',
+      lastName: values.lastName ?? '',
+      phone: values.phone ?? '',
+      temporaryPassword: values.temporaryPassword ?? '',
+    })
+    return problem ? this.createError({ path: problem.field, message: problem.message }) : true
   })
 
 interface AssignPresidentDialogProps {
@@ -118,7 +110,7 @@ export function AssignPresidentDialog({
                   firstName: values.firstName.trim(),
                   lastName: values.lastName.trim(),
                   phone: values.phone.trim() || undefined,
-                  temporaryPassword: values.temporaryPassword.trim() || undefined,
+                  temporaryPassword: values.temporaryPassword || undefined,
                 }
           onSubmit(payload)
         })}
@@ -186,13 +178,19 @@ export function AssignPresidentDialog({
                 <TextField
                   label={t('cooperatives.onboarding.presidentPhone')}
                   fullWidth
+                  error={Boolean(errors.phone)}
+                  helperText={errors.phone?.message}
                   {...register('phone')}
                 />
                 <TextField
                   label={t('cooperatives.onboarding.presidentTemporaryPassword')}
                   fullWidth
                   type="password"
-                  helperText={t('cooperatives.onboarding.presidentTemporaryPasswordHint')}
+                  error={Boolean(errors.temporaryPassword)}
+                  helperText={
+                    errors.temporaryPassword?.message ??
+                    t('cooperatives.onboarding.presidentTemporaryPasswordHint')
+                  }
                   {...register('temporaryPassword')}
                 />
               </>

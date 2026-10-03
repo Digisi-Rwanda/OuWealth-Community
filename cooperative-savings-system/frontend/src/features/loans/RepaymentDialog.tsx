@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import type { LoanRepaymentCreateRequest } from '@/shared/types/loan'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import {
   repaymentDefaults,
   repaymentSchema,
@@ -46,7 +47,7 @@ export function RepaymentDialog({
   })
 
   useEffect(() => {
-    if (open) reset(repaymentDefaults)
+    if (open) reset({ ...repaymentDefaults, paymentDate: todayInKigaliIso() })
   }, [open, reset])
 
   const handleClose = () => {
@@ -58,6 +59,7 @@ export function RepaymentDialog({
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>{t('loans.repayment.title')}</DialogTitle>
       <form
+        noValidate
         onSubmit={handleSubmit((values) => {
           onSubmit(toRepaymentPayload(values))
         })}
@@ -75,17 +77,23 @@ export function RepaymentDialog({
             <TextField
               type="date"
               label={t('loans.fields.paymentDate')}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+              error={Boolean(errors.paymentDate)}
+              helperText={errors.paymentDate?.message}
               {...register('paymentDate')}
               fullWidth
             />
             <TextField
               label={t('loans.fields.reference')}
+              error={Boolean(errors.paymentReference)}
+              helperText={errors.paymentReference?.message}
               {...register('paymentReference')}
               fullWidth
             />
             <TextField
               label={t('loans.fields.notes')}
+              error={Boolean(errors.notes)}
+              helperText={errors.notes?.message}
               {...register('notes')}
               fullWidth
               multiline

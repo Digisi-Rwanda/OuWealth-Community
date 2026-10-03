@@ -533,6 +533,37 @@ class FineControllerIntegrationTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void manualProgressiveFine_withAZeroTotal_isRejected() throws Exception {
+        String[] zeroTotals = {
+            "\"baseAmount\": 0, \"dailyIncrement\": 0, \"overdueDays\": 5",
+            "\"baseAmount\": 0, \"dailyIncrement\": 100, \"overdueDays\": 0",
+            "\"baseAmount\": 0, \"dailyIncrement\": 100",
+        };
+        for (String fragment : zeroTotals) {
+            mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/fines")
+                            .header("Authorization", "Bearer " + superAdminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"memberUserId":"%s","calculationMode":"PROGRESSIVE","reason":"Late",%s}
+                                    """.formatted(memberUserId, fragment)))
+                    .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Test
+    void manualProgressiveFine_withAPositiveTotal_isAccepted() throws Exception {
+        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/fines")
+                        .header("Authorization", "Bearer " + superAdminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"memberUserId":"%s","calculationMode":"PROGRESSIVE","reason":"Late",
+                                 "baseAmount":0,"dailyIncrement":100,"overdueDays":3}
+                                """.formatted(memberUserId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalAmount").value(300.0));
+    }
+
     private UUID createManualFine(double amount) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/fines")
                         .header("Authorization", "Bearer " + superAdminToken)

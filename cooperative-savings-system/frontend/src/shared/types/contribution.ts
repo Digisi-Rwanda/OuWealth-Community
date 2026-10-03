@@ -24,10 +24,16 @@ export const CONTRIBUTION_STATUSES: ContributionStatus[] = [
   'CANCELLED',
 ]
 
+/**
+ * A row of the monthly period grid. The backend returns the member's display name as `memberName`
+ * (ContributionResponse); `fullName`/`username` are tolerated for older/other shapes. After mapping,
+ * `fullName` and `username` are always strings (possibly empty), never undefined.
+ */
 export interface ContributionPeriodLine {
   memberUserId: string
   fullName: string
   username: string
+  memberName?: string | null
   expectedAmount: string | number
   paidAmount: string | number
   outstandingAmount: string | number
@@ -36,6 +42,10 @@ export interface ContributionPeriodLine {
   paymentReference?: string | null
   notes?: string | null
   contributionId?: string | null
+  /** Review state of a member-submitted contribution; PENDING rows are locked in the monthly grid. */
+  reviewStatus?: string | null
+  /** False when the row only reflects the expected default and has never been saved. */
+  persisted?: boolean
 }
 
 export interface ContributionPeriodGrid {
@@ -157,10 +167,18 @@ export interface ContributionListQuery {
   sort?: string
 }
 
-export function mapContributionPeriodLine(raw: ContributionPeriodLine): ContributionPeriodLine {
+export type ContributionPeriodLineRaw = Omit<ContributionPeriodLine, 'fullName' | 'username'> & {
+  fullName?: string | null
+  username?: string | null
+}
+
+export function mapContributionPeriodLine(raw: ContributionPeriodLineRaw): ContributionPeriodLine {
   return {
     ...raw,
     memberUserId: String(raw.memberUserId),
+    // The API sends the display name as memberName; keep fullName when a caller already supplies it.
+    fullName: (raw.fullName || raw.memberName || '').trim(),
+    username: (raw.username || '').trim(),
     contributionId: raw.contributionId != null ? String(raw.contributionId) : null,
     expectedAmount: raw.expectedAmount ?? 0,
     paidAmount: raw.paidAmount ?? 0,

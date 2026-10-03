@@ -4,6 +4,7 @@ import type {
   MemberUpdateRequest,
   RoleInCooperative,
 } from '@/shared/types/member'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 
 export type MemberFormValues = {
   firstName: string
@@ -19,7 +20,15 @@ export type MemberFormValues = {
   shareCount: string
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
+const todayIso = () => todayInKigaliIso()
+
+// Backend: email @Email, max 255.
+const emailSchema = yup
+  .string()
+  .trim()
+  .required('Email is required')
+  .max(255, 'Email must be 255 characters or fewer')
+  .email('Enter a valid email')
 
 const nationalIdSchema = yup
   .string()
@@ -77,15 +86,16 @@ export const memberCreateSchema: yup.ObjectSchema<MemberFormValues> = yup.object
     .min(3)
     .max(64)
     .matches(/^[a-zA-Z0-9._-]+$/, 'Use letters, numbers, . _ - only'),
-  email: yup.string().trim().required('Email is required').email('Enter a valid email'),
-  phone: yup.string().trim().max(32).default(''),
+  email: emailSchema,
+  phone: yup.string().trim().max(32, 'Phone must be 32 characters or fewer').default(''),
   nationalId: nationalIdSchema,
-  address: yup.string().trim().max(512).default(''),
+  address: yup.string().trim().max(512, 'Address must be 512 characters or fewer').default(''),
   membershipDate: membershipDateSchema,
   temporaryPassword: yup
     .string()
     .default('')
-    .test('pwd', 'At least 8 characters if provided', (v) => !v || v.length >= 8),
+    .test('pwd', 'At least 8 characters if provided', (v) => !v || v.length >= 8)
+    .test('pwd-max', 'At most 128 characters', (v) => !v || v.length <= 128),
   roleInCooperative: yup
     .mixed<RoleInCooperative>()
     .oneOf(['MEMBER', 'PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY', 'ACCOUNTANT', 'LOAN_OFFICER'])
@@ -103,16 +113,17 @@ export const memberUpdateSchema = yup.object({
     .min(3)
     .max(64)
     .matches(/^[a-zA-Z0-9._-]+$/, 'Use letters, numbers, . _ - only'),
-  email: yup.string().trim().required('Email is required').email('Enter a valid email'),
-  phone: yup.string().trim().max(32).default(''),
+  email: emailSchema,
+  phone: yup.string().trim().max(32, 'Phone must be 32 characters or fewer').default(''),
   nationalId: nationalIdSchema,
-  address: yup.string().trim().max(512).default(''),
+  address: yup.string().trim().max(512, 'Address must be 512 characters or fewer').default(''),
   membershipDate: membershipDateSchema,
   roleInCooperative: yup
     .mixed<RoleInCooperative>()
     .oneOf(['MEMBER', 'PRESIDENT', 'VICE_PRESIDENT', 'SECRETARY', 'ACCOUNTANT', 'LOAN_OFFICER'])
     .required(),
-  shareCount: shareCountSchema,
+  // Read-only while editing (the backend ignores it), so it must never block a save.
+  shareCount: yup.string().default('0'),
 })
 
 export type MemberUpdateFormValues = Omit<MemberFormValues, 'temporaryPassword' | 'shareCount'>
@@ -132,7 +143,10 @@ export function toMemberCreatePayload(values: MemberFormValues): MemberCreateReq
   }
 }
 
-export function toMemberUpdatePayload(values: MemberUpdateFormValues): MemberUpdateRequest {
+export function toMemberUpdatePayload(
+  values: MemberUpdateFormValues,
+  originalRole?: RoleInCooperative,
+): MemberUpdateRequest {
   return {
     firstName: values.firstName.trim(),
     lastName: values.lastName.trim(),
@@ -142,6 +156,7 @@ export function toMemberUpdatePayload(values: MemberUpdateFormValues): MemberUpd
     nationalId: values.nationalId.trim() || undefined,
     address: values.address.trim() || undefined,
     membershipDate: values.membershipDate.trim() || undefined,
-    roleInCooperative: values.roleInCooperative,
+    roleInCooperative:
+      originalRole && originalRole === values.roleInCooperative ? undefined : values.roleInCooperative,
   }
 }

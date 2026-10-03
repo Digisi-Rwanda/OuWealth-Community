@@ -15,6 +15,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { useAppSelector } from '@/app/store/hooks'
 import { uploadCooperativeFile } from '@/shared/api/files'
 import { getErrorMessage } from '@/shared/api/client'
@@ -101,6 +102,7 @@ export function FinePaymentDialog({
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>{t('fines.payment.title')}</DialogTitle>
       <form
+        noValidate
         onSubmit={handleSubmit((values) => {
           onSubmit(toFinePaymentPayload(values))
         })}
@@ -120,7 +122,7 @@ export function FinePaymentDialog({
               label={t('fines.fields.paymentDate')}
               error={Boolean(errors.paymentDate)}
               helperText={errors.paymentDate?.message}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
               {...register('paymentDate')}
               fullWidth
             />

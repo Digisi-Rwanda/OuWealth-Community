@@ -97,6 +97,8 @@ export function CampaignFormDialog({
                 type="date"
                 label={t('contributions.campaigns.fields.startDate')}
                 slotProps={{ inputLabel: { shrink: true } }}
+                error={Boolean(errors.startDate)}
+                helperText={errors.startDate?.message}
                 {...register('startDate')}
                 fullWidth
               />
@@ -104,6 +106,8 @@ export function CampaignFormDialog({
                 type="date"
                 label={t('contributions.campaigns.fields.endDate')}
                 slotProps={{ inputLabel: { shrink: true } }}
+                error={Boolean(errors.endDate)}
+                helperText={errors.endDate?.message}
                 {...register('endDate')}
                 fullWidth
               />

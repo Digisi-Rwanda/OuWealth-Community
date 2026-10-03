@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '@/shared/api/client'
 import { createFine } from '@/shared/api/fines'
@@ -85,6 +86,7 @@ export function FineIssuePanel({ cooperativeId }: FineIssuePanelProps) {
   return (
     <Box
       component="form"
+      noValidate
       onSubmit={handleSubmit((values) => mutation.mutate(values))}
       sx={{
         maxWidth: 560,
@@ -186,7 +188,9 @@ export function FineIssuePanel({ cooperativeId }: FineIssuePanelProps) {
         <TextField
           type="date"
           label={t('fines.fields.issuedDate')}
-          slotProps={{ inputLabel: { shrink: true } }}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+          error={Boolean(errors.issuedDate)}
+          helperText={errors.issuedDate?.message}
           {...register('issuedDate')}
           fullWidth
         />
@@ -194,6 +198,8 @@ export function FineIssuePanel({ cooperativeId }: FineIssuePanelProps) {
           type="date"
           label={t('fines.fields.dueDate')}
           slotProps={{ inputLabel: { shrink: true } }}
+          error={Boolean(errors.dueDate)}
+          helperText={errors.dueDate?.message}
           {...register('dueDate')}
           fullWidth
         />

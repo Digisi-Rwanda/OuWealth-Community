@@ -220,6 +220,11 @@ export function ContributionApprovalsPanel({
             label={t('contributions.approvals.rejectionReason')}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
+            required
+            error={rejectReason.trim().length > 2000}
+            helperText={
+              rejectReason.trim().length > 2000 ? t('common.validation.reasonTooLong') : undefined
+            }
             fullWidth
             multiline
             minRows={2}
@@ -227,11 +232,13 @@ export function ContributionApprovalsPanel({
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setReviewTarget(null)}>{t('common.cancel')}</Button>
+          <Button onClick={() => setReviewTarget(null)} disabled={reviewMutation.isPending}>
+            {t('common.cancel')}
+          </Button>
           <Button
             variant="contained"
             color="error"
-            disabled={!rejectReason.trim() || reviewMutation.isPending}
+            disabled={!rejectReason.trim() || rejectReason.trim().length > 2000 || reviewMutation.isPending}
             onClick={() => reviewMutation.mutate()}
           >
             {t('contributions.approvals.reject')}

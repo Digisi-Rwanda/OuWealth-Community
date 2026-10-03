@@ -16,16 +16,18 @@ import {
   Typography,
 } from '@mui/material'
 import { useEffect } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectIsLeadership, selectIsSuperAdmin } from '@/app/store/authSlice'
 import type { Member } from '@/shared/types/member'
 import { ROLES_IN_COOPERATIVE, normalizeRoleInCooperative, type RoleInCooperative } from '@/shared/types/member'
 import { RoleDutiesNote } from '@/shared/components/RoleDutiesNote'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import {
   memberCreateSchema,
   memberFormDefaults,
+  memberUpdateSchema,
   toMemberCreatePayload,
   toMemberUpdatePayload,
   type MemberFormValues,
@@ -99,7 +101,8 @@ export function MemberFormDialog({
     watch,
     formState: { errors },
   } = useForm<MemberFormValues>({
-    resolver: yupResolver(memberCreateSchema),
+    // Editing must not be blocked by create-only rules (temporary password, share count).
+    resolver: yupResolver(isCreate ? memberCreateSchema : memberUpdateSchema) as unknown as Resolver<MemberFormValues>,
     defaultValues: memberFormDefaults,
   })
 
@@ -126,7 +129,9 @@ export function MemberFormDialog({
       membershipDate: values.membershipDate,
       roleInCooperative: values.roleInCooperative,
     }
-    onUpdate?.(toMemberUpdatePayload(updateValues))
+    onUpdate?.(
+      toMemberUpdatePayload(updateValues, initial ? normalizeRoleInCooperative(initial.roleInCooperative) : undefined),
+    )
   })
 
   return (
@@ -171,7 +176,13 @@ export function MemberFormDialog({
               helperText={errors.email?.message}
               {...register('email')}
             />
-            <TextField label={t('members.fields.phone')} fullWidth {...register('phone')} />
+            <TextField
+              label={t('members.fields.phone')}
+              fullWidth
+              error={Boolean(errors.phone)}
+              helperText={errors.phone?.message}
+              {...register('phone')}
+            />
             <Controller
               name="roleInCooperative"
               control={control}
@@ -267,7 +278,7 @@ export function MemberFormDialog({
                     slotProps={{
                       inputLabel: { shrink: true },
                       htmlInput: {
-                        max: new Date().toISOString().slice(0, 10),
+                        max: todayInKigaliIso(),
                         min: '1950-01-01',
                       },
                     }}
@@ -293,6 +304,8 @@ export function MemberFormDialog({
                     fullWidth
                     multiline
                     minRows={2}
+                    error={Boolean(errors.address)}
+                    helperText={errors.address?.message}
                     {...register('address')}
                   />
                 </Stack>

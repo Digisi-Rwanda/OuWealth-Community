@@ -4,7 +4,7 @@
 
 const EMAIL = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 const RWANDA_MOBILE = /^07\d{8}$/
-const REGISTRATION_NUMBER = /^[A-Za-z0-9]+(?:[/\\-][A-Za-z0-9]+)*$/
+const REGISTRATION_NUMBER = /^[A-Za-z0-9]+(?:[/-][A-Za-z0-9]+)*$/
 
 export const RWANDA_CURRENCY = 'RWF'
 export const MIN_REGISTRATION_DATE = '1950-01-01'

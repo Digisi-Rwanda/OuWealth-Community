@@ -30,7 +30,12 @@ interface ChangePasswordFormValues {
 
 const schema = yup.object({
   currentPassword: yup.string().required('Current password is required'),
-  newPassword: yup.string().min(8, 'At least 8 characters').required('New password is required'),
+  newPassword: yup
+    .string()
+    .min(8, 'At least 8 characters')
+    .max(128, 'At most 128 characters')
+    .notOneOf([yup.ref('currentPassword')], 'New password must be different from current password')
+    .required('New password is required'),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('newPassword')], 'Passwords must match')

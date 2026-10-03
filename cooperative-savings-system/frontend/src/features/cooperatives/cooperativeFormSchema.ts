@@ -1,5 +1,7 @@
 import * as yup from 'yup'
 import type { CooperativeCreateRequest } from '@/shared/types/cooperative'
+import { checkMoney } from '@/shared/utils/formValidation'
+import { findPresidentProblem } from './presidentValidation'
 import {
   isValidCooperativeEmail,
   isValidRegistrationDate,
@@ -65,8 +67,8 @@ export const cooperativeFormDefaults: CooperativeFormValues = {
 }
 
 export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yup.object({
-  name: yup.string().trim().required('Name is required').max(255),
-  description: yup.string().trim().max(2000).default(''),
+  name: yup.string().trim().required('Name is required').max(255, 'Name must be 255 characters or fewer'),
+  description: yup.string().trim().max(2000, 'Description must be 2000 characters or fewer').default(''),
   registrationNumber: yup
     .string()
     .trim()
@@ -90,7 +92,7 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
       'Enter a Rwandan mobile number (10 digits starting with 07)',
       (v) => Boolean(v && isValidRwandanPhone(v)),
     ),
-  address: yup.string().trim().max(512).default(''),
+  address: yup.string().trim().max(512, 'Address must be 512 characters or fewer').default(''),
   currency: yup
     .string()
     .trim()
@@ -105,7 +107,10 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
     .string()
     .trim()
     .required('Monthly contribution is required')
-    .matches(/^\d+(\.\d{1,4})?$/, 'Enter a valid amount'),
+    // Backend: @DecimalMin(0.0) stored as NUMERIC(19,4): at most 15 whole digits and 4 decimals.
+    .test('amount', 'Enter a valid amount (up to 15 digits and 4 decimals)', (v) =>
+      checkMoney(v, { allowZero: true }) === null,
+    ),
   contributionDueDay: yup
     .number()
     .required('Contribution due day is required')
@@ -132,28 +137,27 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
   presidentTemporaryPassword: yup.string().default(''),
 }).test('president-required-when-assigning', function (values) {
   if (!values.assignPresidentNow) return true
-  if (values.presidentMode === 'existing') {
-    if (!values.presidentUserId?.trim()) {
-      return this.createError({
-        path: 'presidentUserId',
-        message: 'Enter the existing user ID',
-      })
-    }
-    return true
-  }
-  if (!values.presidentUsername?.trim()) {
-    return this.createError({ path: 'presidentUsername', message: 'Username is required' })
-  }
-  if (!values.presidentEmail?.trim() || !isValidCooperativeEmail(values.presidentEmail)) {
-    return this.createError({ path: 'presidentEmail', message: 'Enter a valid email address' })
-  }
-  if (!values.presidentFirstName?.trim()) {
-    return this.createError({ path: 'presidentFirstName', message: 'First name is required' })
-  }
-  if (!values.presidentLastName?.trim()) {
-    return this.createError({ path: 'presidentLastName', message: 'Last name is required' })
-  }
-  return true
+  const problem = findPresidentProblem({
+    mode: values.presidentMode,
+    userId: values.presidentUserId ?? '',
+    username: values.presidentUsername ?? '',
+    email: values.presidentEmail ?? '',
+    firstName: values.presidentFirstName ?? '',
+    lastName: values.presidentLastName ?? '',
+    phone: values.presidentPhone ?? '',
+    temporaryPassword: values.presidentTemporaryPassword ?? '',
+  })
+  if (!problem) return true
+  const path = {
+    userId: 'presidentUserId',
+    username: 'presidentUsername',
+    email: 'presidentEmail',
+    firstName: 'presidentFirstName',
+    lastName: 'presidentLastName',
+    phone: 'presidentPhone',
+    temporaryPassword: 'presidentTemporaryPassword',
+  }[problem.field]
+  return this.createError({ path, message: problem.message })
 })
 
 export function toCooperativePayload(
@@ -187,7 +191,7 @@ export function toCooperativePayload(
             firstName: values.presidentFirstName.trim(),
             lastName: values.presidentLastName.trim(),
             phone: values.presidentPhone.trim() || undefined,
-            temporaryPassword: values.presidentTemporaryPassword.trim() || undefined,
+            temporaryPassword: values.presidentTemporaryPassword || undefined,
           }
   }
   return payload

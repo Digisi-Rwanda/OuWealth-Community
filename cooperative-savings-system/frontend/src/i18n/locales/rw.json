@@ -590,6 +590,10 @@
     }
   },
   "common": {
+    "validation": {
+      "reasonRequired": "Impamvu irakenewe.",
+      "reasonTooLong": "Impamvu igomba kuba ifite inyuguti 2000 cyangwa munsi yazo."
+    },
     "loading": "Birimo gukorwa…",
     "retry": "Ongera ugerageze",
     "save": "Bika",
@@ -831,14 +835,27 @@
     "savePeriod": "Bika ukwezi",
     "saveSuccess": "Amafaranga yabitswe",
     "confirmSaveTitle": "Bika amafaranga y'ukwezi?",
-    "confirmSaveMessage": "Bika imirongo {{count}} ya {{month}}/{{year}}?",
+    "confirmSaveMessage": "Bika impinduka z'abanyamuryango {{count}} ba {{month}}/{{year}}?",
+    "noChanges": "Nta mpinduka zo kubika",
+    "lock": {
+      "terminal": "{{status}}: iyi misanzu ntishobora guhindurirwa hano.",
+      "review": "Itegereje isuzuma ry'Umubitsi: yemeze cyangwa wange muri Approvals."
+    },
     "periodEmptyTitle": "Nta banyamuryango kuri uku kwezi",
     "periodEmptyDescription": "Abanyamuryango bakora bazagaragara hano.",
     "historyEmptyTitle": "Nta mafaranga abonetse",
     "historyEmptyDescription": "Hindura filtre cyangwa wandike ukwezi.",
     "memberHistoryEmptyDescription": "Nta mateka y'amafaranga kuri uyu munyamuryango.",
+    "unnamedMember": "Umunyamuryango utagira izina",
     "validation": {
-      "nonNegativeAmount": "Amafaranga yishyuwe agomba kuba 0 cyangwa hejuru."
+      "nonNegativeAmount": "Amafaranga yishyuwe agomba kuba 0 cyangwa hejuru.",
+      "amountInvalid": "Andika amafaranga yemewe adafite imibare irenze 4 inyuma y'akitso.",
+      "amountTooLarge": "Amafaranga ni menshi cyane.",
+      "dateInvalid": "Andika italiki yemewe yo kwishyura.",
+      "dateFuture": "Italiki yo kwishyura ntishobora kuba iri imbere.",
+      "referenceTooLong": "Nomero y'ishyura igomba kuba ifite inyuguti 128 cyangwa munsi yazo.",
+      "notesTooLong": "Ibisobanuro bigomba kuba bifite inyuguti 2000 cyangwa munsi yazo.",
+      "rowsInvalid": "Banza ukosore imirongo yagaragajwe mbere yo kubika (imirongo ifite ikibazo: {{rows}}). Uwa mbere: {{member}}."
     },
     "fields": {
       "member": "Umunyamuryango",
@@ -879,6 +896,7 @@
       "success": "Amafaranga yoherejwe kugira ngo umubitsi ayasuzume",
       "amountRequired": "Amafaranga arakenewe",
       "amountInvalid": "Andika umubare wemewe",
+      "amountExceedsRemaining": "Amafaranga ntashobora kurenza asigaye ({{remaining}}).",
       "dateRequired": "Itariki irakenewe",
       "paymentMonth": "Wishyura ukwezi ki?",
       "shares": "Umubare w'imigabane",

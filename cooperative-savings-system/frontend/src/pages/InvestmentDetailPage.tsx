@@ -19,6 +19,7 @@ import { useSnackbar } from 'notistack'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import { useAppSelector } from '@/app/store/hooks'
 import {
@@ -430,6 +431,7 @@ export function InvestmentDetailPage() {
         <DialogContent>
           <Stack
             component="form"
+            noValidate
             id="investment-return-form"
             spacing={2}
             sx={{ mt: 1 }}
@@ -438,6 +440,7 @@ export function InvestmentDetailPage() {
             <TextField
               label={t('investments.fields.returnDate')}
               type="date"
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
               {...returnForm.register('returnDate')}
               error={Boolean(returnForm.formState.errors.returnDate)}
               helperText={returnForm.formState.errors.returnDate?.message}
@@ -467,11 +470,15 @@ export function InvestmentDetailPage() {
             ) : null}
             <TextField
               label={t('investments.fields.reference')}
+              error={Boolean(returnForm.formState.errors.reference)}
+              helperText={returnForm.formState.errors.reference?.message}
               {...returnForm.register('reference')}
               fullWidth
             />
             <TextField
               label={t('investments.fields.notes')}
+              error={Boolean(returnForm.formState.errors.notes)}
+              helperText={returnForm.formState.errors.notes?.message}
               {...returnForm.register('notes')}
               fullWidth
               multiline
@@ -504,17 +511,22 @@ export function InvestmentDetailPage() {
           </Alert>
           <Stack
             component="form"
+            noValidate
             id="investment-loss-form"
             spacing={2}
             onSubmit={lossForm.handleSubmit((values) => lossMutation.mutate(values))}
           >
             <TextField
               label={t('investments.fields.reference')}
+              error={Boolean(lossForm.formState.errors.reference)}
+              helperText={lossForm.formState.errors.reference?.message}
               {...lossForm.register('reference')}
               fullWidth
             />
             <TextField
               label={t('investments.fields.notes')}
+              error={Boolean(lossForm.formState.errors.notes)}
+              helperText={lossForm.formState.errors.notes?.message}
               {...lossForm.register('notes')}
               fullWidth
               multiline

@@ -162,7 +162,7 @@ export function SettingsPage() {
               }
               type="number"
               error={Boolean(errors.baseSharePrice)}
-              slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+              slotProps={{ htmlInput: { min: 0, step: 'any' } }}
               {...register('baseSharePrice', { validate: validateBaseSharePrice })}
               fullWidth
             />

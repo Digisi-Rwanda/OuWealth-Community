@@ -32,6 +32,7 @@ import { LoadingState } from '@/shared/components/LoadingState'
 import { ROUTES } from '@/shared/constants/routes'
 import { memberDisplayName } from '@/shared/types/member'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { checkMoney } from '@/shared/utils/formValidation'
 import {
   loanRequestDefaults,
   loanRequestSchema,
@@ -112,23 +113,26 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
   const guaranteeMode = watch('guaranteeMode')
   const eligibilityMemberId = isAdmin ? selectedMemberId : currentUser?.id
   const parsedTerm = termMonths.trim() ? Number(termMonths.trim()) : undefined
-  const canPreview = Boolean(cooperativeId && amount && Number(amount) > 0)
+  // Text that is not a valid amount ("abc", "1e3", "-5") must not reach the preview/eligibility queries or
+  // the money formatter; it is reported by the form validation instead.
+  const validAmount = checkMoney(amount, { min: '0.01' }) === null ? amount.trim() : ''
+  const canPreview = Boolean(cooperativeId && validAmount)
   // Same condition under which the form (rather than the loading/error state) is shown.
   const formReady = settingsQuery.isSuccess && (isAdmin || !previewQuery.isLoading)
 
   const scheduleQuery = useQuery({
-    queryKey: ['loans', 'repayment-preview', cooperativeId, amount, parsedTerm],
+    queryKey: ['loans', 'repayment-preview', cooperativeId, validAmount, parsedTerm],
     queryFn: () =>
       previewLoanRepayment(cooperativeId, {
-        amount,
+        amount: validAmount,
         termMonths: parsedTerm,
       }),
     enabled: formReady && canPreview,
   })
 
   const eligibilityQuery = useQuery({
-    queryKey: ['loans', 'eligibility', cooperativeId, eligibilityMemberId, amount],
-    queryFn: () => fetchLoanEligibility(cooperativeId, eligibilityMemberId, amount),
+    queryKey: ['loans', 'eligibility', cooperativeId, eligibilityMemberId, validAmount],
+    queryFn: () => fetchLoanEligibility(cooperativeId, eligibilityMemberId, validAmount),
     enabled: formReady && Boolean(cooperativeId && eligibilityMemberId),
   })
 
@@ -175,7 +179,7 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
         <Box sx={{ mb: 2 }}>
           <LoanApplicationFormView
             form={previewQuery.data}
-            amount={amount}
+            amount={validAmount}
             purpose={purpose}
             termMonths={termMonths}
           />
@@ -218,7 +222,7 @@ export function LoanRequestPanel({ cooperativeId, isAdmin }: LoanRequestPanelPro
               {formatMoney(eligibilityQuery.data.outstandingBalance ?? 0)}
             </Typography>
             <Typography variant="body2">
-              {t('loans.eligibility.requested')}: {formatMoney(amount || 0)}
+              {t('loans.eligibility.requested')}: {formatMoney(validAmount || 0)}
             </Typography>
             {eligibilityQuery.data.shareCount != null ? (
               <Typography variant="body2">

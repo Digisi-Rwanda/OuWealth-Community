@@ -15,6 +15,7 @@ import { useSnackbar } from 'notistack'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { getErrorMessage } from '@/shared/api/client'
 import { uploadCooperativeFile } from '@/shared/api/files'
 import { fetchMembers } from '@/shared/api/members'
@@ -315,6 +316,7 @@ export function SocialDisbursementsPanel({
 
       <Box
         component="form"
+        noValidate
         onSubmit={handleSubmit((values) => createMutation.mutate(values))}
         sx={{
           maxWidth: 560,
@@ -372,7 +374,7 @@ export function SocialDisbursementsPanel({
             <TextField
               type="date"
               label={t('socialFund.fields.disbursementDate')}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
               error={Boolean(errors.disbursementDate)}
               helperText={errors.disbursementDate?.message}
               {...register('disbursementDate')}

@@ -181,6 +181,8 @@ export function CooperativeFormDialog({
               fullWidth
               multiline
               minRows={2}
+              error={Boolean(errors.address)}
+              helperText={errors.address?.message}
               {...register('address')}
             />
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -394,13 +396,19 @@ export function CooperativeFormDialog({
                         <TextField
                           label={t('cooperatives.onboarding.presidentPhone')}
                           fullWidth
+                          error={Boolean(errors.presidentPhone)}
+                          helperText={errors.presidentPhone?.message}
                           {...register('presidentPhone')}
                         />
                         <TextField
                           label={t('cooperatives.onboarding.presidentTemporaryPassword')}
                           fullWidth
                           type="password"
-                          helperText={t('cooperatives.onboarding.presidentTemporaryPasswordHint')}
+                          error={Boolean(errors.presidentTemporaryPassword)}
+                          helperText={
+                            errors.presidentTemporaryPassword?.message ??
+                            t('cooperatives.onboarding.presidentTemporaryPasswordHint')
+                          }
                           {...register('presidentTemporaryPassword')}
                         />
                       </>

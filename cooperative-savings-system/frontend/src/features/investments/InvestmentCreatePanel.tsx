@@ -5,6 +5,7 @@ import { useSnackbar } from 'notistack'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { useNavigate } from 'react-router-dom'
 import { getErrorMessage } from '@/shared/api/client'
 import { uploadCooperativeFile } from '@/shared/api/files'
@@ -75,6 +76,7 @@ export function InvestmentCreatePanel({ cooperativeId }: InvestmentCreatePanelPr
   return (
     <Box
       component="form"
+      noValidate
       onSubmit={handleSubmit((values) => mutation.mutate(values))}
       sx={{
         maxWidth: 560,
@@ -116,6 +118,7 @@ export function InvestmentCreatePanel({ cooperativeId }: InvestmentCreatePanelPr
         <TextField
           label={t('investments.fields.expectedReturnDate')}
           type="date"
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: todayInKigaliIso() } }}
           {...register('expectedReturnDate')}
           error={Boolean(errors.expectedReturnDate)}
           helperText={errors.expectedReturnDate?.message}

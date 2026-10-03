@@ -1,15 +1,10 @@
 import * as yup from 'yup'
 import type { PayoutPreviewRequest } from '@/shared/types/payout'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
+import { moneyField } from '@/shared/utils/yupRules'
 
-const optionalMoney = yup
-  .string()
-  .trim()
-  .default('')
-  .test('money', 'Enter a valid amount', (v) => !v || /^\d+(\.\d{1,4})?$/.test(v))
-  .test('non-negative', 'Amount must be 0 or greater', (v) => {
-    if (!v) return true
-    return Number(v) >= 0
-  })
+/** Backend: payoutPoolAmount @DecimalMin("0.01") when given; blank means "use the available fund". */
+const optionalMoney = moneyField({ allowEmpty: true, label: 'Payout pool' })
 
 export type PayoutPreviewFormValues = {
   name: string
@@ -22,9 +17,8 @@ export type PayoutPreviewFormValues = {
 }
 
 export const payoutPreviewDefaults = (): PayoutPreviewFormValues => {
-  const today = new Date()
-  const yearStart = `${today.getFullYear()}-01-01`
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = todayInKigaliIso()
+  const yearStart = `${todayStr.slice(0, 4)}-01-01`
   return {
     name: '',
     periodFrom: yearStart,
@@ -67,7 +61,7 @@ export function toPayoutPreviewPayload(
     periodTo: values.periodTo.trim(),
     includeRegular: values.includeRegular,
     includeSpecial: values.includeSpecial,
-    payoutPoolAmount: pool && Number(pool) >= 0 ? pool : undefined,
+    payoutPoolAmount: pool || undefined,
     name: values.name.trim() || undefined,
     notes: values.notes.trim() || undefined,
   }

@@ -157,6 +157,10 @@ public class FineService {
             overdueDays = request.getOverdueDays() != null ? request.getOverdueDays() : 0;
             totalAmount = MoneyUtils.scaleForStorage(
                     fineCalculationService.calculateProgressive(baseAmount, dailyIncrement, overdueDays));
+            if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                // A manual fine of zero is meaningless (the FIXED branch already rejects it).
+                throw new ValidationException("Progressive fine total must be greater than zero");
+            }
         } else {
             if (request.getAmount() == null && request.getBaseAmount() == null) {
                 throw new ValidationException("amount is required for FIXED fine mode");

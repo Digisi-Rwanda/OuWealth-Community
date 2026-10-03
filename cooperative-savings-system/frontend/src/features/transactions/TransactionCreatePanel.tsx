@@ -13,6 +13,7 @@ import { useSnackbar } from 'notistack'
 import { useState } from 'react'
 import { useWatch, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import { getErrorMessage } from '@/shared/api/client'
 import { uploadCooperativeFile } from '@/shared/api/files'
 import { createTransaction } from '@/shared/api/transactions'
@@ -82,6 +83,7 @@ export function TransactionCreatePanel({ cooperativeId }: TransactionCreatePanel
   return (
     <Box
       component="form"
+      noValidate
       onSubmit={handleSubmit((values) => mutation.mutate(values))}
       sx={{
         maxWidth: 560,
@@ -155,6 +157,7 @@ export function TransactionCreatePanel({ cooperativeId }: TransactionCreatePanel
         <TextField
           label={t('transactions.fields.transactionDate')}
           type="date"
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
           {...register('transactionDate')}
           error={Boolean(errors.transactionDate)}
           helperText={errors.transactionDate?.message}
@@ -162,11 +165,15 @@ export function TransactionCreatePanel({ cooperativeId }: TransactionCreatePanel
         />
         <TextField
           label={t('transactions.fields.reference')}
+          error={Boolean(errors.reference)}
+          helperText={errors.reference?.message}
           {...register('reference')}
           fullWidth
         />
         <TextField
           label={t('transactions.fields.description')}
+          error={Boolean(errors.description)}
+          helperText={errors.description?.message}
           {...register('description')}
           fullWidth
           multiline
@@ -174,6 +181,8 @@ export function TransactionCreatePanel({ cooperativeId }: TransactionCreatePanel
         />
         <TextField
           label={t('transactions.fields.notes')}
+          error={Boolean(errors.notes)}
+          helperText={errors.notes?.message}
           {...register('notes')}
           fullWidth
           multiline

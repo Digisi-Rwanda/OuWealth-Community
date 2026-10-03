@@ -62,6 +62,8 @@ export interface SpecialContribution {
   campaignId: string
   cooperativeId?: string
   memberUserId: string
+  /** Display name as the backend sends it (SpecialContributionResponse). */
+  memberName?: string | null
   fullName?: string
   username?: string
   amount: string | number
@@ -103,6 +105,7 @@ export function mapSpecialContribution(raw: SpecialContribution): SpecialContrib
     id: String(raw.id),
     campaignId: String(raw.campaignId),
     memberUserId: String(raw.memberUserId),
+    fullName: (raw.fullName || raw.memberName || '').trim() || undefined,
     cooperativeId: raw.cooperativeId != null ? String(raw.cooperativeId) : undefined,
   }
 }
