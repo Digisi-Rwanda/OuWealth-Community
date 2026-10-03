@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandHomeLink } from '@/shared/components/BrandHomeLink'
 import { BrandLogo } from '@/shared/components/BrandLogo'
+import { AUTH_FORM_MAX_WIDTH } from './authFormStyles'
 
 interface AuthSplitShellProps {
   /** Supporting copy under the tagline, already translated. */
@@ -83,9 +84,23 @@ export function AuthSplitShell({ supporting, wide = false, children }: AuthSplit
 
       <Box
         data-testid="auth-form-panel"
-        sx={{ flex: 1, minWidth: 0, p: { xs: 2.5, sm: 4, md: 5 }, bgcolor: 'background.paper' }}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          p: { xs: 2.5, sm: 4, md: 5 },
+          bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}
       >
-        {children}
+        {/* only the form content is constrained: the pane keeps its space, the fields never stretch across it */}
+        <Box
+          data-testid="auth-form-content"
+          sx={{ width: '100%', maxWidth: AUTH_FORM_MAX_WIDTH, mx: 'auto', minWidth: 0 }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   )

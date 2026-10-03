@@ -1,5 +1,5 @@
 import InsightsIcon from '@mui/icons-material/Insights'
-import { Box, Grid, Paper, Skeleton, Stack, Typography } from '@mui/material'
+import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +12,7 @@ import {
   memberStatusData,
   toFiniteNumber,
 } from './dashboardVisuals'
+import { AnalyticsGrid } from './AnalyticsGrid'
 import { DonutCard } from './DonutCard'
 import { FineActivityCard } from './FineActivityCard'
 import { LoansIssuedVsRepaidChart } from './LoansIssuedVsRepaidChart'
@@ -111,87 +112,79 @@ export function SchemeAtAGlanceSection({ cooperativeId, show }: SchemeAtAGlanceS
         </Stack>
       </Paper>
 
-      <Grid container spacing={2}>
+      <AnalyticsGrid>
         {show.members ? (
-          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <DonutCard
-              testId="glance-members-donut"
-              title={t('dashboard.glance.membersTitle')}
-              loading={summaryQuery.isLoading}
-              slices={[
-                {
-                  key: 'active',
-                  label: t('dashboard.glance.activeMembers'),
-                  value: members?.active ?? 0,
-                  color: CHART_COLORS.green,
-                },
-                {
-                  key: 'inactive',
-                  label: t('dashboard.glance.inactiveMembers'),
-                  value: members?.inactive ?? 0,
-                  color: CHART_COLORS.neutral,
-                },
-              ]}
-              centerValue={String(members?.total ?? 0)}
-              centerLabel={t('dashboard.glance.totalMembers')}
-              formatValue={(value) => String(Math.round(value))}
-              emptyMessage={t('dashboard.glance.membersEmpty')}
-            />
-          </Grid>
+          <DonutCard
+            testId="glance-members-donut"
+            title={t('dashboard.glance.membersTitle')}
+            loading={summaryQuery.isLoading}
+            slices={[
+              {
+                key: 'active',
+                label: t('dashboard.glance.activeMembers'),
+                value: members?.active ?? 0,
+                color: CHART_COLORS.green,
+              },
+              {
+                key: 'inactive',
+                label: t('dashboard.glance.inactiveMembers'),
+                value: members?.inactive ?? 0,
+                color: CHART_COLORS.neutral,
+              },
+            ]}
+            centerValue={String(members?.total ?? 0)}
+            centerLabel={t('dashboard.glance.totalMembers')}
+            formatValue={(value) => String(Math.round(value))}
+            emptyMessage={t('dashboard.glance.membersEmpty')}
+          />
         ) : null}
 
         {show.contributions ? (
-          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <DonutCard
-              testId="glance-contribution-mix-donut"
-              title={t('dashboard.glance.contributionMixTitle')}
-              loading={summaryQuery.isLoading}
-              slices={[
-                {
-                  key: 'regular',
-                  label: t('dashboard.glance.regular'),
-                  value: mix?.regular ?? 0,
-                  color: CHART_COLORS.blue,
-                },
-                {
-                  key: 'special',
-                  label: t('dashboard.glance.special'),
-                  value: mix?.special ?? 0,
-                  color: CHART_COLORS.purple,
-                },
-              ]}
-              centerValue={mix ? money(mix.total) : '—'}
-              centerLabel={t('dashboard.glance.totalContributions')}
-              formatValue={money}
-              emptyMessage={t('dashboard.glance.contributionMixEmpty')}
-            />
-          </Grid>
+          <DonutCard
+            testId="glance-contribution-mix-donut"
+            title={t('dashboard.glance.contributionMixTitle')}
+            loading={summaryQuery.isLoading}
+            slices={[
+              {
+                key: 'regular',
+                label: t('dashboard.glance.regular'),
+                value: mix?.regular ?? 0,
+                color: CHART_COLORS.blue,
+              },
+              {
+                key: 'special',
+                label: t('dashboard.glance.special'),
+                value: mix?.special ?? 0,
+                color: CHART_COLORS.purple,
+              },
+            ]}
+            centerValue={mix ? money(mix.total) : '—'}
+            centerLabel={t('dashboard.glance.totalContributions')}
+            formatValue={money}
+            emptyMessage={t('dashboard.glance.contributionMixEmpty')}
+          />
         ) : null}
 
         {show.loans ? (
-          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <LoansIssuedVsRepaidChart
-              issuedAmount={insights?.loans.issuedAmountCurrentMonth ?? 0}
-              repaidAmount={insights?.loans.repaidCurrentMonth ?? 0}
-              outstandingPrincipal={
-                summary?.outstandingLoanPrincipal ?? insights?.loans.outstandingPrincipal ?? null
-              }
-              currency={currency}
-              loading={insightsQuery.isLoading}
-            />
-          </Grid>
+          <LoansIssuedVsRepaidChart
+            issuedAmount={insights?.loans.issuedAmountCurrentMonth ?? 0}
+            repaidAmount={insights?.loans.repaidCurrentMonth ?? 0}
+            outstandingPrincipal={
+              summary?.outstandingLoanPrincipal ?? insights?.loans.outstandingPrincipal ?? null
+            }
+            currency={currency}
+            loading={insightsQuery.isLoading}
+          />
         ) : null}
 
         {show.fines ? (
-          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-            <FineActivityCard
-              fines={insights?.fines}
-              currency={currency}
-              loading={insightsQuery.isLoading}
-            />
-          </Grid>
+          <FineActivityCard
+            fines={insights?.fines}
+            currency={currency}
+            loading={insightsQuery.isLoading}
+          />
         ) : null}
-      </Grid>
+      </AnalyticsGrid>
     </Box>
   )
 }

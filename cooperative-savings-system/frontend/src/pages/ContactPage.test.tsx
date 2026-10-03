@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { openMailClient } from '@/features/contact/openMailClient'
 import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+import { cssFor } from '@/test/cssHelpers'
 import { lightTheme } from '@/theme/theme'
 import { ContactPage } from './ContactPage'
 
@@ -228,5 +229,50 @@ describe('contact form', () => {
     fill()
     await user.click(send())
     expect(openMailClient).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('compact contact layout', () => {
+  it('centres one narrow column: about 560px of content, nearly full width on phones', () => {
+    renderPage()
+    const column = screen.getByTestId('contact-column')
+    expect(cssFor(column)).toMatch(/max-width: 608px/)
+    const card = screen.getByTestId('contact-form-card')
+    const css = cssFor(card)
+    expect(css).toMatch(/max-width: 560px/)
+    expect(css).toMatch(/width: 100%/)
+    expect(css).toMatch(/margin-(left|inline)[^;]*auto|margin: [^;]*auto/)
+  })
+
+  it('keeps the support channels in one compact card as wide as the form, with the three links as rows', () => {
+    renderPage()
+    const methods = screen.getByTestId('support-methods')
+    expect(within(methods).getAllByRole('link')).toHaveLength(3)
+    expect(screen.getByTestId('contact-column')).toContainElement(methods)
+    expect(screen.getByTestId('contact-column')).toContainElement(screen.getByTestId('contact-form-card'))
+    // not a three-column grid any more
+    expect(cssFor(methods)).not.toMatch(/grid-template-columns/)
+  })
+
+  it('keeps the fields full width inside the compact card', () => {
+    renderPage()
+    const card = screen.getByTestId('contact-form-card')
+    for (const label of [/^Email/i, /^Message/i]) {
+      expect(within(card).getByLabelText(label).closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth')
+    }
+  })
+
+  it('sizes Send message and Chat on WhatsApp to their content, grouped on the right', () => {
+    renderPage()
+    const actions = screen.getByTestId('contact-actions')
+    expect(cssFor(actions)).toMatch(/justify-content: flex-end/)
+    expect(cssFor(actions)).toMatch(/flex-direction: row/)
+    const send = screen.getByRole('button', { name: 'Send message' })
+    const chat = screen.getByRole('link', { name: 'Chat on WhatsApp' })
+    for (const el of [send, chat]) {
+      expect(el).not.toHaveClass('MuiButton-fullWidth')
+      expect(cssFor(el)).toMatch(/width: auto/)
+      expect(cssFor(el)).toMatch(/min-width: 140px/)
+    }
   })
 })

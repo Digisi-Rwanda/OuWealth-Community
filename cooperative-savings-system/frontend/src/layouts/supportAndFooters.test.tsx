@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -12,6 +12,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { ROLE_PRESIDENT } from '@/shared/types/auth'
+import { cssFor } from '@/test/cssHelpers'
 import { lightTheme } from '@/theme/theme'
 import { AppLayout } from './AppLayout'
 import { AuthLayout } from './AuthLayout'
@@ -306,5 +307,71 @@ describe('footers', () => {
     expect(await screen.findByTestId('landing-stub')).toBeInTheDocument()
     expect(screen.getByTestId('public-footer')).toBeInTheDocument()
     expect(window.scrollTo).toHaveBeenCalledWith(0, 0)
+  })
+})
+
+describe('auth form sizing', () => {
+  it('constrains only the form content, centered in its pane, to a comfortable width', () => {
+    renderAt('/login')
+    const panel = screen.getByTestId('auth-form-panel')
+    const content = within(panel).getByTestId('auth-form-content')
+    const css = cssFor(content)
+    expect(css).toMatch(/max-width: 480px/)
+    expect(css).toMatch(/width: 100%/)
+    expect(css).toMatch(/margin-(left|inline)[^;]*auto|margin: [^;]*auto/)
+    // the pane itself keeps its space and centers the content; it is not narrowed
+    expect(cssFor(panel)).not.toMatch(/max-width/)
+    expect(cssFor(panel)).toMatch(/justify-content: center/)
+    expect(content).toContainElement(screen.getByLabelText(/username/i))
+  })
+
+  it('login: the Sign in button is content-sized and right-aligned, not form-wide', () => {
+    renderAt('/login')
+    const button = screen.getByTestId('login-submit')
+    expect(button).toHaveTextContent('Sign in')
+    expect(button).not.toHaveClass('MuiButton-fullWidth')
+    expect(button).not.toHaveClass('MuiButton-sizeLarge')
+    const css = cssFor(button)
+    expect(css).toMatch(/width: auto/)
+    expect(css).toMatch(/min-width: 120px/)
+    expect(css).toMatch(/align-self: flex-end/)
+  })
+
+  it('signup: every wizard step lives in the same constrained content column', async () => {
+    renderAt('/signup')
+    const content = () => screen.getByTestId('auth-form-content')
+    expect(cssFor(content())).toMatch(/max-width: 480px/)
+    expect(content()).toContainElement(screen.getByRole('button', { name: 'Next' }))
+    expect(content()).toContainElement(screen.getByText('Saving Scheme Details'))
+  })
+
+  it('signup: Back, Next and Create are content-sized, with Next alone on the right of step 1', async () => {
+    renderAt('/signup')
+    const actions = () => screen.getByTestId('signup-actions')
+    const next = () => screen.getByRole('button', { name: 'Next' })
+
+    expect(cssFor(actions())).toMatch(/justify-content: flex-end/)
+    expect(next()).not.toHaveClass('MuiButton-fullWidth')
+    expect(cssFor(next())).toMatch(/width: auto/)
+    expect(cssFor(next())).toMatch(/min-width: 120px/)
+
+    // go to step 2: Back sits on the left and Next on the right, on one row
+    fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), { target: { value: 'Public Scheme' } })
+    fireEvent.change(screen.getByLabelText(/Contact email/i), { target: { value: 'scheme@example.com' } })
+    fireEvent.change(screen.getByLabelText(/Contact phone/i), { target: { value: '0781234567' } })
+    fireEvent.change(screen.getByLabelText(/Registration date/i), { target: { value: '2024-01-15' } })
+    fireEvent.change(screen.getByLabelText(/Monthly contribution/i), { target: { value: '5000' } })
+    await act(async () => {
+      fireEvent.click(next())
+    })
+    expect(await screen.findByLabelText(/^First name/i)).toBeInTheDocument()
+    expect(cssFor(actions())).toMatch(/justify-content: space-between/)
+    expect(cssFor(actions())).toMatch(/flex-direction: row/)
+    for (const name of ['Back', 'Next']) {
+      const button = screen.getByRole('button', { name })
+      expect(button).not.toHaveClass('MuiButton-fullWidth')
+      expect(cssFor(button)).toMatch(/width: auto/)
+    }
+    expect(screen.getByTestId('auth-form-content')).toContainElement(actions())
   })
 })

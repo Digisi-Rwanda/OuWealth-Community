@@ -15,6 +15,7 @@ import {
 import type { FinesInsights } from '@/shared/types/dashboard'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { AccessibleDataTable } from './AccessibleDataTable'
+import { analyticsCardSx } from './analyticsStyles'
 import { ChartTooltip } from './ChartTooltip'
 import { CHART_COLORS, compactNumber } from './chartPalette'
 import { fineActivityData } from './dashboardVisuals'
@@ -26,7 +27,7 @@ interface FineActivityCardProps {
   loading?: boolean
 }
 
-const CHART_HEIGHT = 150
+const CHART_HEIGHT = 140
 
 /**
  * This month's fine flows as bars: issued vs collected. They are separate flows (collections can settle
@@ -50,15 +51,9 @@ export function FineActivityCard({ fines, currency = 'RWF', loading }: FineActiv
     <Paper
       elevation={0}
       data-testid="fine-activity-card"
-      sx={{
-        p: { xs: 2, md: 2.5 },
-        height: '100%',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 2,
-      }}
+      sx={analyticsCardSx}
     >
-      <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 1.25, alignItems: 'center' }}>
         <GavelIcon fontSize="small" color="action" />
         <Typography variant="subtitle1" sx={dashboardChartTitleSx}>
           {t('dashboard.insights.fineActivityTitle')}
@@ -104,17 +99,14 @@ export function FineActivityCard({ fines, currency = 'RWF', loading }: FineActiv
               </ResponsiveContainer>
             </Box>
           ) : (
-            <Box
-              data-testid="fine-activity-empty"
-              sx={{ height: CHART_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
-            >
-              <Typography color="text.secondary" align="center">
+            <Box data-testid="fine-activity-empty" sx={{ py: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
                 {t('dashboard.glance.fineActivityEmpty')}
               </Typography>
             </Box>
           )}
 
-          <Typography variant="body2" sx={{ fontWeight: 600, mt: 1.5 }} data-testid="fines-issued-value">
+          <Typography variant="body2" sx={{ fontWeight: 600, mt: 'auto', pt: 1.5, overflowWrap: 'anywhere' }} data-testid="fines-issued-value">
             {t('dashboard.insights.finesIssued')}:{' '}
             {t('dashboard.insights.finesIssuedValue', {
               count: fines.issuedCountCurrentMonth,

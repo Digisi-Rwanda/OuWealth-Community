@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { AccessibleDataTable } from './AccessibleDataTable'
+import { analyticsCardSx } from './analyticsStyles'
 import { ChartTooltip } from './ChartTooltip'
 import { CHART_COLORS, compactNumber } from './chartPalette'
 import { toFiniteNumber } from './dashboardVisuals'
@@ -27,7 +28,7 @@ interface LoansIssuedVsRepaidChartProps {
   outstandingPrincipal?: string | number | null
 }
 
-const CHART_HEIGHT = 190
+const CHART_HEIGHT = 170
 
 /**
  * Compact bars for this month's loan flows. Issued and repaid are separate flows (not parts of one
@@ -59,26 +60,17 @@ export function LoansIssuedVsRepaidChart({
     <Paper
       elevation={0}
       data-testid="loans-issued-vs-repaid-chart"
-      sx={{
-        p: { xs: 2, md: 2.5 },
-        height: '100%',
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 2,
-      }}
+      sx={analyticsCardSx}
     >
-      <Typography variant="subtitle1" sx={[dashboardChartTitleSx, { mb: 1.5 }]}>
+      <Typography variant="subtitle1" sx={[dashboardChartTitleSx, { mb: 1.25 }]}>
         {t('dashboard.insights.issuedVsRepaidTitle')}
       </Typography>
 
       {loading ? (
         <Skeleton variant="rounded" height={CHART_HEIGHT} />
       ) : empty ? (
-        <Box
-          sx={{ height: CHART_HEIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2 }}
-          data-testid="loans-issued-vs-repaid-empty"
-        >
-          <Typography color="text.secondary" align="center">
+        <Box sx={{ py: 1.5, mb: 1.5 }} data-testid="loans-issued-vs-repaid-empty">
+          <Typography variant="body2" color="text.secondary">
             {t('dashboard.insights.issuedVsRepaidEmpty')}
           </Typography>
         </Box>
@@ -128,7 +120,7 @@ export function LoansIssuedVsRepaidChart({
       {outstandingPrincipal !== undefined && outstandingPrincipal !== null && !loading ? (
         <Box
           data-testid="loan-outstanding-callout"
-          sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}
+          sx={{ mt: 'auto', pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ ...dashboardKpiLabelSx, textTransform: 'uppercase' }}>
             {t('dashboard.glance.outstandingPrincipal')}

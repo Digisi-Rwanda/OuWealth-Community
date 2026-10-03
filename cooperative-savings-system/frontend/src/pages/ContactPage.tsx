@@ -53,24 +53,20 @@ export function ContactPage() {
 
   return (
     <Box data-testid="contact-page" sx={{ py: { xs: 4, md: 7 } }}>
-      <Container maxWidth="md">
+      <Container maxWidth={false} sx={{ maxWidth: 608 }} data-testid="contact-column">
         <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: { xs: '2rem', md: '2.5rem' } }}>
           {t('public.contact.title')}
         </Typography>
-        <Typography color="text.secondary" component="p" sx={{ mb: 3, maxWidth: 640 }}>
+        <Typography color="text.secondary" component="p" sx={{ mb: 3 }}>
           {t('public.contact.intro')}
         </Typography>
 
-        <Box
+        <Paper
           component="section"
+          variant="outlined"
           aria-label={t('public.contact.methodsTitle')}
           data-testid="support-methods"
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-            gap: 2,
-            mb: 3,
-          }}
+          sx={{ mb: 3, borderRadius: 3, overflow: 'hidden' }}
         >
           <SupportMethod
             testId="support-call"
@@ -96,13 +92,18 @@ export function ContactPage() {
             value={SUPPORT_CONTACTS.email}
             href={SUPPORT_CONTACTS.emailHref}
             accent="secondary.main"
+            last
           />
-        </Box>
+        </Paper>
 
         <Paper
           elevation={0}
+          data-testid="contact-form-card"
           sx={{
-            p: { xs: 2.5, sm: 4 },
+            width: '100%',
+            maxWidth: 560,
+            mx: 'auto',
+            p: { xs: 2.5, sm: 3.5 },
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 3,
@@ -201,9 +202,11 @@ export function ContactPage() {
               ) : null}
 
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
+                direction="row"
+                useFlexGap
                 spacing={1.5}
-                sx={{ justifyContent: { sm: 'flex-end' } }}
+                data-testid="contact-actions"
+                sx={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}
               >
                 <Button
                   component="a"
@@ -213,6 +216,8 @@ export function ContactPage() {
                   variant="outlined"
                   startIcon={<WhatsAppIcon />}
                   sx={{
+                    width: 'auto',
+                    minWidth: 140,
                     minHeight: 44,
                     px: 3,
                     color: WHATSAPP_GREEN,
@@ -226,7 +231,7 @@ export function ContactPage() {
                   type="submit"
                   variant="contained"
                   startIcon={<SendIcon />}
-                  sx={{ minHeight: 44, px: 3 }}
+                  sx={{ width: 'auto', minWidth: 140, minHeight: 44, px: 3 }}
                 >
                   {t('public.contact.send')}
                 </Button>
@@ -240,6 +245,8 @@ export function ContactPage() {
 }
 
 interface SupportMethodProps {
+  /** Last row of the card has no divider below it. */
+  last?: boolean
   testId: string
   icon: ReactNode
   label: string
@@ -249,27 +256,28 @@ interface SupportMethodProps {
   external?: boolean
 }
 
-function SupportMethod({ testId, icon, label, value, href, accent, external }: SupportMethodProps) {
+function SupportMethod({ testId, icon, label, value, href, accent, external, last }: SupportMethodProps) {
   return (
-    <Paper
+    <Box
       component="a"
       href={href}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
       data-testid={testId}
-      variant="outlined"
       sx={{
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
-        p: 2,
-        borderRadius: 2.5,
+        px: 2,
+        py: 1.5,
         textDecoration: 'none',
         color: 'text.primary',
         minHeight: 64,
-        transition: 'border-color 150ms ease, box-shadow 150ms ease',
-        '&:hover': { borderColor: accent, boxShadow: '0 6px 18px rgba(15, 23, 42, 0.10)' },
-        '&:focus-visible': { outline: '2px solid', outlineColor: accent, outlineOffset: 2 },
+        borderBottom: last ? 'none' : '1px solid',
+        borderColor: 'divider',
+        transition: 'background-color 150ms ease',
+        '&:hover': { bgcolor: 'action.hover' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: accent, outlineOffset: -2 },
       }}
     >
       <Box
@@ -295,6 +303,6 @@ function SupportMethod({ testId, icon, label, value, href, accent, external }: S
           {value}
         </Typography>
       </Box>
-    </Paper>
+    </Box>
   )
 }

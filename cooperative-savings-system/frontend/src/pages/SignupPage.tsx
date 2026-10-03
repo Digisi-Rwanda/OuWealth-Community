@@ -38,6 +38,7 @@ import {
 import { onboardCooperative } from '@/shared/api/onboarding'
 import { getErrorMessage } from '@/shared/api/client'
 import { AuthSplitShell } from '@/layouts/AuthSplitShell'
+import { AUTH_ACTION_BUTTON_SX } from '@/layouts/authFormStyles'
 import { ROUTES } from '@/shared/constants/routes'
 import { formatMoney } from '@/shared/utils/formatMoney'
 
@@ -49,13 +50,8 @@ const DUE_DAYS = Array.from(
 
 const STEPS = ['signup.steps.scheme', 'signup.steps.account', 'signup.steps.review'] as const
 
-/** Medium wizard buttons: full width only on phones, compact and right-aligned from the sm breakpoint up. */
-const WIZARD_BUTTON_SX = {
-  minHeight: 44,
-  minWidth: { sm: 128 },
-  px: 3,
-  whiteSpace: 'nowrap',
-} as const
+/** Medium wizard buttons sized to their content on every screen size (Back left, Next/Create right). */
+const WIZARD_BUTTON_SX = AUTH_ACTION_BUTTON_SX
 
 export function SignupPage() {
   const { t } = useTranslation()
@@ -397,10 +393,10 @@ export function SignupPage() {
           {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
 
           <Stack
-            direction={{ xs: 'column-reverse', sm: 'row' }}
+            direction="row"
             spacing={1.5}
             data-testid="signup-actions"
-            sx={{ justifyContent: { sm: 'flex-end' }, alignItems: { xs: 'stretch', sm: 'center' } }}
+            sx={{ justifyContent: step > 0 ? 'space-between' : 'flex-end', alignItems: 'center' }}
           >
             {step > 0 ? (
               <Button type="button" variant="outlined" onClick={goBack} sx={WIZARD_BUTTON_SX}>

@@ -21,6 +21,7 @@ import { login } from '@/shared/api/auth'
 import { getErrorMessage } from '@/shared/api/client'
 import { AuthSplitShell } from '@/layouts/AuthSplitShell'
 import { LOGIN_SUCCESS_STATE } from '@/features/branding/loginSuccessSplash'
+import { AUTH_ACTION_BUTTON_SX } from '@/layouts/authFormStyles'
 import { ROUTES } from '@/shared/constants/routes'
 import { ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
 import { isPreviewLoginEnabled } from '@/shared/auth/previewLogin'
@@ -124,8 +125,9 @@ export function LoginPage() {
           <Button
             type="submit"
             variant="contained"
-            size="large"
             disabled={mutation.isPending}
+            data-testid="login-submit"
+            sx={{ ...AUTH_ACTION_BUTTON_SX, alignSelf: 'flex-end' }}
             startIcon={
               mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
             }
