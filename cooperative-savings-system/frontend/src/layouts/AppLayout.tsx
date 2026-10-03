@@ -7,9 +7,11 @@ import { selectIsCooperativeAdmin, selectIsSuperAdmin } from '@/app/store/authSl
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { selectSidebarPinned, setSidebarPinned } from '@/app/store/uiSlice'
 import { fetchUnreadCount } from '@/shared/api/notifications'
+import { AppFooter } from '@/shared/components/AppFooter'
 import { CooperativeSelector } from '@/shared/components/CooperativeSelector'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 import { OfflineBanner } from '@/shared/components/OfflineBanner'
+import { SupportDock } from '@/shared/components/SupportDock'
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher'
 import { NOTIFICATION_POLL_MS } from '@/features/notifications'
 import { SubscriptionBanner } from '@/features/subscription/SubscriptionBanner'
@@ -176,7 +178,9 @@ export function AppLayout() {
             <Outlet />
           </Box>
         </Box>
+        <AppFooter variant="compact" />
       </Box>
+      <SupportDock />
     </Box>
   )
 }

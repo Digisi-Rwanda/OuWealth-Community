@@ -2,7 +2,7 @@
   "app": {
     "name": "OuWealth Community",
     "fullName": "OuWealth Community",
-    "tagline": "Accumulate your wealth in an instant"
+    "tagline": "Accumulate your wealth in an instant."
   },
   "public": {
     "nav": {
@@ -17,9 +17,11 @@
       "createScheme": "Create Saving Scheme"
     },
     "footer": {
-      "tagline": "Software for Saving Schemes. Organize members, contributions, loans, and shared financial operations.",
+      "tagline": "Accumulate your wealth in an instant.",
       "navAria": "Footer links",
-      "copyright": "© {{year}} OuWealth Community"
+      "copyright": "© {{year}} OuWealth Community",
+      "backToTop": "OuWealth Community, back to top",
+      "compactAria": "OuWealth footer"
     },
     "landing": {
       "hero": {
@@ -170,8 +172,36 @@
     },
     "contact": {
       "title": "Contact OuWealth Community",
-      "intro": "We welcome questions about the product and how it can support your Saving Scheme.",
-      "placeholder": "Contact details will be available here shortly."
+      "intro": "Questions about OuWealth or your Saving Scheme? Reach us by call, WhatsApp or email, or send us a message.",
+      "methodsTitle": "Reach us directly",
+      "formTitle": "Send us a message",
+      "formHint": "Your email app will open with this message ready to send to our support team.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "countryCode": "Country code",
+      "phone": "Phone number (optional)",
+      "phoneHint": "Rwandan mobile, for example 07XXXXXXXX",
+      "message": "Message",
+      "send": "Send message",
+      "whatsappChat": "Chat on WhatsApp",
+      "whatsappPrefill": "Hello OuWealth Support, I need help with ",
+      "mailOpened": "Your email app should now be open with your message. Press send there to deliver it. We have not sent anything yet.",
+      "mailSubject": "OuWealth support request from {{name}}",
+      "bodyName": "Name",
+      "bodyEmail": "Email",
+      "bodyPhone": "Phone",
+      "bodyMessage": "Message",
+      "validation": {
+        "firstNameRequired": "First name is required",
+        "lastNameRequired": "Last name is required",
+        "emailRequired": "Email is required",
+        "emailInvalid": "Enter a valid email address",
+        "countryRequired": "Choose a country code",
+        "phoneInvalid": "Enter a Rwandan mobile number (07XXXXXXXX)",
+        "messageRequired": "Message is required",
+        "tooLong": "This is too long"
+      }
     },
     "privacy": {
       "title": "Privacy Policy",
@@ -245,7 +275,8 @@
     "foundationHint": "Verify the public health endpoint while you sign in.",
     "checkHealth": "Check API health",
     "noAccount": "Don't have an account?",
-    "createAccount": "Create account"
+    "createAccount": "Create account",
+    "shellText": "Sign in to manage your Saving Scheme's members, contributions, loans and reports."
   },
   "signup": {
     "title": "Create your Saving Scheme",
@@ -279,7 +310,8 @@
     "afterTrial": "After your free trial:",
     "monthlyPrice": "RWF 2,000/month",
     "annualPrice": "RWF 18,000/year (save 25%)",
-    "manageLater": "You can manage your OuWealth subscription later. No payment is required now."
+    "manageLater": "You can manage your OuWealth subscription later. No payment is required now.",
+    "shellText": "Create your Saving Scheme, invite members and manage contributions, loans and reports in one place."
   },
   "forgotPassword": {
     "title": "Forgot password",
@@ -2569,5 +2601,14 @@
       "LOAN_OFFICER": "Review loan requests against savings history, approve or reject them, then send approved loans to the Accountant to disburse.",
       "COOPERATIVE_ADMIN": "Chair the group, settle disputes, suspend members, approve rule changes, and co-sign money leaving the fund."
     }
+  },
+  "support": {
+    "goHome": "Go to OuWealth home",
+    "dockAria": "Get help",
+    "emailSupport": "Email support",
+    "chatWhatsApp": "Chat on WhatsApp",
+    "callUs": "Call us",
+    "email": "Email",
+    "whatsapp": "WhatsApp"
   }
 }

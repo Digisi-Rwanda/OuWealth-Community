@@ -2,7 +2,7 @@
   "app": {
     "name": "OuWealth Community",
     "fullName": "OuWealth Community",
-    "tagline": "Accumulate your wealth in an instant"
+    "tagline": "Ongera umutungo wawe mu kanya gato."
   },
   "public": {
     "nav": {
@@ -17,9 +17,11 @@
       "createScheme": "Kora Ikimina"
     },
     "footer": {
-      "tagline": "Porogaramu y'ibimina. Gucunga abanyamuryango, amafaranga, inguzanyo, n'ibikorwa by'amafaranga mu buryo bworoshye.",
+      "tagline": "Ongera umutungo wawe mu kanya gato.",
       "navAria": "Amahuza yo hepfo",
-      "copyright": "© {{year}} OuWealth Community"
+      "copyright": "© {{year}} OuWealth Community",
+      "backToTop": "OuWealth Community, subira hejuru",
+      "compactAria": "Hasi kuri OuWealth"
     },
     "landing": {
       "hero": {
@@ -170,8 +172,36 @@
     },
     "contact": {
       "title": "Twandikire OuWealth Community",
-      "intro": "Twakiriye ibibazo ku porogaramu n'uko ishobora gufasha ikimina cyawe.",
-      "placeholder": "Amakuru yo kutwandikira azaboneka hano vuba."
+      "intro": "Ufite ibibazo kuri OuWealth cyangwa ikimina cyawe? Tubonere kuri telefone, WhatsApp cyangwa imeri, cyangwa utwoherereze ubutumwa.",
+      "methodsTitle": "Tubonere ako kanya",
+      "formTitle": "Twoherereze ubutumwa",
+      "formHint": "Porogaramu yawe ya imeri irafunguka ifite ubu butumwa, bwiteguye koherezwa ku bufasha bwacu.",
+      "firstName": "Izina ribanza",
+      "lastName": "Izina rya nyuma",
+      "email": "Imeri",
+      "countryCode": "Kode y'igihugu",
+      "phone": "Nimero ya telefone (si ngombwa)",
+      "phoneHint": "Nimero ya telefone y'u Rwanda, urugero 07XXXXXXXX",
+      "message": "Ubutumwa",
+      "send": "Ohereza ubutumwa",
+      "whatsappChat": "Tuganire kuri WhatsApp",
+      "whatsappPrefill": "Muraho OuWealth, nkeneye ubufasha kuri ",
+      "mailOpened": "Porogaramu yawe ya imeri igomba kuba ifunguye ifite ubutumwa bwawe. Kanda ohereza aho kugira ngo bugere. Nta kintu turohereza.",
+      "mailSubject": "Ubusabe bw'ubufasha kuri OuWealth buvuye kuri {{name}}",
+      "bodyName": "Izina",
+      "bodyEmail": "Imeri",
+      "bodyPhone": "Telefone",
+      "bodyMessage": "Ubutumwa",
+      "validation": {
+        "firstNameRequired": "Izina ribanza rirakenewe",
+        "lastNameRequired": "Izina rya nyuma rirakenewe",
+        "emailRequired": "Imeri irakenewe",
+        "emailInvalid": "Andika imeri yemewe",
+        "countryRequired": "Hitamo kode y'igihugu",
+        "phoneInvalid": "Andika nimero ya telefone y'u Rwanda (07XXXXXXXX)",
+        "messageRequired": "Ubutumwa burakenewe",
+        "tooLong": "Ibi ni birebire cyane"
+      }
     },
     "privacy": {
       "title": "Politiki y'ibanga",
@@ -245,7 +275,8 @@
     "foundationHint": "Suzuma health endpoint ya API.",
     "checkHealth": "Suzuma API",
     "noAccount": "Nta konti ufite?",
-    "createAccount": "Fungura konti"
+    "createAccount": "Fungura konti",
+    "shellText": "Injira kugira ngo ucunge abanyamuryango, imisanzu, inguzanyo na raporo by'ikimina cyawe."
   },
   "signup": {
     "title": "Fungura Ikimina",
@@ -279,7 +310,8 @@
     "afterTrial": "Nyuma y'igihe cyo kugerageza:",
     "monthlyPrice": "RWF 2,000/ukwezi",
     "annualPrice": "RWF 18,000/umwaka (kuzigama 25%)",
-    "manageLater": "Ushobora gucunga kwiyandikisha kwa OuWealth nyuma. Nta kwishyura bisabwa none."
+    "manageLater": "Ushobora gucunga kwiyandikisha kwa OuWealth nyuma. Nta kwishyura bisabwa none.",
+    "shellText": "Tangira ikimina cyawe, utumire abanyamuryango, kandi ucunge imisanzu, inguzanyo na raporo ahantu hamwe."
   },
   "forgotPassword": {
     "title": "Wibagiwe ijambo ry'ibanga",
@@ -2553,5 +2585,14 @@
       "LOAN_OFFICER": "Asuzuma ibisabwa by'inguzanyo ku mateka y'imisanzu, yemera cyangwa yanga, hanyuma ayohereza Umucungamari ngo atange amafaranga.",
       "COOPERATIVE_ADMIN": "Ayobora itsinda, akemura amakimbirane, ahagarika abanyamuryango, yemeza amategeko, kandi asinya amafaranga ava mu kigega."
     }
+  },
+  "support": {
+    "goHome": "Subira ku rupapuro rw'ibanze rwa OuWealth",
+    "dockAria": "Ubufasha",
+    "emailSupport": "Andikira ubufasha kuri imeri",
+    "chatWhatsApp": "Tuganire kuri WhatsApp",
+    "callUs": "Duhamagare",
+    "email": "Imeri",
+    "whatsapp": "WhatsApp"
   }
 }

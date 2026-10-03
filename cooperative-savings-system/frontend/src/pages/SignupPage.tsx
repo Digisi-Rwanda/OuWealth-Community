@@ -2,8 +2,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Link as MuiLink,
   MenuItem,
@@ -39,7 +37,7 @@ import {
 } from '@/features/onboarding/onboardingSchema'
 import { onboardCooperative } from '@/shared/api/onboarding'
 import { getErrorMessage } from '@/shared/api/client'
-import { AuthBrand } from '@/shared/components/AuthBrand'
+import { AuthSplitShell } from '@/layouts/AuthSplitShell'
 import { ROUTES } from '@/shared/constants/routes'
 import { formatMoney } from '@/shared/utils/formatMoney'
 
@@ -125,333 +123,317 @@ export function SignupPage() {
   }
 
   return (
-    <Stack spacing={3}>
-      <AuthBrand title={t('app.name')} subtitle={t('signup.subtitle')} />
-
-      <Card
-        elevation={0}
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: 'var(--shadow-soft)',
-          bgcolor: 'background.paper',
-          backdropFilter: 'blur(8px)',
-        }}
+    <AuthSplitShell supporting={t('signup.shellText')} wide>
+      <Typography variant="h5" component="h1" gutterBottom>
+        {t('signup.title')}
+      </Typography>
+      <Stepper
+        activeStep={step}
+        alternativeLabel
+        sx={{ mt: 1, mb: 2, '& .MuiStepLabel-label': { typography: 'caption' } }}
       >
-        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
-          <Typography variant="h5" gutterBottom>
-            {t('signup.title')}
-          </Typography>
-          <Stepper
-            activeStep={step}
-            alternativeLabel
-            sx={{ mt: 1, mb: 2, '& .MuiStepLabel-label': { typography: 'caption' } }}
-          >
-            {STEPS.map((key) => (
-              <Step key={key}>
-                <StepLabel>{t(key)}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+        {STEPS.map((key) => (
+          <Step key={key}>
+            <StepLabel>{t(key)}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
 
-          <Box component="form" onSubmit={onFormSubmit} noValidate>
-            <Stack spacing={2.5}>
-              {step === 0 ? (
-                <>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('signup.schemeHint')}
-                  </Typography>
-                  <TrialPricingNote />
-                  <TextField
-                    label={t('cooperatives.fields.name')}
-                    required
-                    fullWidth
-                    error={Boolean(errors.name)}
-                    helperText={errors.name?.message}
-                    {...register('name')}
-                  />
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <TextField
-                      label={t('cooperatives.fields.contactEmail')}
-                      required
-                      fullWidth
-                      type="email"
-                      autoComplete="email"
-                      error={Boolean(errors.contactEmail)}
-                      helperText={errors.contactEmail?.message}
-                      {...register('contactEmail')}
-                    />
-                    <TextField
-                      label={t('cooperatives.fields.contactPhone')}
-                      required
-                      fullWidth
-                      placeholder="07XXXXXXXX"
-                      error={Boolean(errors.contactPhone)}
-                      helperText={
-                        errors.contactPhone?.message ?? t('cooperatives.fields.contactPhoneHint')
-                      }
-                      slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
-                      {...register('contactPhone')}
-                    />
-                  </Stack>
-                  <TextField
-                    label={t('cooperatives.fields.address')}
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    {...register('address')}
-                  />
-                  <TextField
-                    value={RWANDA_CURRENCY}
-                    label={t('cooperatives.fields.currency')}
-                    required
-                    fullWidth
-                    disabled
-                    helperText={t('cooperatives.fields.currencyLocked')}
-                    slotProps={{ input: { readOnly: true } }}
-                  />
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <TextField
-                      label={t('cooperatives.fields.registrationDate')}
-                      type="date"
-                      required
-                      fullWidth
-                      error={Boolean(errors.registrationDate)}
-                      helperText={
-                        errors.registrationDate?.message ?? t('cooperatives.fields.registrationDateHint')
-                      }
-                      slotProps={{
-                        inputLabel: { shrink: true },
-                        htmlInput: { min: MIN_REGISTRATION_DATE, max: todayIso },
-                      }}
-                      {...register('registrationDate')}
-                    />
-                    <Controller
-                      name="financialYearStartMonth"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          select
-                          label={t('cooperatives.fields.financialYearStartMonth')}
-                          fullWidth
-                          error={Boolean(errors.financialYearStartMonth)}
-                          helperText={errors.financialYearStartMonth?.message}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        >
-                          {MONTHS.map((m) => (
-                            <MenuItem key={m} value={m}>
-                              {m}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
-                    />
-                  </Stack>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <TextField
-                      label={t('cooperatives.fields.monthlyContributionAmount')}
-                      required
-                      fullWidth
-                      error={Boolean(errors.monthlyContributionAmount)}
-                      helperText={errors.monthlyContributionAmount?.message}
-                      {...register('monthlyContributionAmount')}
-                    />
-                    <Controller
-                      name="contributionDueDay"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          select
-                          required
-                          label={t('cooperatives.fields.contributionDueDay')}
-                          fullWidth
-                          error={Boolean(errors.contributionDueDay)}
-                          helperText={
-                            errors.contributionDueDay?.message ??
-                            t('cooperatives.fields.contributionDueDayHint')
-                          }
-                          onChange={(e) => field.onChange(Number(e.target.value))}
-                        >
-                          {DUE_DAYS.map((d) => (
-                            <MenuItem key={d} value={d}>
-                              {d}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
-                    />
-                  </Stack>
-                </>
-              ) : null}
-
-              {step === 1 ? (
-                <>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('signup.accountHint')}
-                  </Typography>
-                  <Alert severity="info">{t('signup.presidentNote')}</Alert>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <TextField
-                      label={t('signup.firstName')}
-                      autoComplete="given-name"
-                      required
-                      fullWidth
-                      error={Boolean(errors.firstName)}
-                      helperText={errors.firstName?.message}
-                      {...register('firstName')}
-                    />
-                    <TextField
-                      label={t('signup.lastName')}
-                      autoComplete="family-name"
-                      required
-                      fullWidth
-                      error={Boolean(errors.lastName)}
-                      helperText={errors.lastName?.message}
-                      {...register('lastName')}
-                    />
-                  </Stack>
-                  <TextField
-                    label={t('signup.username')}
-                    autoComplete="username"
-                    required
-                    fullWidth
-                    error={Boolean(errors.username)}
-                    helperText={errors.username?.message}
-                    {...register('username')}
-                  />
-                  <TextField
-                    label={t('signup.email')}
-                    type="email"
-                    autoComplete="email"
-                    required
-                    fullWidth
-                    error={Boolean(errors.email)}
-                    helperText={errors.email?.message}
-                    {...register('email')}
-                  />
-                  <TextField
-                    label={t('signup.phone')}
-                    fullWidth
-                    placeholder="07XXXXXXXX"
-                    helperText={errors.phone?.message ?? t('signup.phoneOptional')}
-                    error={Boolean(errors.phone)}
-                    slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
-                    {...register('phone')}
-                  />
-                  <TextField
-                    label={t('signup.password')}
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    fullWidth
-                    error={Boolean(errors.password)}
-                    helperText={errors.password?.message}
-                    {...register('password')}
-                  />
-                  <TextField
-                    label={t('signup.confirmPassword')}
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    fullWidth
-                    error={Boolean(errors.confirmPassword)}
-                    helperText={errors.confirmPassword?.message}
-                    {...register('confirmPassword')}
-                  />
-                </>
-              ) : null}
-
-              {step === 2 ? (
-                <>
-                  <ReviewSection title={t('signup.reviewScheme')}>
-                    <ReviewRow label={t('cooperatives.fields.name')} value={values.name} />
-                    <ReviewRow label={t('cooperatives.fields.contactEmail')} value={values.contactEmail} />
-                    <ReviewRow label={t('cooperatives.fields.contactPhone')} value={values.contactPhone} />
-                    {values.address.trim() ? (
-                      <ReviewRow label={t('cooperatives.fields.address')} value={values.address} />
-                    ) : null}
-                    <ReviewRow label={t('cooperatives.fields.currency')} value={RWANDA_CURRENCY} />
-                    <ReviewRow
-                      label={t('cooperatives.fields.financialYearStartMonth')}
-                      value={String(values.financialYearStartMonth)}
-                    />
-                    <ReviewRow
-                      label={t('cooperatives.fields.monthlyContributionAmount')}
-                      value={formatMoney(values.monthlyContributionAmount, { currency: RWANDA_CURRENCY })}
-                    />
-                    <ReviewRow
-                      label={t('cooperatives.fields.contributionDueDay')}
-                      value={String(values.contributionDueDay)}
-                    />
-                    <ReviewRow
-                      label={t('cooperatives.fields.registrationDate')}
-                      value={values.registrationDate}
-                    />
-                  </ReviewSection>
-                  <ReviewSection title={t('signup.reviewAccount')}>
-                    <ReviewRow
-                      label={t('profile.fullName')}
-                      value={`${values.firstName} ${values.lastName}`.trim()}
-                    />
-                    <ReviewRow label={t('signup.username')} value={values.username} />
-                    <ReviewRow label={t('signup.email')} value={values.email} />
-                    {values.phone.trim() ? (
-                      <ReviewRow label={t('signup.phone')} value={values.phone} />
-                    ) : null}
-                    <Typography variant="body2" color="text.secondary">
-                      {t('signup.presidentNote')}
-                    </Typography>
-                  </ReviewSection>
-                  <ReviewSection title={t('signup.reviewSubscription')}>
-                    <TrialPricingNote />
-                  </ReviewSection>
-                </>
-              ) : null}
-
-              {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-
-              <Stack
-                direction={{ xs: 'column-reverse', sm: 'row' }}
-                spacing={1.5}
-                data-testid="signup-actions"
-                sx={{ justifyContent: { sm: 'flex-end' }, alignItems: { xs: 'stretch', sm: 'center' } }}
-              >
-                {step > 0 ? (
-                  <Button type="button" variant="outlined" onClick={goBack} sx={WIZARD_BUTTON_SX}>
-                    {t('signup.back')}
-                  </Button>
-                ) : null}
-                {step < STEPS.length - 1 ? (
-                  <Button type="submit" variant="contained" sx={WIZARD_BUTTON_SX}>
-                    {t('signup.next')}
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={mutation.isPending}
-                    startIcon={
-                      mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
-                    }
-                    sx={WIZARD_BUTTON_SX}
-                  >
-                    {t('signup.submit')}
-                  </Button>
-                )}
-              </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                {t('signup.haveAccount')}{' '}
-                <MuiLink component={RouterLink} to={ROUTES.login}>
-                  {t('signup.signIn')}
-                </MuiLink>
+      <Box component="form" onSubmit={onFormSubmit} noValidate>
+        <Stack spacing={2.5}>
+          {step === 0 ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {t('signup.schemeHint')}
               </Typography>
-            </Stack>
-          </Box>
-        </CardContent>
-      </Card>
-    </Stack>
+              <TextField
+                label={t('cooperatives.fields.name')}
+                required
+                fullWidth
+                error={Boolean(errors.name)}
+                helperText={errors.name?.message}
+                {...register('name')}
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label={t('cooperatives.fields.contactEmail')}
+                  required
+                  fullWidth
+                  type="email"
+                  autoComplete="email"
+                  error={Boolean(errors.contactEmail)}
+                  helperText={errors.contactEmail?.message}
+                  {...register('contactEmail')}
+                />
+                <TextField
+                  label={t('cooperatives.fields.contactPhone')}
+                  required
+                  fullWidth
+                  placeholder="07XXXXXXXX"
+                  error={Boolean(errors.contactPhone)}
+                  helperText={
+                    errors.contactPhone?.message ?? t('cooperatives.fields.contactPhoneHint')
+                  }
+                  slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
+                  {...register('contactPhone')}
+                />
+              </Stack>
+              <TextField
+                label={t('cooperatives.fields.address')}
+                fullWidth
+                multiline
+                minRows={2}
+                {...register('address')}
+              />
+              <TextField
+                value={RWANDA_CURRENCY}
+                label={t('cooperatives.fields.currency')}
+                required
+                fullWidth
+                disabled
+                helperText={t('cooperatives.fields.currencyLocked')}
+                slotProps={{ input: { readOnly: true } }}
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label={t('cooperatives.fields.registrationDate')}
+                  type="date"
+                  required
+                  fullWidth
+                  error={Boolean(errors.registrationDate)}
+                  helperText={
+                    errors.registrationDate?.message ?? t('cooperatives.fields.registrationDateHint')
+                  }
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { min: MIN_REGISTRATION_DATE, max: todayIso },
+                  }}
+                  {...register('registrationDate')}
+                />
+                <Controller
+                  name="financialYearStartMonth"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      label={t('cooperatives.fields.financialYearStartMonth')}
+                      fullWidth
+                      error={Boolean(errors.financialYearStartMonth)}
+                      helperText={errors.financialYearStartMonth?.message}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    >
+                      {MONTHS.map((m) => (
+                        <MenuItem key={m} value={m}>
+                          {m}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label={t('cooperatives.fields.monthlyContributionAmount')}
+                  required
+                  fullWidth
+                  error={Boolean(errors.monthlyContributionAmount)}
+                  helperText={errors.monthlyContributionAmount?.message}
+                  {...register('monthlyContributionAmount')}
+                />
+                <Controller
+                  name="contributionDueDay"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      required
+                      label={t('cooperatives.fields.contributionDueDay')}
+                      fullWidth
+                      error={Boolean(errors.contributionDueDay)}
+                      helperText={
+                        errors.contributionDueDay?.message ??
+                        t('cooperatives.fields.contributionDueDayHint')
+                      }
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    >
+                      {DUE_DAYS.map((d) => (
+                        <MenuItem key={d} value={d}>
+                          {d}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Stack>
+            </>
+          ) : null}
+
+          {step === 1 ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {t('signup.accountHint')}
+              </Typography>
+              <Alert severity="info">{t('signup.presidentNote')}</Alert>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label={t('signup.firstName')}
+                  autoComplete="given-name"
+                  required
+                  fullWidth
+                  error={Boolean(errors.firstName)}
+                  helperText={errors.firstName?.message}
+                  {...register('firstName')}
+                />
+                <TextField
+                  label={t('signup.lastName')}
+                  autoComplete="family-name"
+                  required
+                  fullWidth
+                  error={Boolean(errors.lastName)}
+                  helperText={errors.lastName?.message}
+                  {...register('lastName')}
+                />
+              </Stack>
+              <TextField
+                label={t('signup.username')}
+                autoComplete="username"
+                required
+                fullWidth
+                error={Boolean(errors.username)}
+                helperText={errors.username?.message}
+                {...register('username')}
+              />
+              <TextField
+                label={t('signup.email')}
+                type="email"
+                autoComplete="email"
+                required
+                fullWidth
+                error={Boolean(errors.email)}
+                helperText={errors.email?.message}
+                {...register('email')}
+              />
+              <TextField
+                label={t('signup.phone')}
+                fullWidth
+                placeholder="07XXXXXXXX"
+                helperText={errors.phone?.message ?? t('signup.phoneOptional')}
+                error={Boolean(errors.phone)}
+                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 13 } }}
+                {...register('phone')}
+              />
+              <TextField
+                label={t('signup.password')}
+                type="password"
+                autoComplete="new-password"
+                required
+                fullWidth
+                error={Boolean(errors.password)}
+                helperText={errors.password?.message}
+                {...register('password')}
+              />
+              <TextField
+                label={t('signup.confirmPassword')}
+                type="password"
+                autoComplete="new-password"
+                required
+                fullWidth
+                error={Boolean(errors.confirmPassword)}
+                helperText={errors.confirmPassword?.message}
+                {...register('confirmPassword')}
+              />
+            </>
+          ) : null}
+
+          {step === 2 ? (
+            <>
+              <ReviewSection title={t('signup.reviewScheme')}>
+                <ReviewRow label={t('cooperatives.fields.name')} value={values.name} />
+                <ReviewRow label={t('cooperatives.fields.contactEmail')} value={values.contactEmail} />
+                <ReviewRow label={t('cooperatives.fields.contactPhone')} value={values.contactPhone} />
+                {values.address.trim() ? (
+                  <ReviewRow label={t('cooperatives.fields.address')} value={values.address} />
+                ) : null}
+                <ReviewRow label={t('cooperatives.fields.currency')} value={RWANDA_CURRENCY} />
+                <ReviewRow
+                  label={t('cooperatives.fields.financialYearStartMonth')}
+                  value={String(values.financialYearStartMonth)}
+                />
+                <ReviewRow
+                  label={t('cooperatives.fields.monthlyContributionAmount')}
+                  value={formatMoney(values.monthlyContributionAmount, { currency: RWANDA_CURRENCY })}
+                />
+                <ReviewRow
+                  label={t('cooperatives.fields.contributionDueDay')}
+                  value={String(values.contributionDueDay)}
+                />
+                <ReviewRow
+                  label={t('cooperatives.fields.registrationDate')}
+                  value={values.registrationDate}
+                />
+              </ReviewSection>
+              <ReviewSection title={t('signup.reviewAccount')}>
+                <ReviewRow
+                  label={t('profile.fullName')}
+                  value={`${values.firstName} ${values.lastName}`.trim()}
+                />
+                <ReviewRow label={t('signup.username')} value={values.username} />
+                <ReviewRow label={t('signup.email')} value={values.email} />
+                {values.phone.trim() ? (
+                  <ReviewRow label={t('signup.phone')} value={values.phone} />
+                ) : null}
+                <Typography variant="body2" color="text.secondary">
+                  {t('signup.presidentNote')}
+                </Typography>
+              </ReviewSection>
+              <ReviewSection title={t('signup.reviewSubscription')}>
+                <TrialPricingNote />
+              </ReviewSection>
+            </>
+          ) : null}
+
+          {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+
+          <Stack
+            direction={{ xs: 'column-reverse', sm: 'row' }}
+            spacing={1.5}
+            data-testid="signup-actions"
+            sx={{ justifyContent: { sm: 'flex-end' }, alignItems: { xs: 'stretch', sm: 'center' } }}
+          >
+            {step > 0 ? (
+              <Button type="button" variant="outlined" onClick={goBack} sx={WIZARD_BUTTON_SX}>
+                {t('signup.back')}
+              </Button>
+            ) : null}
+            {step < STEPS.length - 1 ? (
+              <Button type="submit" variant="contained" sx={WIZARD_BUTTON_SX}>
+                {t('signup.next')}
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={mutation.isPending}
+                startIcon={
+                  mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
+                }
+                sx={WIZARD_BUTTON_SX}
+              >
+                {t('signup.submit')}
+              </Button>
+            )}
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+            {t('signup.haveAccount')}{' '}
+            <MuiLink component={RouterLink} to={ROUTES.login}>
+              {t('signup.signIn')}
+            </MuiLink>
+          </Typography>
+        </Stack>
+      </Box>
+    </AuthSplitShell>
   )
 }
 

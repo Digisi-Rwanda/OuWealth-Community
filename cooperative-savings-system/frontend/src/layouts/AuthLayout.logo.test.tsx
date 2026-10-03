@@ -40,20 +40,18 @@ function renderAuth(mode: 'light' | 'dark') {
   )
 }
 
+/** The auth wordmark is the raster image; the compact footer adds a separate SVG lockup with the same name. */
+const rasterLogo = () =>
+  screen.getAllByRole('img', { name: BRAND_LOGO_ALT }).find((el) => el.tagName === 'IMG') as HTMLElement
+
 describe('Auth logo surface', () => {
   it('uses the normal wordmark on the Light Mode auth canvas', () => {
     renderAuth('light')
-    expect(screen.getByRole('img', { name: BRAND_LOGO_ALT })).toHaveAttribute(
-      'src',
-      BRAND_LOGO_SRC,
-    )
+    expect(rasterLogo()).toHaveAttribute('src', BRAND_LOGO_SRC)
   })
 
   it('uses the on-dark wordmark on the Dark Mode auth canvas', () => {
     renderAuth('dark')
-    expect(screen.getByRole('img', { name: BRAND_LOGO_ALT })).toHaveAttribute(
-      'src',
-      BRAND_LOGO_ON_DARK_SRC,
-    )
+    expect(rasterLogo()).toHaveAttribute('src', BRAND_LOGO_ON_DARK_SRC)
   })
 })

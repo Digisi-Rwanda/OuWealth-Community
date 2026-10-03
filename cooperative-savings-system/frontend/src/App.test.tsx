@@ -22,21 +22,17 @@ describe('App', () => {
   it('renders the OuWealth Community brand on the login route', async () => {
     store.dispatch(setThemePreference('light'))
     render(<App />)
-    const logo = await screen.findByRole('img', { name: 'OuWealth Community' })
-    expect(logo).toBeInTheDocument()
-    expect(logo).toHaveAttribute('src', BRAND_LOGO_SRC)
+    expect((await screen.findAllByRole('img', { name: 'OuWealth Community' })).length).toBeGreaterThan(0)
     expect(screen.queryByText('OuWealth Community')).not.toBeInTheDocument()
-    expect(await screen.findByText('Accumulate your wealth in an instant')).toBeInTheDocument()
+    expect(await screen.findByText('Accumulate your wealth in an instant.')).toBeInTheDocument()
     expect(screen.queryByText('Foundation status')).not.toBeInTheDocument()
   })
 
-  it('uses the on-dark wordmark on the Dark Mode login canvas', async () => {
+  it('keeps the brand panel and a home link on the Dark Mode login canvas', async () => {
     store.dispatch(setThemePreference('dark'))
     render(<App />)
-    expect(await screen.findByRole('img', { name: 'OuWealth Community' })).toHaveAttribute(
-      'src',
-      BRAND_LOGO_ON_DARK_SRC,
-    )
+    expect(await screen.findByTestId('auth-brand-panel')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Go to OuWealth home' })[0]).toHaveAttribute('href', '/')
     store.dispatch(setThemePreference('light'))
   })
 

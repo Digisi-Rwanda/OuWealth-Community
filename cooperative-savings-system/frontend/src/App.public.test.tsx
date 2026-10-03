@@ -40,9 +40,8 @@ describe('App public site', () => {
     go('/login')
     render(<App />)
     expect(await screen.findByRole('heading', { name: /Sign in/i })).toBeInTheDocument()
-    const logo = await screen.findByRole('img', { name: 'OuWealth Community' })
-    expect(logo).toHaveAttribute('src', BRAND_LOGO_SRC)
-    expect(await screen.findByText('Accumulate your wealth in an instant')).toBeInTheDocument()
+    expect((await screen.findAllByRole('img', { name: 'OuWealth Community' })).length).toBeGreaterThan(0)
+    expect(await screen.findByText('Accumulate your wealth in an instant.')).toBeInTheDocument()
   })
 
   it('keeps signup onboarding at /signup', async () => {
@@ -61,7 +60,8 @@ describe('App public site', () => {
     go('/contact')
     const contact = render(<App />)
     expect(await screen.findByTestId('contact-page')).toBeInTheDocument()
-    expect(screen.getByTestId('contact-placeholder')).toHaveTextContent(/available here shortly/i)
+    expect(screen.getByTestId('support-call')).toHaveAttribute('href', 'tel:+250782102154')
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
     contact.unmount()
 
     go('/privacy')

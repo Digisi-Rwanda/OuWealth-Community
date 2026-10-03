@@ -292,7 +292,8 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     expect(screen.getByText('Saving Scheme Details')).toBeInTheDocument()
     expect(screen.getByText('Your Details')).toBeInTheDocument()
     expect(screen.getByText('Review & Create')).toBeInTheDocument()
-    expect(screen.getByTestId('trial-pricing-note')).toBeInTheDocument()
+    // the tagline replaces the prominent trial intro on step 1; the trial is explained again at review
+    expect(screen.queryByTestId('trial-pricing-note')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
   })
 })

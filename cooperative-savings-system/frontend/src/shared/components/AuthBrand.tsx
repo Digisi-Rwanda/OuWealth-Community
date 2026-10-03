@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material'
 import { useAuthSurface } from '@/layouts/authSurface'
+import { BrandHomeLink } from '@/shared/components/BrandHomeLink'
 import { BrandLogo } from '@/shared/components/BrandLogo'
 
 interface AuthBrandProps {
@@ -24,7 +25,9 @@ export function AuthBrand({ title, tagline, subtitle }: AuthBrandProps) {
           fontWeight: 400,
         }}
       >
-        <BrandLogo variant="full" animate onDark={onDark} label={title} />
+        <BrandHomeLink>
+          <BrandLogo variant="full" animate onDark={onDark} label={title} />
+        </BrandHomeLink>
       </Box>
       {tagline ? (
         <Typography

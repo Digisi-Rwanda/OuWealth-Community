@@ -3,7 +3,6 @@ import {
   AppBar,
   Box,
   Button,
-  Container,
   Divider,
   Drawer,
   IconButton,
@@ -12,18 +11,19 @@ import {
   ListItemText,
   Stack,
   Toolbar,
-  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link as RouterLink, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { AppFooter } from '@/shared/components/AppFooter'
 import { BrandLogo } from '@/shared/components/BrandLogo'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
+import { SupportDock } from '@/shared/components/SupportDock'
 import { ThemeSwitcher } from '@/shared/components/ThemeSwitcher'
 import { ROUTES } from '@/shared/constants/routes'
-import { publicFooterLinks, publicPrimaryLinks, isPublicNavActive, publicNavTarget } from './publicNav'
+import { publicPrimaryLinks, isPublicNavActive, publicNavTarget } from './publicNav'
 
 const DRAWER_WIDTH = 300
 
@@ -37,6 +37,11 @@ export function PublicLayout() {
 
   useEffect(() => {
     setMobileOpen(false)
+  }, [location.pathname, location.hash])
+
+  // Opening another public page starts at the top (in-page anchors such as #pricing are left to the page).
+  useEffect(() => {
+    if (!location.hash) window.scrollTo(0, 0)
   }, [location.pathname, location.hash])
 
   const drawer = (
@@ -196,65 +201,8 @@ export function PublicLayout() {
         <Outlet />
       </Box>
 
-      <Box
-        component="footer"
-        data-testid="public-footer"
-        sx={{
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: dark ? '#0A0A0A' : '#0A0A0A',
-          color: '#FFFFFF',
-          py: { xs: 4, md: 5 },
-          mt: 'auto',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Stack spacing={3}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={3}
-              sx={{
-                justifyContent: 'space-between',
-                alignItems: { xs: 'flex-start', md: 'center' },
-              }}
-            >
-              <Box>
-                <BrandLogo variant="lockup" size={40} onDark />
-                <Typography variant="body2" sx={{ mt: 1.5, maxWidth: 420, color: 'rgba(255,255,255,0.72)' }}>
-                  {t('public.footer.tagline')}
-                </Typography>
-              </Box>
-              <Stack
-                component="nav"
-                aria-label={t('public.footer.navAria')}
-                direction="row"
-                useFlexGap
-                spacing={1.5}
-                sx={{
-                  maxWidth: { xs: '100%', md: 520 },
-                  flexWrap: 'wrap',
-                }}
-              >
-                {publicFooterLinks.map((item) => (
-                  <Button
-                    key={`${item.labelKey}-${item.path}-${item.hash ?? ''}`}
-                    component={RouterLink}
-                    to={publicNavTarget(item)}
-                    size="small"
-                    sx={{ color: 'rgba(255,255,255,0.88)', minHeight: 40 }}
-                  >
-                    {t(item.labelKey)}
-                  </Button>
-                ))}
-              </Stack>
-            </Stack>
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
-              {t('public.footer.copyright', { year: new Date().getFullYear() })}
-            </Typography>
-          </Stack>
-        </Container>
-      </Box>
+      <AppFooter variant={location.pathname === ROUTES.home ? 'full' : 'compact'} />
+      <SupportDock />
     </Box>
   )
 }

@@ -2,8 +2,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Link as MuiLink,
   Stack,
@@ -21,7 +19,7 @@ import { useAppDispatch } from '@/app/store/hooks'
 import { setCredentials, setSelectedCooperativeId } from '@/app/store/authSlice'
 import { login } from '@/shared/api/auth'
 import { getErrorMessage } from '@/shared/api/client'
-import { AuthBrand } from '@/shared/components/AuthBrand'
+import { AuthSplitShell } from '@/layouts/AuthSplitShell'
 import { LOGIN_SUCCESS_STATE } from '@/features/branding/loginSuccessSplash'
 import { ROUTES } from '@/shared/constants/routes'
 import { ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
@@ -93,81 +91,63 @@ export function LoginPage() {
   }
 
   return (
-    <Stack spacing={3}>
-      <AuthBrand
-        title={t('app.name')}
-        tagline={t('app.tagline')}
-      />
-
-      <Card
-        elevation={0}
-        sx={{
-          border: '1px solid',
-          borderColor: 'divider',
-          boxShadow: 'var(--shadow-soft)',
-          bgcolor: 'background.paper',
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
-          <Typography variant="h5" gutterBottom>
-            {t('login.title')}
-          </Typography>
-          <Box component="form" onSubmit={onSubmit} noValidate>
-            <Stack spacing={2.5} sx={{ mt: 2 }}>
-              <TextField
-                label={t('login.username')}
-                type="text"
-                autoComplete="username"
-                fullWidth
-                error={Boolean(errors.username)}
-                helperText={errors.username?.message}
-                {...register('username')}
-              />
-              <TextField
-                label={t('login.password')}
-                type="password"
-                autoComplete="current-password"
-                fullWidth
-                error={Boolean(errors.password)}
-                helperText={errors.password?.message}
-                {...register('password')}
-              />
-              <Box sx={{ textAlign: 'right', mt: -1 }}>
-                <MuiLink component={RouterLink} to={ROUTES.forgotPassword} variant="body2">
-                  {t('login.forgotPassword')}
-                </MuiLink>
-              </Box>
-              {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                disabled={mutation.isPending}
-                startIcon={
-                  mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
-                }
-              >
-                {t('login.submit')}
-              </Button>
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                {t('login.noAccount')}{' '}
-                <MuiLink component={RouterLink} to={ROUTES.signup}>
-                  {t('login.createAccount')}
-                </MuiLink>
-              </Typography>
-              {isPreviewLoginEnabled() ? (
-                <Stack spacing={1}>
-                  <Alert severity="warning">{t('login.devPreviewWarning')}</Alert>
-                  <Button variant="outlined" size="large" onClick={enterDevPreview}>
-                    {t('login.devPreview')}
-                  </Button>
-                </Stack>
-              ) : null}
-            </Stack>
+    <AuthSplitShell supporting={t('login.shellText')}>
+      <Typography variant="h5" component="h1" gutterBottom>
+        {t('login.title')}
+      </Typography>
+      <Box component="form" onSubmit={onSubmit} noValidate>
+        <Stack spacing={2.5} sx={{ mt: 2 }}>
+          <TextField
+            label={t('login.username')}
+            type="text"
+            autoComplete="username"
+            fullWidth
+            error={Boolean(errors.username)}
+            helperText={errors.username?.message}
+            {...register('username')}
+          />
+          <TextField
+            label={t('login.password')}
+            type="password"
+            autoComplete="current-password"
+            fullWidth
+            error={Boolean(errors.password)}
+            helperText={errors.password?.message}
+            {...register('password')}
+          />
+          <Box sx={{ textAlign: 'right', mt: -1 }}>
+            <MuiLink component={RouterLink} to={ROUTES.forgotPassword} variant="body2">
+              {t('login.forgotPassword')}
+            </MuiLink>
           </Box>
-        </CardContent>
-      </Card>
-    </Stack>
+          {errorMessage ? <Alert severity="error">{errorMessage}</Alert> : null}
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={mutation.isPending}
+            startIcon={
+              mutation.isPending ? <CircularProgress size={18} color="inherit" /> : null
+            }
+          >
+            {t('login.submit')}
+          </Button>
+          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+            {t('login.noAccount')}{' '}
+            <MuiLink component={RouterLink} to={ROUTES.signup}>
+              {t('login.createAccount')}
+            </MuiLink>
+          </Typography>
+          {isPreviewLoginEnabled() ? (
+            <Stack spacing={1}>
+              <Alert severity="warning">{t('login.devPreviewWarning')}</Alert>
+              <Button variant="outlined" size="large" onClick={enterDevPreview}>
+                {t('login.devPreview')}
+              </Button>
+            </Stack>
+          ) : null}
+        </Stack>
+      </Box>
+    </AuthSplitShell>
   )
 }
