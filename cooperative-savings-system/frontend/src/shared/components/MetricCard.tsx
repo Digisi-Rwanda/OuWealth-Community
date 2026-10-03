@@ -31,6 +31,8 @@ interface MetricCardProps {
   accent?: MetricAccent
   /** Reference style: large centered amount above small label */
   centered?: boolean
+  /** `dashboard` is the medium scale used on dashboards; `default` keeps the original size elsewhere. */
+  scale?: 'default' | 'dashboard'
 }
 
 export function MetricCard({
@@ -41,8 +43,14 @@ export function MetricCard({
   loading,
   accent = 'teal',
   centered = true,
+  scale = 'default',
 }: MetricCardProps) {
   const color = ACCENT_COLORS[accent]
+  const compact = scale === 'dashboard'
+  const valueSize = compact ? { xs: '1.15rem', sm: '1.35rem' } : { xs: '1.35rem', sm: '1.6rem' }
+  const valueWeight = compact ? 600 : 700
+  const labelWeight = compact ? 600 : 700
+  const labelSize = compact ? '0.72rem' : undefined
 
   return (
     <Paper
@@ -64,7 +72,8 @@ export function MetricCard({
           <Typography
             variant="caption"
             sx={{
-              fontWeight: 700,
+              fontWeight: labelWeight,
+              ...(labelSize ? { fontSize: labelSize } : {}),
               letterSpacing: 0.6,
               textTransform: 'uppercase',
               color: 'text.secondary',
@@ -89,8 +98,8 @@ export function MetricCard({
           <Typography
             component="p"
             sx={{
-              fontSize: { xs: '1.35rem', sm: '1.6rem' },
-              fontWeight: 700,
+              fontSize: valueSize,
+              fontWeight: valueWeight,
               lineHeight: 1.2,
               color: 'text.primary',
               fontVariantNumeric: 'tabular-nums',
@@ -105,7 +114,8 @@ export function MetricCard({
               sx={{
                 display: 'block',
                 mt: 1,
-                fontWeight: 700,
+                fontWeight: labelWeight,
+                ...(labelSize ? { fontSize: labelSize } : {}),
                 letterSpacing: 0.7,
                 textTransform: 'uppercase',
                 color: 'text.secondary',

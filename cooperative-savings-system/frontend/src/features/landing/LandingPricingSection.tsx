@@ -25,8 +25,8 @@ import {
 } from './landingStyles'
 
 /** Plan names and prices: clear hierarchy without heavy weights. */
-const planNameSx = { fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.3 } as const
-const planPriceSx = { fontSize: { xs: '1.6rem', md: '1.75rem' }, fontWeight: 600, lineHeight: 1.2 } as const
+const planNameSx = { fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.3 } as const
+const planPriceSx = { fontSize: { xs: '1.45rem', md: '1.6rem' }, fontWeight: 600, lineHeight: 1.2 } as const
 
 const pricing = PUBLIC_SUBSCRIPTION_PRICING
 

@@ -15,6 +15,7 @@ import {
 import { DonutCard } from './DonutCard'
 import { FineActivityCard } from './FineActivityCard'
 import { LoansIssuedVsRepaidChart } from './LoansIssuedVsRepaidChart'
+import { dashboardSectionTitleSx } from './dashboardTypography'
 
 /** Which at-a-glance visuals (and which sentences) this viewer's role may see. */
 export interface GlanceVisibility {
@@ -70,7 +71,7 @@ export function SchemeAtAGlanceSection({ cooperativeId, show }: SchemeAtAGlanceS
 
   return (
     <Box sx={{ mb: 3 }} data-testid="scheme-at-a-glance">
-      <Typography variant="h5" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+      <Typography variant="h5" component="h2" sx={[dashboardSectionTitleSx, { mb: 0.5 }]}>
         {t('dashboard.glance.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -92,7 +93,7 @@ export function SchemeAtAGlanceSection({ cooperativeId, show }: SchemeAtAGlanceS
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
           <InsightsIcon color="primary" fontSize="small" sx={{ mt: 0.25 }} />
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
               {t('dashboard.glance.summaryTitle')}
             </Typography>
             {summaryLoading ? (

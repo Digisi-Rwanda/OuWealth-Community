@@ -22,6 +22,7 @@ import {
   platformOverviewFromCooperatives,
 } from './platformOverviewFallback'
 import { SuperAdminOverviewCharts } from './SuperAdminOverviewCharts'
+import { dashboardPageTitleSx, dashboardSectionTitleSx } from './dashboardTypography'
 
 export function SuperAdminDashboard() {
   const { t } = useTranslation()
@@ -81,7 +82,7 @@ export function SuperAdminDashboard() {
       >
         <Box>
           <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
-            <Typography variant="h4" component="h1">
+            <Typography variant="h4" component="h1" sx={dashboardPageTitleSx}>
               {t('dashboard.super.title')}
             </Typography>
             <Chip size="small" color="primary" label={t('roles.superAdminBadge')} />
@@ -134,6 +135,7 @@ export function SuperAdminDashboard() {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.totalCooperatives')}
             value={overviewQuery.isLoading && !overview && query.isLoading ? undefined : String(total)}
             hint={
@@ -148,6 +150,7 @@ export function SuperAdminDashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.totalMembers')}
             value={countsReady && overview ? String(overview.totalMembers) : undefined}
             hint={
@@ -162,6 +165,7 @@ export function SuperAdminDashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.totalUsers')}
             value={hasLiveOverview && overview ? String(overview.totalUsers) : undefined}
             icon={<PeopleAltIcon fontSize="small" />}
@@ -171,6 +175,7 @@ export function SuperAdminDashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.pendingReviews')}
             value={
               countsReady && overview
@@ -184,6 +189,7 @@ export function SuperAdminDashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.pendingLoans')}
             value={hasLiveOverview && overview ? String(overview.pendingLoans) : undefined}
             icon={<HourglassEmptyIcon fontSize="small" />}
@@ -193,6 +199,7 @@ export function SuperAdminDashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.super.overdueLoans')}
             value={countsReady && overview ? String(overview.overdueLoans) : undefined}
             icon={<WarningAmberIcon fontSize="small" />}
@@ -205,7 +212,7 @@ export function SuperAdminDashboard() {
       {overview ? <SuperAdminOverviewCharts overview={overview} /> : null}
 
       <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" component="h2" gutterBottom sx={dashboardSectionTitleSx}>
           {t('dashboard.super.recentTitle')}
         </Typography>
         {rows.length === 0 && !query.isLoading ? (

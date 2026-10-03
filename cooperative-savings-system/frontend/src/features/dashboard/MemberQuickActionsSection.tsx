@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { Link as RouterLink } from 'react-router-dom'
 import { BuySharesDialog } from '@/features/shares'
 import { ROUTES } from '@/shared/constants/routes'
+import { dashboardSectionTitleSx } from './dashboardTypography'
 
 const QUICK_LINKS = [
   {
@@ -92,7 +93,7 @@ export function MemberQuickActionsSection({ cooperativeId }: MemberQuickActionsS
         data-testid="member-quick-actions"
         sx={{ p: { xs: 2.5, md: 3 }, border: '1px solid', borderColor: 'divider' }}
       >
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" component="h2" gutterBottom sx={dashboardSectionTitleSx}>
           {t('dashboard.member.actionsTitle')}
         </Typography>
         <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }} useFlexGap>

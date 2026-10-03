@@ -20,6 +20,7 @@ import {
   cooperativeStatusSlices,
   pendingWorkBars,
 } from './platformOverviewCharts'
+import { dashboardChartTitleSx } from './dashboardTypography'
 
 interface SuperAdminOverviewChartsProps {
   overview: PlatformOverview
@@ -54,7 +55,7 @@ export function SuperAdminOverviewCharts({ overview }: SuperAdminOverviewChartsP
       }}
     >
       <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" component="h3" gutterBottom sx={dashboardChartTitleSx}>
           {t('dashboard.super.statusChartTitle')}
         </Typography>
         {pieData.length === 0 ? (
@@ -87,7 +88,9 @@ export function SuperAdminOverviewCharts({ overview }: SuperAdminOverviewChartsP
 
       <Paper elevation={0} sx={{ p: { xs: 2, md: 2.5 }, border: '1px solid', borderColor: 'divider' }}>
         <Stack spacing={0.5} sx={{ mb: 1 }}>
-          <Typography variant="h6">{t('dashboard.super.pendingChartTitle')}</Typography>
+          <Typography variant="h6" component="h3" sx={dashboardChartTitleSx}>
+            {t('dashboard.super.pendingChartTitle')}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {t('dashboard.super.pendingChartHint')}
           </Typography>

@@ -105,7 +105,7 @@ export function MyMemberStatusSection({
       <Typography
         component="h2"
         variant={compact ? 'subtitle1' : 'h6'}
-        sx={{ fontWeight: 700, m: 0 }}
+        sx={{ fontSize: { xs: '1rem', md: '1.1rem' }, fontWeight: 600, m: 0 }}
         id={headerId}
       >
         <ButtonBase
@@ -136,7 +136,7 @@ export function MyMemberStatusSection({
           }}
         >
           <Box component="span" sx={{ display: 'block', minWidth: 0 }}>
-            <Box component="span" id={titleId} sx={{ display: 'block', fontWeight: 700 }}>
+            <Box component="span" id={titleId} sx={{ display: 'block', fontWeight: 600 }}>
               {t('dashboard.member.myStatusTitle')}
             </Box>
             <Typography
@@ -144,7 +144,7 @@ export function MyMemberStatusSection({
               id={hintId}
               variant="body2"
               color="text.secondary"
-              sx={{ display: 'block', fontWeight: 400, maxWidth: 720 }}
+              sx={{ display: 'block', fontSize: '0.875rem', fontWeight: 400, maxWidth: 720 }}
             >
               {t('dashboard.member.myStatusHint')}
             </Typography>
@@ -179,6 +179,7 @@ export function MyMemberStatusSection({
             <Grid container spacing={2}>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.totalContributions')}
                   value={money(summary?.actualContributions)}
                   icon={<SavingsIcon fontSize="small" />}
@@ -188,6 +189,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.outstandingLoan')}
                   value={money(outstandingLoan)}
                   icon={<AccountBalanceWalletIcon fontSize="small" />}
@@ -197,6 +199,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.outstandingFines')}
                   value={money(summary?.unpaidFines)}
                   icon={<GavelIcon fontSize="small" />}
@@ -206,6 +209,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.socialContributions')}
                   value={money(summary?.socialContributions)}
                   icon={<FavoriteIcon fontSize="small" />}
@@ -215,6 +219,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.contributionPercentage')}
                   value={
                     summary?.contributionPercentage != null && summary.contributionPercentage !== ''
@@ -228,6 +233,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.sharesHeld')}
                   value={summary?.sharesHeld != null ? String(summary.sharesHeld) : '—'}
                   icon={<PaymentsIcon fontSize="small" />}
@@ -237,6 +243,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.currentShareValue')}
                   value={money(summary?.currentShareValue)}
                   icon={<PaymentsIcon fontSize="small" />}
@@ -246,6 +253,7 @@ export function MyMemberStatusSection({
               </Grid>
               <Grid size={METRIC_COLS}>
                 <MetricCard
+            scale="dashboard"
                   label={t('dashboard.member.totalShareValue')}
                   value={money(summary?.totalShareValue)}
                   icon={<PaymentsIcon fontSize="small" />}

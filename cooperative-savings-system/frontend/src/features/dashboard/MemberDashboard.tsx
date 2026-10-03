@@ -7,6 +7,7 @@ import { useCooperativeSubscription } from '@/features/subscription/useCooperati
 import { MemberQuickActionsSection } from './MemberQuickActionsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
+import { dashboardHintSx, dashboardWelcomeTitleSx } from './dashboardTypography'
 
 interface MemberDashboardProps {
   cooperativeId: string
@@ -22,10 +23,10 @@ export function MemberDashboard({ cooperativeId }: MemberDashboardProps) {
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant="h4" component="h1" gutterBottom sx={dashboardWelcomeTitleSx}>
           {t('dashboard.member.welcome', { name: user?.firstName || user?.fullName || '' })}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body1" color="text.secondary" sx={dashboardHintSx}>
           {t('dashboard.member.description')}
         </Typography>
       </Box>

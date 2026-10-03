@@ -6,13 +6,30 @@ import { alpha } from '@mui/material/styles'
  * untouched so authenticated pages keep their existing look.
  */
 
+/**
+ * Landing-only font stacks (system fonts, nothing bundled). Body copy, labels and buttons use Candara; headings and
+ * short brand statements use Tempus Sans ITC with Candara as the fallback so a missing font never drops to a serif.
+ */
+export const LANDING_BODY_FONT = "Candara, Calibri, 'Segoe UI', sans-serif"
+export const LANDING_HEADING_FONT = "'Tempus Sans ITC', Candara, Calibri, 'Segoe UI', sans-serif"
+
+/**
+ * Applied once on the landing root. The app theme gives MUI h1 to h6 a serif family; inside the landing page those
+ * (and any Typography using an h1 to h6 variant) switch to the landing heading stack. Everything else keeps Candara.
+ */
+export const landingFontsSx = {
+  fontFamily: LANDING_BODY_FONT,
+  '& h1, & h2, & h3, & h4, & h5, & h6, & .MuiTypography-h1, & .MuiTypography-h2, & .MuiTypography-h3, & .MuiTypography-h4, & .MuiTypography-h5, & .MuiTypography-h6':
+    { fontFamily: LANDING_HEADING_FONT },
+} as const
+
 /** Vertical rhythm for landing sections (slightly tighter than before). */
 export const LANDING_SECTION_PY = { xs: 4.5, md: 6.5 } as const
 export const LANDING_SECTION_PY_COMPACT = { xs: 4, md: 5 } as const
 
 /** Visual size of section titles. Pair with `component="h2"` to keep semantic headings. */
 export const landingSectionTitleSx = {
-  fontSize: { xs: '1.6rem', md: '2rem' },
+  fontSize: { xs: '1.45rem', md: '1.75rem' },
   fontWeight: 600,
   lineHeight: 1.25,
   letterSpacing: '-0.01em',
@@ -29,7 +46,7 @@ export const landingSectionSubtitleSx = {
 
 /** Card titles: modest, semibold. */
 export const landingCardTitleSx = {
-  fontSize: '1.02rem',
+  fontSize: '1rem',
   fontWeight: 600,
   lineHeight: 1.35,
 } as const
@@ -38,12 +55,12 @@ export const landingCardTitleSx = {
 export const landingCardBodySx = {
   fontSize: '0.9rem',
   fontWeight: 400,
-  lineHeight: 1.55,
+  lineHeight: 1.6,
 } as const
 
 /** Small uppercase labels (STEP 1, plan badges): light-to-medium weight. */
 export const landingLabelSx = {
-  fontSize: '0.7rem',
+  fontSize: '0.72rem',
   fontWeight: 500,
   letterSpacing: '0.08em',
 } as const

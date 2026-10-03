@@ -52,6 +52,13 @@ import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
 import { SchemeAtAGlanceSection, type GlanceVisibility } from './SchemeAtAGlanceSection'
 import { ThisMonthInsightsSection } from './ThisMonthInsightsSection'
+import {
+  dashboardChartTitleSx,
+  dashboardHeroAmountSx,
+  dashboardKpiLabelSx,
+  dashboardPageTitleSx,
+  dashboardSectionTitleSx,
+} from './dashboardTypography'
 
 const METRIC_COLS = { xs: 12, sm: 6, md: 4, lg: 3 }
 
@@ -225,6 +232,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'totalMembers':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.totalMembers')}
             value={summary ? String(summary.totalMembers) : '—'}
             hint={t('dashboard.metrics.activeMembersHint', { count: summary?.activeMembers ?? 0 })}
@@ -236,6 +244,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'regularContributions':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.regularContributions')}
             value={summary ? money(summary.regularContributionsTotal) : '—'}
             hint={t('dashboard.metrics.regularHint')}
@@ -247,6 +256,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'specialContributions':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.specialContributions')}
             value={summary ? money(summary.specialContributionsTotal) : '—'}
             hint={t('dashboard.metrics.specialHint')}
@@ -258,6 +268,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'actualContributions':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.actualContributions')}
             value={summary ? money(summary.actualContributionsTotal) : '—'}
             hint={t('dashboard.metrics.actualHint')}
@@ -269,6 +280,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'totalInterest':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.totalInterest')}
             value={summary ? money(totalInterest) : '—'}
             hint={t('dashboard.metrics.totalInterestHint', {
@@ -283,6 +295,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'availableInterest':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.availableInterest')}
             value={summary?.availableInterest != null ? money(summary.availableInterest) : '—'}
             hint={t('dashboard.metrics.availableInterestHint')}
@@ -294,6 +307,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'outstandingLoans':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.outstandingLoans')}
             value={
               summary?.outstandingLoanPrincipal != null
@@ -308,6 +322,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'unpaidFines':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.unpaidFines')}
             value={summary?.unpaidFines != null ? String(summary.unpaidFines) : '—'}
             icon={<GavelIcon fontSize="small" />}
@@ -318,6 +333,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'totalFines':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.totalFines')}
             value={summary?.totalFines != null ? String(summary.totalFines) : '—'}
             icon={<GavelIcon fontSize="small" />}
@@ -328,6 +344,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'membersWithFines':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.membersWithFines')}
             value={summary?.membersWithFines != null ? String(summary.membersWithFines) : '—'}
             icon={<PeopleAltIcon fontSize="small" />}
@@ -338,6 +355,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'pendingFinePayments':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.pendingFinePayments')}
             value={
               summary?.pendingFinePayments != null ? String(summary.pendingFinePayments) : '—'
@@ -350,6 +368,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'overdueLoans':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.overdueLoans')}
             value={summary?.overdueLoansCount != null ? String(summary.overdueLoansCount) : '—'}
             icon={<WarningAmberIcon fontSize="small" />}
@@ -360,6 +379,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'loanInterest':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.loanInterestEarned')}
             value={summary ? money(summary.loanInterestEarned) : '—'}
             icon={<TrendingUpIcon fontSize="small" />}
@@ -370,6 +390,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'activeInvestments':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.activeInvestments')}
             value={
               summary?.activeInvestmentsCount != null
@@ -389,6 +410,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
       case 'pendingPayouts':
         return (
           <MetricCard
+            scale="dashboard"
             label={t('dashboard.metrics.pendingPayouts')}
             value={summary?.pendingPayoutsCount != null ? String(summary.pendingPayoutsCount) : '—'}
             icon={<PaymentsIcon fontSize="small" />}
@@ -414,7 +436,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
         }}
       >
         <Box>
-          <Typography variant="h4" component="h1">
+          <Typography variant="h4" component="h1" sx={dashboardPageTitleSx}>
             {t('dashboard.title')}
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -483,7 +505,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
 
       {obligationKeys.length > 0 ? (
         <>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+          <Typography variant="subtitle1" component="h2" sx={[dashboardSectionTitleSx, { mb: 1.5 }]}>
             {t('dashboard.admin.obligationsTitle')}
           </Typography>
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -557,12 +579,12 @@ function FundsHero({
         borderLeftColor: 'primary.main',
       }}
     >
-      <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.6 }}>
+      <Typography variant="overline" color="text.secondary" sx={{ ...dashboardKpiLabelSx, letterSpacing: 0.6 }}>
         {t('dashboard.metrics.availableGroupFunds')}
       </Typography>
       <Typography
         variant="h3"
-        sx={{ fontWeight: 700, my: 1, fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' }}
+        sx={{ ...dashboardHeroAmountSx, my: 1, fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' }}
       >
         {summary ? money(summary.availableGroupFunds) : '—'}
       </Typography>
@@ -603,7 +625,7 @@ function OverdueLoansBanner({
         }}
       >
         <Box>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" component="h2" gutterBottom sx={dashboardSectionTitleSx}>
             {t('dashboard.admin.pendingRepaymentsTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -630,7 +652,7 @@ function OverdueLoansBanner({
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+      <Typography variant="subtitle1" sx={dashboardChartTitleSx}>
         {t('dashboard.admin.pendingRepaymentsTitle')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

@@ -18,6 +18,7 @@ import { AccessibleDataTable } from './AccessibleDataTable'
 import { ChartTooltip } from './ChartTooltip'
 import { CHART_COLORS, compactNumber } from './chartPalette'
 import { fineActivityData } from './dashboardVisuals'
+import { dashboardChartTitleSx } from './dashboardTypography'
 
 interface FineActivityCardProps {
   fines: FinesInsights | undefined
@@ -59,7 +60,7 @@ export function FineActivityCard({ fines, currency = 'RWF', loading }: FineActiv
     >
       <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
         <GavelIcon fontSize="small" color="action" />
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+        <Typography variant="subtitle1" sx={dashboardChartTitleSx}>
           {t('dashboard.insights.fineActivityTitle')}
         </Typography>
       </Stack>

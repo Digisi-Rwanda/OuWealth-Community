@@ -9,6 +9,7 @@ import { getErrorMessage } from '@/shared/api/client'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { InsightKpiCard } from './InsightKpiCard'
+import { dashboardSectionTitleSx } from './dashboardTypography'
 
 const KPI_COLS = { xs: 12, sm: 6, md: 4, lg: 4 }
 
@@ -41,7 +42,7 @@ export function ThisMonthInsightsSection({
 
   return (
     <Box sx={{ mb: 3 }} data-testid="this-month-insights">
-      <Typography variant="h5" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+      <Typography variant="h5" component="h2" sx={[dashboardSectionTitleSx, { mb: 0.5 }]}>
         {t('dashboard.insights.thisMonthTitle')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

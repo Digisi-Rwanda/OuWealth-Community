@@ -16,6 +16,7 @@ import { fetchLoansDisbursedByMonthChart } from '@/shared/api/dashboard'
 import { getErrorMessage } from '@/shared/api/client'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { dashboardChartTitleSx } from './dashboardTypography'
 
 interface LoansDisbursedByMonthChartProps {
   cooperativeId: string
@@ -72,7 +73,7 @@ export function LoansDisbursedByMonthChart({
         borderRadius: 2,
       }}
     >
-      <Typography variant="h6" sx={{ mb: 1.5 }}>
+      <Typography variant="h6" component="h3" sx={[dashboardChartTitleSx, { mb: 1.5 }]}>
         {t('dashboard.advancedInsights.loansByMonth')}
       </Typography>
 

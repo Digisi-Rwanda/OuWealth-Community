@@ -12,6 +12,7 @@ import { ROUTES } from '@/shared/constants/routes'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import type { MemberFinancialSummary } from '@/shared/types/member'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { dashboardSectionTitleSx } from './dashboardTypography'
 
 interface MemberFinancialSummarySectionProps {
   cooperativeId: string
@@ -87,7 +88,9 @@ export function MemberFinancialSummarySection({
         spacing={1.5}
         sx={{ mb: 2, justifyContent: 'space-between', alignItems: { sm: 'center' } }}
       >
-        <Typography variant="h6">{t('dashboard.memberSummaries.title')}</Typography>
+        <Typography variant="h6" component="h2" sx={dashboardSectionTitleSx}>
+          {t('dashboard.memberSummaries.title')}
+        </Typography>
         <TextField
           size="small"
           label={t('common.search')}

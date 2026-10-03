@@ -16,6 +16,7 @@ import { fetchMonthlyContributionsChart } from '@/shared/api/dashboard'
 import { getErrorMessage } from '@/shared/api/client'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { dashboardChartTitleSx } from './dashboardTypography'
 
 interface MonthlyContributionsChartProps {
   cooperativeId: string
@@ -71,7 +72,9 @@ export function MonthlyContributionsChart({
         spacing={1.5}
         sx={{ mb: 2, justifyContent: 'space-between', alignItems: { sm: 'center' } }}
       >
-        <Typography variant="h6">{t('dashboard.charts.monthlyContributions')}</Typography>
+        <Typography variant="h6" component="h2" sx={dashboardChartTitleSx}>
+          {t('dashboard.charts.monthlyContributions')}
+        </Typography>
         <TextField
           select
           size="small"

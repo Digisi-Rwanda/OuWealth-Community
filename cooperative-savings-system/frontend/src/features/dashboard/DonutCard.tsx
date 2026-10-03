@@ -1,6 +1,7 @@
 import { Box, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { ChartTooltip } from './ChartTooltip'
+import { dashboardChartTitleSx } from './dashboardTypography'
 
 export interface DonutSlice {
   key: string
@@ -55,7 +56,7 @@ export function DonutCard({
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+      <Typography variant="subtitle1" sx={[dashboardChartTitleSx, { mb: 1.5 }]}>
         {title}
       </Typography>
 
@@ -125,7 +126,7 @@ export function DonutCard({
                 pointerEvents: 'none',
               }}
             >
-              <Typography variant="h5" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+              <Typography variant="h5" component="p" sx={{ fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.1 }}>
                 {centerValue}
               </Typography>
               <Typography variant="caption" color="text.secondary">

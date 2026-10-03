@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { keyframes } from '@mui/material/styles'
 import { OuWealthMark } from '@/features/branding/OuWealthMark'
 import {
+  LANDING_HEADING_FONT,
   LANDING_SECTION_PY,
   landingCardSx,
   landingLabelSx,
@@ -153,7 +154,7 @@ export function LandingJourneySection() {
             <Typography
               variant="subtitle1"
               component="p"
-              sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', fontWeight: 500, maxWidth: 260 }}
+              sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: LANDING_HEADING_FONT, fontSize: '1.05rem', fontWeight: 500, maxWidth: 260 }}
             >
               {t(step.titleKey)}
             </Typography>
@@ -219,14 +220,14 @@ export function LandingJourneySection() {
                 <Typography
                   variant="h6"
                   component="h3"
-                  sx={{ mt: 0.5, fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.3 }}
+                  sx={{ mt: 0.5, fontSize: '1.1rem', fontWeight: 600, lineHeight: 1.3 }}
                   data-testid="journey-step-title"
                 >
                   {t(step.titleKey)}
                 </Typography>
                 <Typography
                   color="text.secondary"
-                  sx={{ mt: 1.5, fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6 }}
+                  sx={{ mt: 1.5, fontSize: '0.92rem', fontWeight: 400, lineHeight: 1.6 }}
                   data-testid="journey-step-body"
                 >
                   {t(step.bodyKey)}

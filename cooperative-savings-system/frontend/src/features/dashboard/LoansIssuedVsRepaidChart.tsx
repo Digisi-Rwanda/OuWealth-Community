@@ -16,6 +16,7 @@ import { AccessibleDataTable } from './AccessibleDataTable'
 import { ChartTooltip } from './ChartTooltip'
 import { CHART_COLORS, compactNumber } from './chartPalette'
 import { toFiniteNumber } from './dashboardVisuals'
+import { dashboardChartTitleSx, dashboardKpiLabelSx } from './dashboardTypography'
 
 interface LoansIssuedVsRepaidChartProps {
   issuedAmount: string | number
@@ -66,7 +67,7 @@ export function LoansIssuedVsRepaidChart({
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
+      <Typography variant="subtitle1" sx={[dashboardChartTitleSx, { mb: 1.5 }]}>
         {t('dashboard.insights.issuedVsRepaidTitle')}
       </Typography>
 
@@ -129,10 +130,10 @@ export function LoansIssuedVsRepaidChart({
           data-testid="loan-outstanding-callout"
           sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 700 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ ...dashboardKpiLabelSx, textTransform: 'uppercase' }}>
             {t('dashboard.glance.outstandingPrincipal')}
           </Typography>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          <Typography variant="h6" component="p" sx={{ fontSize: '1rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {money(toFiniteNumber(outstandingPrincipal))}
           </Typography>
         </Box>

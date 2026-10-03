@@ -2,6 +2,7 @@ import { Box, Paper, Skeleton, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import type { MomChangeState } from '@/shared/types/dashboard'
 import { MonthOverMonthDelta } from './MonthOverMonthDelta'
+import { dashboardKpiLabelSx, dashboardKpiValueSx } from './dashboardTypography'
 
 interface InsightKpiCardProps {
   label: string
@@ -47,7 +48,7 @@ export function InsightKpiCard({
         <Typography
           variant="caption"
           sx={{
-            fontWeight: 700,
+            ...dashboardKpiLabelSx,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
             color: 'text.secondary',
@@ -58,11 +59,12 @@ export function InsightKpiCard({
       </Box>
 
       {loading ? (
-        <Skeleton variant="text" width="60%" sx={{ mx: 'auto', fontSize: '1.75rem' }} />
+        <Skeleton variant="text" width="60%" sx={{ mx: 'auto', fontSize: '1.35rem' }} />
       ) : (
         <Typography
           variant="h5"
-          sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' }}
+          component="p"
+          sx={{ ...dashboardKpiValueSx, fontVariantNumeric: 'tabular-nums', wordBreak: 'break-word' }}
         >
           {value}
         </Typography>

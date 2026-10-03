@@ -17,6 +17,7 @@ import { formatMoney } from '@/shared/utils/formatMoney'
 import { CHART_COLORS } from './chartPalette'
 import { fineFollowUpBars, overdueLoanBars, topContributorBars } from './dashboardVisuals'
 import { RankedBarChart } from './RankedBarChart'
+import { dashboardChartTitleSx, dashboardSectionTitleSx } from './dashboardTypography'
 
 interface MemberInsightsSectionProps {
   cooperativeId: string
@@ -48,7 +49,7 @@ export function MemberInsightsSection({ cooperativeId }: MemberInsightsSectionPr
 
   return (
     <Box sx={{ mb: 3 }} data-testid="member-insights">
-      <Typography variant="h5" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+      <Typography variant="h5" component="h2" sx={[dashboardSectionTitleSx, { mb: 0.5 }]}>
         {t('dashboard.memberInsights.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -172,7 +173,7 @@ function InsightChartCard({
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+      <Typography variant="subtitle1" sx={dashboardChartTitleSx}>
         {title}
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>

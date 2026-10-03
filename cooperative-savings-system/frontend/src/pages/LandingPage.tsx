@@ -27,11 +27,13 @@ import { OuWealthMark } from '@/features/branding/OuWealthMark'
 import { LandingJourneySection } from '@/features/landing/LandingJourneySection'
 import { LandingPricingSection } from '@/features/landing/LandingPricingSection'
 import {
+  LANDING_HEADING_FONT,
   LANDING_SECTION_PY,
   LANDING_SECTION_PY_COMPACT,
   landingCardBodySx,
   landingCardSx,
   landingCardTitleSx,
+  landingFontsSx,
   landingLabelSx,
   landingSectionSubtitleSx,
   landingSectionTitleSx,
@@ -105,7 +107,7 @@ function HeroVisual() {
         <Typography
           variant="h5"
           component="p"
-          sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 500, maxWidth: 320 }}
+          sx={{ color: '#FFFFFF', textAlign: 'center', fontFamily: LANDING_HEADING_FONT, fontSize: '1.2rem', fontWeight: 500, maxWidth: 320 }}
         >
           {t('public.landing.hero.visualTitle')}
         </Typography>
@@ -138,7 +140,7 @@ export function LandingPage() {
   }, [location.hash, reduceMotion])
 
   return (
-    <Box data-testid="landing-page">
+    <Box data-testid="landing-page" sx={landingFontsSx}>
       <Box
         component="section"
         aria-labelledby="landing-hero-heading"
@@ -159,14 +161,14 @@ export function LandingPage() {
             }}
           >
             <Stack spacing={2.5}>
-              <Typography variant="overline" color="primary" sx={{ letterSpacing: '0.12em', fontWeight: 600 }}>
+              <Typography variant="overline" color="primary" sx={{ letterSpacing: '0.1em', fontSize: '0.75rem', fontWeight: 500 }}>
                 {t('app.name')}
               </Typography>
               <Typography
                 id="landing-hero-heading"
                 variant="h2"
                 component="h1"
-                sx={{ fontSize: { xs: '1.8rem', md: '2.35rem' }, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.015em' }}
+                sx={{ fontSize: { xs: '1.75rem', md: '2.2rem' }, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.01em' }}
               >
                 {t('public.landing.hero.title')}
               </Typography>
@@ -174,7 +176,7 @@ export function LandingPage() {
                 variant="body1"
                 component="p"
                 color="text.secondary"
-                sx={{ fontSize: { xs: '1rem', md: '1.05rem' }, fontWeight: 400, lineHeight: 1.6, maxWidth: 540 }}
+                sx={{ fontSize: { xs: '0.95rem', md: '1rem' }, fontWeight: 400, lineHeight: 1.6, maxWidth: 540 }}
               >
                 {t('public.landing.hero.subtitle')}
               </Typography>
@@ -228,7 +230,7 @@ export function LandingPage() {
                   <Typography variant="overline" color="secondary.main" sx={landingLabelSx}>
                     {t('public.landing.how.stepLabel', { step: index + 1 })}
                   </Typography>
-                  <Typography variant="subtitle1" component="h3" sx={[landingCardTitleSx, { mt: 0.5, fontSize: '1.05rem' }]}>
+                  <Typography variant="subtitle1" component="h3" sx={[landingCardTitleSx, { mt: 0.5 }]}>
                     {t(key)}
                   </Typography>
                 </CardContent>
@@ -319,7 +321,7 @@ export function LandingPage() {
                 px: 3,
               }}
             >
-              <Typography variant="h5" component="p" sx={{ textAlign: 'center', maxWidth: 280, fontFamily: 'Georgia, serif', fontSize: '1.3rem', fontWeight: 500 }}>
+              <Typography variant="h5" component="p" sx={{ textAlign: 'center', maxWidth: 280, fontFamily: LANDING_HEADING_FONT, fontSize: '1.2rem', fontWeight: 500 }}>
                 {t('public.landing.value.visual')}
               </Typography>
             </Box>
@@ -333,7 +335,7 @@ export function LandingPage() {
         sx={{ py: LANDING_SECTION_PY_COMPACT, bgcolor: dark ? 'rgba(255,255,255,0.03)' : 'rgba(27,77,140,0.04)' }}
       >
         <Container maxWidth="md">
-          <Typography id="landing-about-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.4rem', md: '1.65rem' } }]}>
+          <Typography id="landing-about-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.35rem', md: '1.55rem' } }]}>
             {t('public.landing.aboutTeaser.title')}
           </Typography>
           <Typography color="text.secondary" component="p" sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6, mb: 2 }}>
@@ -347,7 +349,7 @@ export function LandingPage() {
 
       <Box component="section" aria-labelledby="landing-contact-heading" sx={{ py: LANDING_SECTION_PY_COMPACT }}>
         <Container maxWidth="md">
-          <Typography id="landing-contact-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.4rem', md: '1.65rem' } }]}>
+          <Typography id="landing-contact-heading" variant="h5" component="h2" sx={[landingSectionTitleSx, { fontSize: { xs: '1.35rem', md: '1.55rem' } }]}>
             {t('public.landing.contactTeaser.title')}
           </Typography>
           <Typography color="text.secondary" component="p" sx={{ fontSize: '0.95rem', fontWeight: 400, lineHeight: 1.6, mb: 2 }}>

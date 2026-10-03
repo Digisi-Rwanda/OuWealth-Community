@@ -21,6 +21,7 @@ import { InvestmentByMonthChart } from './InvestmentByMonthChart'
 import { LoansDisbursedByMonthChart } from './LoansDisbursedByMonthChart'
 import { RankedBarChart } from './RankedBarChart'
 import { StackedShareBarChart } from './StackedShareBarChart'
+import { dashboardChartTitleSx, dashboardSectionTitleSx } from './dashboardTypography'
 
 interface AdvancedInsightsSectionProps {
   cooperativeId: string
@@ -65,7 +66,7 @@ export function AdvancedInsightsSection({ cooperativeId }: AdvancedInsightsSecti
         sx={{ mb: 2, justifyContent: 'space-between', alignItems: { sm: 'flex-start' } }}
       >
         <Box>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 700, mb: 0.5 }}>
+          <Typography variant="h5" component="h2" sx={[dashboardSectionTitleSx, { mb: 0.5 }]}>
             {t('dashboard.advancedInsights.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -246,7 +247,7 @@ function InsightCard({
         borderRadius: 2,
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+      <Typography variant="subtitle1" sx={dashboardChartTitleSx}>
         {title}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: note ? 0.5 : 1.5 }}>

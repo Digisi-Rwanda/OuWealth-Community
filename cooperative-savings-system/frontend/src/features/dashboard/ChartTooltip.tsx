@@ -13,7 +13,7 @@ export function ChartTooltip({ title, lines = [] }: ChartTooltipProps) {
       elevation={3}
       sx={{ px: 1.5, py: 1, border: '1px solid', borderColor: 'divider', maxWidth: 260 }}
     >
-      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {title}
       </Typography>
       {lines.map((line) => (
