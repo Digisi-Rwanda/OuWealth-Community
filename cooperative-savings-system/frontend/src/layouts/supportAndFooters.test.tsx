@@ -214,7 +214,12 @@ describe('support dock', () => {
     renderAt('/about')
     const email = within(dock()).getByRole('link', { name: 'Email support' })
     const whatsapp = within(dock()).getByRole('link', { name: 'Chat on WhatsApp' })
-    expect(email).toHaveAttribute('href', 'mailto:support@ozufy.com')
+    const emailHref = email.getAttribute('href') ?? ''
+    expect(emailHref.startsWith('mailto:support@ozufy.com?subject=')).toBe(true)
+    const params = new URLSearchParams(emailHref.split('?')[1])
+    expect(params.get('subject')).toBe('OuWealth support')
+    expect(params.get('body')).toBe('Hello OuWealth support team,\n\n')
+    expect(email).not.toHaveAttribute('target', '_blank')
     expect(whatsapp).toHaveAttribute('href', 'https://wa.me/250793634217')
     expect(whatsapp).toHaveAttribute('target', '_blank')
     expect(whatsapp.getAttribute('rel')).toMatch(/noopener/)
@@ -237,6 +242,44 @@ describe('footers', () => {
     expect(footer).not.toHaveTextContent(/Software for Saving Schemes/)
     expect(footer).not.toHaveTextContent(/—|–/)
     expect(within(footer).getByRole('navigation', { name: 'Footer links' })).toBeInTheDocument()
+  })
+
+  it('the landing footer has a compact Contact us section with phone, email and a link to the contact form', () => {
+    renderAt('/')
+    const contact = within(screen.getByTestId('public-footer')).getByTestId('footer-contact')
+    expect(within(contact).getByRole('heading', { name: 'Contact us' })).toBeInTheDocument()
+    expect(within(contact).getByRole('link', { name: '+250782102154' })).toHaveAttribute('href', 'tel:+250782102154')
+    expect(within(contact).getByRole('link', { name: 'support@ozufy.com' })).toHaveAttribute(
+      'href',
+      'mailto:support@ozufy.com',
+    )
+    expect(within(contact).getByRole('link', { name: 'Send us a message' })).toHaveAttribute('href', '/contact')
+  })
+
+  it('"Send us a message" in the landing footer navigates to the contact page', async () => {
+    const user = userEvent.setup()
+    renderAt('/')
+    await user.click(screen.getByTestId('footer-contact-form'))
+    expect(screen.getByTestId('where')).toHaveTextContent('/contact')
+  })
+
+  it('no non-landing footer gains the contact section: auth, public and signed-in pages keep the plain compact footer', () => {
+    for (const [path, signedIn] of [
+      ['/about', false],
+      ['/login', false],
+      ['/signup', false],
+      ['/dashboard', true],
+    ] as const) {
+      const view = renderAt(path, { signedIn })
+      const footer = screen.getByTestId('compact-footer')
+      expect(screen.queryByTestId('footer-contact')).not.toBeInTheDocument()
+      expect(within(footer).queryByRole('link', { name: /\+250|support@ozufy|Send us a message/ })).not.toBeInTheDocument()
+      expect(footer).not.toHaveTextContent(/Contact us|\+250|support@ozufy/)
+      // still exactly: the home logo link and the copyright
+      expect(within(footer).getAllByRole('link')).toHaveLength(1)
+      expect(footer).toHaveTextContent(/© \d{4} OuWealth Community/)
+      view.unmount()
+    }
   })
 
   it('other public pages use the compact footer', () => {
@@ -316,13 +359,44 @@ describe('auth form sizing', () => {
     const panel = screen.getByTestId('auth-form-panel')
     const content = within(panel).getByTestId('auth-form-content')
     const css = cssFor(content)
-    expect(css).toMatch(/max-width: 480px/)
+    expect(css).toMatch(/max-width: 360px/)
     expect(css).toMatch(/width: 100%/)
     expect(css).toMatch(/margin-(left|inline)[^;]*auto|margin: [^;]*auto/)
     // the pane itself keeps its space and centers the content; it is not narrowed
     expect(cssFor(panel)).not.toMatch(/max-width/)
     expect(cssFor(panel)).toMatch(/justify-content: center/)
     expect(content).toContainElement(screen.getByLabelText(/username/i))
+  })
+
+  it('desktop auth card is two equal halves with a compact overall width, on login and signup', () => {
+    for (const path of ['/login', '/signup']) {
+      const view = renderAt(path)
+      const shell = screen.getByTestId('auth-split-shell')
+      const css = cssFor(shell)
+      expect(css).toMatch(/display: grid/)
+      // brand side and form side share the width equally from the desktop breakpoint up
+      expect(css).toMatch(/grid-template-columns: 1fr 1fr/)
+      // phones stack them
+      expect(css).toMatch(/grid-template-columns: minmax\(0, 1fr\)/)
+      expect(css).toMatch(/max-width: 900px/)
+      // neither half has its own width (no flex-basis percentages): the grid alone decides
+      expect(cssFor(screen.getByTestId('auth-brand-panel'))).not.toMatch(/flex: (0 0 )?\d+%/)
+      expect(cssFor(screen.getByTestId('auth-form-panel'))).not.toMatch(/flex: (0 0 )?\d+%/)
+      // never a fixed height that could clip the signup wizard
+      expect(css).not.toMatch(/(^|[^-])height: \d/)
+      view.unmount()
+    }
+  })
+
+  it('signup keeps compact stacked fields on every step inside the narrower form half', async () => {
+    renderAt('/signup')
+    expect(screen.getByTestId('auth-form-content')).toContainElement(screen.getByRole('textbox', { name: /^Name/ }))
+    // step 1 rows are single column now, so no pair of fields is squeezed side by side
+    const actions = screen.getByTestId('signup-actions')
+    for (const stack of screen.getByTestId('auth-form-content').querySelectorAll('.MuiStack-root')) {
+      if (stack === actions) continue // the Back/Next row is meant to be a row
+      expect(cssFor(stack)).not.toMatch(/flex-direction: row/)
+    }
   })
 
   it('login: the Sign in button is content-sized and right-aligned, not form-wide', () => {
@@ -340,7 +414,7 @@ describe('auth form sizing', () => {
   it('signup: every wizard step lives in the same constrained content column', async () => {
     renderAt('/signup')
     const content = () => screen.getByTestId('auth-form-content')
-    expect(cssFor(content())).toMatch(/max-width: 480px/)
+    expect(cssFor(content())).toMatch(/max-width: 360px/)
     expect(content()).toContainElement(screen.getByRole('button', { name: 'Next' }))
     expect(content()).toContainElement(screen.getByText('Saving Scheme Details'))
   })

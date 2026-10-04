@@ -10,8 +10,8 @@ import { AuthSurfaceContext } from './authSurface'
 
 /** Login and signup render their own split shell (see AuthSplitShell) and need the wider canvas. */
 const SPLIT_WIDTHS: Record<string, number> = {
-  [ROUTES.login]: 980,
-  [ROUTES.signup]: 1180,
+  [ROUTES.login]: 960,
+  [ROUTES.signup]: 960,
 }
 
 export function AuthLayout() {

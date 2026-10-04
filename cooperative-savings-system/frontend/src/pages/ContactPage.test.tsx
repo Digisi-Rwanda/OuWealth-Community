@@ -1,28 +1,41 @@
 import { ThemeProvider } from '@mui/material'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { openMailClient } from '@/features/contact/openMailClient'
-import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+import { sendContactMessage } from '@/shared/api/contact'
 import { cssFor } from '@/test/cssHelpers'
 import { lightTheme } from '@/theme/theme'
 import { ContactPage } from './ContactPage'
 
-vi.mock('@/features/contact/openMailClient', () => ({ openMailClient: vi.fn() }))
+vi.mock('@/shared/api/contact', () => ({ sendContactMessage: vi.fn() }))
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
 
 function renderPage() {
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } })
   return render(
-    <ThemeProvider theme={lightTheme}>
-      <MemoryRouter>
-        <ContactPage />
-      </MemoryRouter>
-    </ThemeProvider>,
+    <QueryClientProvider client={client}>
+      <ThemeProvider theme={lightTheme}>
+        <MemoryRouter>
+          <ContactPage />
+        </MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
   )
 }
 
 const field = (label: RegExp) => screen.getByLabelText(label)
-const send = () => screen.getByRole('button', { name: 'Send message' })
+const send = () => screen.getByRole('button', { name: /Send message|Sending/ })
 
 function fill(values: Partial<Record<'first' | 'last' | 'email' | 'phone' | 'message', string>> = {}) {
   const v = {
@@ -40,51 +53,33 @@ function fill(values: Partial<Record<'first' | 'last' | 'email' | 'phone' | 'mes
   fireEvent.change(field(/^Message/i), { target: { value: v.message } })
 }
 
-function mailtoParts() {
-  const url = vi.mocked(openMailClient).mock.calls[0][0]
-  const [base, query] = url.split('?')
-  const params = new URLSearchParams(query)
-  return { url, base, subject: params.get('subject') ?? '', body: params.get('body') ?? '' }
-}
-
-describe('support channels', () => {
+describe('contact page content', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('shows the exact call number with a tel link', () => {
+  it('shows the title, intro and the compact form, with no top contact-information card', () => {
     renderPage()
-    const call = screen.getByTestId('support-call')
-    expect(call).toHaveTextContent('Call us')
-    expect(call).toHaveTextContent('0782102154')
-    expect(call).toHaveAttribute('href', 'tel:+250782102154')
+    expect(screen.getByRole('heading', { level: 1, name: 'Contact OuWealth Community' })).toBeInTheDocument()
+    expect(screen.getByText(/Questions about OuWealth/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Send us a message' })).toBeInTheDocument()
+    expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+
+    // the Call us / WhatsApp / Email list is gone from this page
+    expect(screen.queryByTestId('support-methods')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('support-call')).not.toBeInTheDocument()
+    expect(screen.queryByText('Call us')).not.toBeInTheDocument()
+    expect(screen.queryByText('0782102154')).not.toBeInTheDocument()
+    expect(screen.queryByText('support@ozufy.com')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^tel:/ })).not.toBeInTheDocument()
   })
 
-  it('shows the exact WhatsApp number with a wa.me link opening in a new tab', () => {
+  it('keeps the Chat on WhatsApp button inside the form, opening the support chat in a new tab', () => {
     renderPage()
-    const wa = screen.getByTestId('support-whatsapp')
-    expect(wa).toHaveTextContent('WhatsApp')
-    expect(wa).toHaveTextContent('0793634217')
-    expect(wa).toHaveAttribute('href', 'https://wa.me/250793634217')
-    expect(wa).toHaveAttribute('target', '_blank')
-    expect(wa.getAttribute('rel')).toMatch(/noopener/)
+    const chat = within(screen.getByTestId('contact-form')).getByRole('link', { name: 'Chat on WhatsApp' })
+    expect(chat.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/250793634217\?text=/)
+    expect(decodeURIComponent(chat.getAttribute('href')!.split('?text=')[1])).toMatch(/^Hello OuWealth Support/)
+    expect(chat).toHaveAttribute('target', '_blank')
+    expect(chat.getAttribute('rel')).toMatch(/noopener/)
   })
-
-  it('shows the exact support email with a mailto link', () => {
-    renderPage()
-    const email = screen.getByTestId('support-email')
-    expect(email).toHaveTextContent('support@ozufy.com')
-    expect(email).toHaveAttribute('href', 'mailto:support@ozufy.com')
-  })
-
-  it('reads every value from the single support-contact source', () => {
-    renderPage()
-    expect(screen.getByTestId('support-call')).toHaveAttribute('href', SUPPORT_CONTACTS.phoneHref)
-    expect(screen.getByTestId('support-whatsapp')).toHaveAttribute('href', SUPPORT_CONTACTS.whatsappHref)
-    expect(screen.getByTestId('support-email')).toHaveAttribute('href', SUPPORT_CONTACTS.emailHref)
-  })
-})
-
-describe('contact form', () => {
-  beforeEach(() => vi.clearAllMocks())
 
   it('has first/last name, email, country code (Rwanda by default), phone and message', () => {
     renderPage()
@@ -94,6 +89,32 @@ describe('contact form', () => {
     expect(screen.getByRole('combobox', { name: /Country code/i })).toHaveTextContent('RW (+250)')
   })
 
+  it('keeps one compact centred form column of about 560px', () => {
+    renderPage()
+    expect(cssFor(screen.getByTestId('contact-column'))).toMatch(/max-width: 608px/)
+    const card = cssFor(screen.getByTestId('contact-form-card'))
+    expect(card).toMatch(/max-width: 560px/)
+    expect(card).toMatch(/width: 100%/)
+  })
+
+  it('keeps the fields full width and the actions content-sized and grouped on the right', () => {
+    renderPage()
+    const card = screen.getByTestId('contact-form-card')
+    for (const label of [/^Email/i, /^Message/i]) {
+      expect(within(card).getByLabelText(label).closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth')
+    }
+    const actions = screen.getByTestId('contact-actions')
+    expect(cssFor(actions)).toMatch(/justify-content: flex-end/)
+    for (const el of [send(), screen.getByRole('link', { name: 'Chat on WhatsApp' })]) {
+      expect(el).not.toHaveClass('MuiButton-fullWidth')
+      expect(cssFor(el)).toMatch(/width: auto/)
+    }
+  })
+})
+
+describe('contact form validation', () => {
+  beforeEach(() => vi.clearAllMocks())
+
   it('requires first and last name', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -101,7 +122,7 @@ describe('contact form', () => {
     await user.click(send())
     expect(await screen.findByText('First name is required')).toBeInTheDocument()
     expect(screen.getByText('Last name is required')).toBeInTheDocument()
-    expect(openMailClient).not.toHaveBeenCalled()
+    expect(sendContactMessage).not.toHaveBeenCalled()
   })
 
   it('requires an email and rejects an invalid one', async () => {
@@ -114,105 +135,148 @@ describe('contact form', () => {
     fill({ email: 'not-an-email' })
     await user.click(send())
     expect(await screen.findByText('Enter a valid email address')).toBeInTheDocument()
-    expect(openMailClient).not.toHaveBeenCalled()
+    expect(sendContactMessage).not.toHaveBeenCalled()
   })
 
-  it('requires a message', async () => {
+  it('requires a message and caps its length', async () => {
     const user = userEvent.setup()
     renderPage()
     fill({ message: '  ' })
     await user.click(send())
     expect(await screen.findByText('Message is required')).toBeInTheDocument()
-    expect(openMailClient).not.toHaveBeenCalled()
+
+    fill({ message: 'm'.repeat(1001) })
+    await user.click(send())
+    expect(await screen.findByText('This is too long')).toBeInTheDocument()
+    expect(sendContactMessage).not.toHaveBeenCalled()
   })
 
-  it('rejects an invalid Rwandan phone but treats the phone as optional', async () => {
+  it('treats the phone as optional but rejects an invalid Rwandan number', async () => {
     const user = userEvent.setup()
     renderPage()
     fill({ phone: '12345' })
     await user.click(send())
     expect(await screen.findByText('Enter a Rwandan mobile number (07XXXXXXXX)')).toBeInTheDocument()
-    expect(openMailClient).not.toHaveBeenCalled()
+    expect(sendContactMessage).not.toHaveBeenCalled()
+  })
+})
 
-    fill({ phone: '' })
-    fireEvent.change(field(/Phone number/i), { target: { value: '' } })
-    await user.click(send())
-    expect(openMailClient).toHaveBeenCalledTimes(1)
+describe('contact form submission goes to the backend', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(sendContactMessage).mockResolvedValue(undefined)
   })
 
-  it('rejects over-long fields and an over-long message', async () => {
+  it('posts the validated, trimmed fields to the API once, with no recipient', async () => {
     const user = userEvent.setup()
     renderPage()
-    fill({ message: 'm'.repeat(1001) })
+    fill({ first: ' Alice ', last: 'Uwase', email: ' alice@example.com ', phone: '078 123 4567', message: ' Hello & welcome ' })
     await user.click(send())
-    expect(await screen.findByText('This is too long')).toBeInTheDocument()
-    expect(openMailClient).not.toHaveBeenCalled()
-  })
 
-  it('an invalid form does not launch any mail action and keeps what was typed', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    fill({ first: 'Alice', last: '', email: 'bad' })
-    await user.click(send())
-    expect(openMailClient).not.toHaveBeenCalled()
-    expect(field(/^First name/i)).toHaveValue('Alice')
-    expect(field(/^Email/i)).toHaveValue('bad')
-    expect(screen.queryByTestId('contact-mail-opened')).not.toBeInTheDocument()
-  })
-
-  it('a valid form opens one correctly encoded email to support, and does not claim it was sent', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    fill({
-      first: ' Alice ',
-      last: 'Uwase',
+    await waitFor(() => expect(sendContactMessage).toHaveBeenCalledTimes(1))
+    const payload = vi.mocked(sendContactMessage).mock.calls[0][0]
+    expect(payload).toEqual({
+      firstName: 'Alice',
+      lastName: 'Uwase',
       email: 'alice@example.com',
-      phone: '0781234567',
-      message: 'Muraho & hello?\nNeed help: 100% sure = yes.',
+      countryCode: '+250',
+      phoneNumber: '0781234567',
+      message: 'Hello & welcome',
     })
-    await user.click(send())
-
-    expect(openMailClient).toHaveBeenCalledTimes(1)
-    const { url, base, subject, body } = mailtoParts()
-    expect(base).toBe('mailto:support@ozufy.com')
-    expect(subject).toBe('OuWealth support request from Alice Uwase')
-    expect(body).toBe(
-      [
-        'Name: Alice Uwase',
-        'Email: alice@example.com',
-        'Phone: +250 781234567',
-        '',
-        'Message:',
-        'Muraho & hello?\nNeed help: 100% sure = yes.',
-      ].join('\n'),
-    )
-    // properly percent-encoded: no raw spaces, ampersands in the message, or newlines in the URL
-    expect(url).not.toMatch(/[ \n]/)
-    expect(url.split('?')[1].split('&')).toHaveLength(2) // only subject and body; the message "&" is encoded
-    expect(url).toContain('%0A')
-    expect(url).toContain('%26')
-
-    const info = await screen.findByTestId('contact-mail-opened')
-    expect(info).toHaveTextContent(/email app/i)
-    expect(screen.queryByText(/message sent|sent successfully/i)).not.toBeInTheDocument()
+    expect(Object.keys(payload)).not.toEqual(expect.arrayContaining(['to', 'recipient', 'cc', 'bcc']))
   })
 
-  it('leaves the phone line out when no phone was given', async () => {
+  it('leaves the phone out when none was given', async () => {
     const user = userEvent.setup()
     renderPage()
     fill()
     await user.click(send())
-    expect(mailtoParts().body).not.toMatch(/Phone:/)
+    await waitFor(() => expect(sendContactMessage).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(sendContactMessage).mock.calls[0][0]).not.toHaveProperty('phoneNumber')
   })
 
-  it('the WhatsApp button opens the support chat in a new tab with a prefilled greeting', () => {
+  it('does not use a mailto link: sending is a backend call', async () => {
+    const user = userEvent.setup()
     renderPage()
-    const chat = screen.getByRole('link', { name: 'Chat on WhatsApp' })
-    expect(chat.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/250793634217\?text=/)
-    expect(decodeURIComponent(chat.getAttribute('href')!.split('?text=')[1])).toMatch(/^Hello OuWealth Support/)
-    expect(chat).toHaveAttribute('target', '_blank')
-    expect(chat.getAttribute('rel')).toMatch(/noopener/)
-    expect(openMailClient).not.toHaveBeenCalled()
+    fill()
+    await user.click(send())
+    await waitFor(() => expect(sendContactMessage).toHaveBeenCalledTimes(1))
+    for (const link of screen.queryAllByRole('link')) {
+      expect(link.getAttribute('href') ?? '').not.toMatch(/^mailto:/)
+    }
+    expect(screen.getByRole('button', { name: 'Send message' })).toHaveAttribute('type', 'submit')
+  })
+
+  it('disables Send message and shows a loading state while sending, and ignores a second submit', async () => {
+    const user = userEvent.setup()
+    const pending = deferred()
+    vi.mocked(sendContactMessage).mockReturnValue(pending.promise)
+    renderPage()
+    fill()
+    await user.click(send())
+
+    const button = await screen.findByRole('button', { name: /Sending/ })
+    expect(button).toBeDisabled()
+    expect(button).toHaveTextContent('Sending...')
+    expect(within(button).getByRole('progressbar')).toBeInTheDocument()
+    fireEvent.submit(screen.getByTestId('contact-form'))
+    expect(sendContactMessage).toHaveBeenCalledTimes(1)
+
+    pending.resolve()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled())
+  })
+
+  it('on success shows the confirmation and clears the form', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    fill({ phone: '0781234567' })
+    await user.click(send())
+
+    expect(await screen.findByTestId('contact-sent')).toHaveTextContent(
+      'Your message has been sent to the OuWealth support team.',
+    )
+    expect(screen.queryByTestId('contact-failed')).not.toBeInTheDocument()
+    await waitFor(() => expect(field(/^First name/i)).toHaveValue(''))
+    expect(field(/^Last name/i)).toHaveValue('')
+    expect(field(/^Email/i)).toHaveValue('')
+    expect(field(/Phone number/i)).toHaveValue('')
+    expect(field(/^Message/i)).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: /Country code/i })).toHaveTextContent('RW (+250)')
+  })
+
+  it('on failure keeps what was typed, shows a friendly error and does not claim it was sent', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendContactMessage).mockRejectedValue(new Error('Request failed with status code 503'))
+    renderPage()
+    fill({ phone: '0781234567' })
+    await user.click(send())
+
+    expect(await screen.findByTestId('contact-failed')).toHaveTextContent(
+      "We couldn't send your message. Please try again or contact us by email or WhatsApp.",
+    )
+    expect(screen.queryByTestId('contact-sent')).not.toBeInTheDocument()
+    expect(screen.queryByText(/has been sent/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/couldn't send/)).not.toHaveTextContent(/503|status code/)
+    expect(field(/^First name/i)).toHaveValue('Alice')
+    expect(field(/^Last name/i)).toHaveValue('Uwase')
+    expect(field(/^Email/i)).toHaveValue('alice@example.com')
+    expect(field(/Phone number/i)).toHaveValue('0781234567')
+    expect(field(/^Message/i)).toHaveValue('I need help setting up my scheme.')
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled()
+  })
+
+  it('can be retried after a failure and then succeeds', async () => {
+    const user = userEvent.setup()
+    vi.mocked(sendContactMessage).mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(undefined)
+    renderPage()
+    fill()
+    await user.click(send())
+    expect(await screen.findByTestId('contact-failed')).toBeInTheDocument()
+
+    await user.click(send())
+    expect(await screen.findByTestId('contact-sent')).toBeInTheDocument()
+    expect(screen.queryByTestId('contact-failed')).not.toBeInTheDocument()
+    expect(sendContactMessage).toHaveBeenCalledTimes(2)
   })
 
   it('stays fully usable on a phone-width viewport', async () => {
@@ -220,59 +284,12 @@ describe('contact form', () => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 375 })
     window.dispatchEvent(new Event('resize'))
     renderPage()
-    const form = screen.getByTestId('contact-form')
-    // every field and both actions are present in the one form, in reading order
-    const names = within(form)
+    const names = within(screen.getByTestId('contact-form'))
       .getAllByRole('textbox')
       .map((el) => el.getAttribute('name'))
     expect(names).toEqual(['firstName', 'lastName', 'email', 'phone', 'message'])
     fill()
     await user.click(send())
-    expect(openMailClient).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('compact contact layout', () => {
-  it('centres one narrow column: about 560px of content, nearly full width on phones', () => {
-    renderPage()
-    const column = screen.getByTestId('contact-column')
-    expect(cssFor(column)).toMatch(/max-width: 608px/)
-    const card = screen.getByTestId('contact-form-card')
-    const css = cssFor(card)
-    expect(css).toMatch(/max-width: 560px/)
-    expect(css).toMatch(/width: 100%/)
-    expect(css).toMatch(/margin-(left|inline)[^;]*auto|margin: [^;]*auto/)
-  })
-
-  it('keeps the support channels in one compact card as wide as the form, with the three links as rows', () => {
-    renderPage()
-    const methods = screen.getByTestId('support-methods')
-    expect(within(methods).getAllByRole('link')).toHaveLength(3)
-    expect(screen.getByTestId('contact-column')).toContainElement(methods)
-    expect(screen.getByTestId('contact-column')).toContainElement(screen.getByTestId('contact-form-card'))
-    // not a three-column grid any more
-    expect(cssFor(methods)).not.toMatch(/grid-template-columns/)
-  })
-
-  it('keeps the fields full width inside the compact card', () => {
-    renderPage()
-    const card = screen.getByTestId('contact-form-card')
-    for (const label of [/^Email/i, /^Message/i]) {
-      expect(within(card).getByLabelText(label).closest('.MuiFormControl-root')).toHaveClass('MuiFormControl-fullWidth')
-    }
-  })
-
-  it('sizes Send message and Chat on WhatsApp to their content, grouped on the right', () => {
-    renderPage()
-    const actions = screen.getByTestId('contact-actions')
-    expect(cssFor(actions)).toMatch(/justify-content: flex-end/)
-    expect(cssFor(actions)).toMatch(/flex-direction: row/)
-    const send = screen.getByRole('button', { name: 'Send message' })
-    const chat = screen.getByRole('link', { name: 'Chat on WhatsApp' })
-    for (const el of [send, chat]) {
-      expect(el).not.toHaveClass('MuiButton-fullWidth')
-      expect(cssFor(el)).toMatch(/width: auto/)
-      expect(cssFor(el)).toMatch(/min-width: 140px/)
-    }
+    await waitFor(() => expect(sendContactMessage).toHaveBeenCalledTimes(1))
   })
 })

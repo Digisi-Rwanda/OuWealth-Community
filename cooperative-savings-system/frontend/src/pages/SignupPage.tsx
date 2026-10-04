@@ -119,7 +119,7 @@ export function SignupPage() {
   }
 
   return (
-    <AuthSplitShell supporting={t('signup.shellText')} wide>
+    <AuthSplitShell supporting={t('signup.shellText')}>
       <Typography variant="h5" component="h1" gutterBottom>
         {t('signup.title')}
       </Typography>
@@ -150,7 +150,7 @@ export function SignupPage() {
                 helperText={errors.name?.message}
                 {...register('name')}
               />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Stack direction="column" spacing={2}>
                 <TextField
                   label={t('cooperatives.fields.contactEmail')}
                   required
@@ -190,7 +190,7 @@ export function SignupPage() {
                 helperText={t('cooperatives.fields.currencyLocked')}
                 slotProps={{ input: { readOnly: true } }}
               />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Stack direction="column" spacing={2}>
                 <TextField
                   label={t('cooperatives.fields.registrationDate')}
                   type="date"
@@ -228,7 +228,7 @@ export function SignupPage() {
                   )}
                 />
               </Stack>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Stack direction="column" spacing={2}>
                 <TextField
                   label={t('cooperatives.fields.monthlyContributionAmount')}
                   required
@@ -272,7 +272,7 @@ export function SignupPage() {
                 {t('signup.accountHint')}
               </Typography>
               <Alert severity="info">{t('signup.presidentNote')}</Alert>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Stack direction="column" spacing={2}>
                 <TextField
                   label={t('signup.firstName')}
                   autoComplete="given-name"
@@ -444,7 +444,7 @@ function ReviewSection({ title, children }: { title: string; children: ReactNode
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 0, sm: 2 }}>
+    <Stack direction="column" spacing={{ xs: 0, sm: 2 }}>
       <Typography variant="body2" color="text.secondary" sx={{ minWidth: { sm: 220 } }}>
         {label}
       </Typography>

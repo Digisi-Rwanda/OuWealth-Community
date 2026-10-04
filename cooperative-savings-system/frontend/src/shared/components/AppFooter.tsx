@@ -1,10 +1,13 @@
-import { Box, Button, Container, Divider, Stack, Typography, useMediaQuery } from '@mui/material'
+import { Box, Button, Container, Divider, Link, Stack, Typography, useMediaQuery } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { publicFooterLinks, publicNavTarget } from '@/layouts/publicNav'
 import { BrandHomeLink } from '@/shared/components/BrandHomeLink'
 import { BrandLogo } from '@/shared/components/BrandLogo'
 import { ROUTES } from '@/shared/constants/routes'
+import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+
+const footerLinkSx = { color: 'rgba(255,255,255,0.88)', textDecorationColor: 'rgba(255,255,255,0.4)' } as const
 
 interface AppFooterProps {
   /** `full` is the marketing footer (landing page only); `compact` is logo + copyright. */
@@ -123,6 +126,32 @@ function FullFooter() {
                 </Button>
               ))}
             </Stack>
+            <Box component="section" aria-labelledby="footer-contact-heading" data-testid="footer-contact">
+              <Typography
+                id="footer-contact-heading"
+                component="h2"
+                sx={{ fontSize: '0.95rem', fontWeight: 600, mb: 1, color: '#FFFFFF' }}
+              >
+                {t('public.footer.contactTitle')}
+              </Typography>
+              <Stack component="ul" spacing={0.5} sx={{ listStyle: 'none', m: 0, p: 0 }}>
+                <Typography component="li" sx={{ fontSize: '0.9rem' }}>
+                  <Link href={SUPPORT_CONTACTS.phoneHref} sx={footerLinkSx} data-testid="footer-phone">
+                    {SUPPORT_CONTACTS.phoneInternational}
+                  </Link>
+                </Typography>
+                <Typography component="li" sx={{ fontSize: '0.9rem' }}>
+                  <Link href={SUPPORT_CONTACTS.emailHref} sx={footerLinkSx} data-testid="footer-email">
+                    {SUPPORT_CONTACTS.email}
+                  </Link>
+                </Typography>
+                <Typography component="li" sx={{ fontSize: '0.9rem' }}>
+                  <Link component={RouterLink} to={ROUTES.contact} sx={footerLinkSx} data-testid="footer-contact-form">
+                    {t('public.footer.sendMessage')}
+                  </Link>
+                </Typography>
+              </Stack>
+            </Box>
           </Stack>
           <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>

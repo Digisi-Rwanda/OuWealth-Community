@@ -92,6 +92,10 @@ app:
     lock-duration-minutes: 15
     auth-rate-limit-enabled: true
     auth-rate-limit-max: 20
+    contact-rate-limit-max: 5
+    # Peers whose X-Forwarded-For is believed (comma separated addresses or CIDRs). Empty = loopback and private
+    # ranges, which is what Render proxies connect from. Any other client can never choose its own rate-limit IP.
+    trusted-proxies: ${TRUSTED_PROXIES:}
   fines:
     auto-generate-enabled: ${APP_FINES_AUTO_GENERATE_ENABLED:true}
     auto-generate-cron: ${APP_FINES_AUTO_GENERATE_CRON:0 30 1 * * *}
@@ -106,6 +110,11 @@ app:
     enabled: ${MAIL_ENABLED:true}
     host: ${MAIL_HOST:}
     from: ${MAIL_FROM:}
+  support:
+    # Public contact form: always delivered here, never to an address supplied by the visitor.
+    email-to: ${SUPPORT_EMAIL_TO:support@ozufy.com}
+    # Verified sender for those messages; falls back to MAIL_FROM. SMTP itself is configured by MAIL_HOST/PORT/USERNAME/PASSWORD.
+    email-from: ${SUPPORT_EMAIL_FROM:}
   subscription:
     currency: RWF
     timezone: Africa/Kigali

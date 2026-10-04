@@ -3,31 +3,30 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BrandHomeLink } from '@/shared/components/BrandHomeLink'
 import { BrandLogo } from '@/shared/components/BrandLogo'
-import { AUTH_FORM_MAX_WIDTH } from './authFormStyles'
+import { AUTH_CARD_MAX_WIDTH, AUTH_FORM_MAX_WIDTH } from './authFormStyles'
 
 interface AuthSplitShellProps {
   /** Supporting copy under the tagline, already translated. */
   supporting: string
-  /** Wider shell for the signup wizard. */
-  wide?: boolean
   children: ReactNode
 }
 
 /**
- * One centered auth card: a brand panel (logo, tagline, short copy) next to the form. On phones the brand
- * panel shrinks to a compact header strip above the form so the form keeps the screen.
+ * One compact, centered auth card made of two EQUAL halves (brand panel and form) from the md breakpoint up. The card
+ * grows with its content, so no wizard step is ever clipped. On phones the halves stack and the brand panel shrinks to
+ * a compact header strip above the form.
  */
-export function AuthSplitShell({ supporting, wide = false, children }: AuthSplitShellProps) {
+export function AuthSplitShell({ supporting, children }: AuthSplitShellProps) {
   const { t } = useTranslation()
 
   return (
     <Box
       data-testid="auth-split-shell"
       sx={{
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
+        display: 'grid',
+        gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '1fr 1fr' },
         width: '100%',
-        maxWidth: wide ? 1120 : 920,
+        maxWidth: AUTH_CARD_MAX_WIDTH,
         mx: 'auto',
         borderRadius: 3,
         overflow: 'hidden',
@@ -41,7 +40,7 @@ export function AuthSplitShell({ supporting, wide = false, children }: AuthSplit
         component="section"
         data-testid="auth-brand-panel"
         sx={{
-          flex: { md: '0 0 38%' },
+          minWidth: 0,
           color: '#FFFFFF',
           px: { xs: 2.5, md: 4.5 },
           py: { xs: 2, md: 5 },
@@ -85,7 +84,6 @@ export function AuthSplitShell({ supporting, wide = false, children }: AuthSplit
       <Box
         data-testid="auth-form-panel"
         sx={{
-          flex: 1,
           minWidth: 0,
           p: { xs: 2.5, sm: 4, md: 5 },
           bgcolor: 'background.paper',

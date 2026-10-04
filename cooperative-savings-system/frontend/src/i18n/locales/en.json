@@ -20,7 +20,9 @@
       "navAria": "Footer links",
       "copyright": "© {{year}} OuWealth Community",
       "backToTop": "OuWealth Community, back to top",
-      "compactAria": "OuWealth footer"
+      "compactAria": "OuWealth footer",
+      "contactTitle": "Contact us",
+      "sendMessage": "Send us a message"
     },
     "landing": {
       "hero": {
@@ -172,9 +174,8 @@
     "contact": {
       "title": "Contact OuWealth Community",
       "intro": "Questions about OuWealth or your Saving Scheme? Reach us by call, WhatsApp or email, or send us a message.",
-      "methodsTitle": "Reach us directly",
       "formTitle": "Send us a message",
-      "formHint": "Your email app will open with this message ready to send to our support team.",
+      "formHint": "Your message goes straight to our support team, who will reply to the email address you give.",
       "firstName": "First name",
       "lastName": "Last name",
       "email": "Email",
@@ -185,12 +186,6 @@
       "send": "Send message",
       "whatsappChat": "Chat on WhatsApp",
       "whatsappPrefill": "Hello OuWealth Support, I need help with ",
-      "mailOpened": "Your email app should now be open with your message. Press send there to deliver it. We have not sent anything yet.",
-      "mailSubject": "OuWealth support request from {{name}}",
-      "bodyName": "Name",
-      "bodyEmail": "Email",
-      "bodyPhone": "Phone",
-      "bodyMessage": "Message",
       "validation": {
         "firstNameRequired": "First name is required",
         "lastNameRequired": "Last name is required",
@@ -200,7 +195,10 @@
         "phoneInvalid": "Enter a Rwandan mobile number (07XXXXXXXX)",
         "messageRequired": "Message is required",
         "tooLong": "This is too long"
-      }
+      },
+      "sending": "Sending...",
+      "sent": "Your message has been sent to the OuWealth support team.",
+      "failed": "We couldn't send your message. Please try again or contact us by email or WhatsApp."
     },
     "terms": {
       "title": "Terms & Conditions",
@@ -2683,6 +2681,8 @@
     "chatWhatsApp": "Chat on WhatsApp",
     "callUs": "Call us",
     "email": "Email",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "mailSubject": "OuWealth support",
+    "mailBody": "Hello OuWealth support team,\n\n"
   }
 }

@@ -60,8 +60,8 @@ describe('App public site', () => {
     go('/contact')
     const contact = render(<App />)
     expect(await screen.findByTestId('contact-page')).toBeInTheDocument()
-    expect(screen.getByTestId('support-call')).toHaveAttribute('href', 'tel:+250782102154')
     expect(screen.getByTestId('contact-form')).toBeInTheDocument()
+    expect(screen.queryByTestId('support-methods')).not.toBeInTheDocument()
     contact.unmount()
 
     go('/terms')

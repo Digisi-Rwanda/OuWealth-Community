@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import * as yup from 'yup'
-import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+import type { ContactPayload } from '@/shared/api/contact'
 import { isValidRwandanPhone, normalizeRwandanPhone } from '@/shared/utils/rwandaCooperative'
 
 /**
@@ -70,29 +70,18 @@ export function buildContactSchema(t: TFunction): yup.ObjectSchema<ContactFormVa
   })
 }
 
-/** "+250 782102154" for a Rwandan number typed as 07XXXXXXXX or +2507XXXXXXXX; blank when none was given. */
-export function formatInternationalPhone(values: Pick<ContactFormValues, 'countryCode' | 'phone'>): string {
-  const phone = values.phone.trim()
-  if (!phone) return ''
-  const national = normalizeRwandanPhone(phone).replace(/^0/, '')
-  return `${values.countryCode} ${national}`
-}
-
 /**
- * A pre-filled email to OuWealth support. There is no support-mail delivery service behind this form: the
- * visitor's own email app sends the message, so nothing here may claim it was sent.
+ * The request body for POST /public/contact. The phone is sent as plain national digits (07XXXXXXXX), which is what the
+ * backend accepts however the visitor typed it (spaces, dots, +250). There is deliberately no recipient field.
  */
-export function buildSupportMailto(values: ContactFormValues, t: TFunction): string {
-  const name = `${values.firstName.trim()} ${values.lastName.trim()}`.trim()
-  const phone = formatInternationalPhone(values)
-  const lines = [
-    `${t('public.contact.bodyName')}: ${name}`,
-    `${t('public.contact.bodyEmail')}: ${values.email.trim()}`,
-    ...(phone ? [`${t('public.contact.bodyPhone')}: ${phone}`] : []),
-    '',
-    `${t('public.contact.bodyMessage')}:`,
-    values.message.trim(),
-  ]
-  const subject = t('public.contact.mailSubject', { name })
-  return `${SUPPORT_CONTACTS.emailHref}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`
+export function toContactPayload(values: ContactFormValues): ContactPayload {
+  const phone = values.phone.trim()
+  return {
+    firstName: values.firstName.trim(),
+    lastName: values.lastName.trim(),
+    email: values.email.trim(),
+    countryCode: values.countryCode.trim(),
+    ...(phone ? { phoneNumber: normalizeRwandanPhone(phone) } : {}),
+    message: values.message.trim(),
+  }
 }

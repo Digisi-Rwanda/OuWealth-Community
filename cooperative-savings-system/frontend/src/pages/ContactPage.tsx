@@ -1,11 +1,10 @@
-import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
-import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk'
 import SendIcon from '@mui/icons-material/Send'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Container,
   MenuItem,
   Paper,
@@ -14,41 +13,51 @@ import {
   Typography,
 } from '@mui/material'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
   buildContactSchema,
-  buildSupportMailto,
   contactDefaults,
   COUNTRY_CODES,
   CONTACT_LIMITS,
+  toContactPayload,
   type ContactFormValues,
 } from '@/features/contact/contactForm'
-import { openMailClient } from '@/features/contact/openMailClient'
-import { SUPPORT_CONTACTS, whatsappHrefWithText } from '@/shared/constants/supportContacts'
+import { sendContactMessage } from '@/shared/api/contact'
+import { whatsappHrefWithText } from '@/shared/constants/supportContacts'
 
 const WHATSAPP_GREEN = '#1FA855'
 
-/** Public contact page: direct support channels plus a form that prepares an email to OuWealth support. */
+/**
+ * Public contact page: a compact form whose message is emailed to OuWealth support by the backend. The page only
+ * says "sent" once the backend confirmed it; a failure keeps what the visitor typed.
+ */
 export function ContactPage() {
   const { t } = useTranslation()
-  const [mailOpened, setMailOpened] = useState(false)
   const schema = useMemo(() => buildContactSchema(t), [t])
 
   const {
     register,
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<ContactFormValues>({
     resolver: yupResolver(schema),
     defaultValues: contactDefaults,
   })
 
+  const mutation = useMutation({
+    mutationFn: (values: ContactFormValues) => sendContactMessage(toContactPayload(values)),
+    // clear the form only after the backend accepted the message
+    onSuccess: () => reset(contactDefaults),
+  })
+
   const onValid = handleSubmit((values) => {
-    openMailClient(buildSupportMailto(values, t))
-    setMailOpened(true)
+    if (mutation.isPending) return
+    mutation.mutate(values)
   })
 
   return (
@@ -60,41 +69,6 @@ export function ContactPage() {
         <Typography color="text.secondary" component="p" sx={{ mb: 3 }}>
           {t('public.contact.intro')}
         </Typography>
-
-        <Paper
-          component="section"
-          variant="outlined"
-          aria-label={t('public.contact.methodsTitle')}
-          data-testid="support-methods"
-          sx={{ mb: 3, borderRadius: 3, overflow: 'hidden' }}
-        >
-          <SupportMethod
-            testId="support-call"
-            icon={<PhoneInTalkIcon />}
-            label={t('support.callUs')}
-            value={SUPPORT_CONTACTS.phoneDisplay}
-            href={SUPPORT_CONTACTS.phoneHref}
-            accent="primary.main"
-          />
-          <SupportMethod
-            testId="support-whatsapp"
-            icon={<WhatsAppIcon />}
-            label={t('support.whatsapp')}
-            value={SUPPORT_CONTACTS.whatsappDisplay}
-            href={SUPPORT_CONTACTS.whatsappHref}
-            accent={WHATSAPP_GREEN}
-            external
-          />
-          <SupportMethod
-            testId="support-email"
-            icon={<EmailOutlinedIcon />}
-            label={t('support.email')}
-            value={SUPPORT_CONTACTS.email}
-            href={SUPPORT_CONTACTS.emailHref}
-            accent="secondary.main"
-            last
-          />
-        </Paper>
 
         <Paper
           elevation={0}
@@ -195,9 +169,14 @@ export function ContactPage() {
                 {...register('message')}
               />
 
-              {mailOpened ? (
-                <Alert severity="info" data-testid="contact-mail-opened">
-                  {t('public.contact.mailOpened')}
+              {mutation.isSuccess ? (
+                <Alert severity="success" data-testid="contact-sent">
+                  {t('public.contact.sent')}
+                </Alert>
+              ) : null}
+              {mutation.isError ? (
+                <Alert severity="error" data-testid="contact-failed">
+                  {t('public.contact.failed')}
                 </Alert>
               ) : null}
 
@@ -230,79 +209,19 @@ export function ContactPage() {
                 <Button
                   type="submit"
                   variant="contained"
-                  startIcon={<SendIcon />}
+                  disabled={mutation.isPending}
+                  startIcon={
+                    mutation.isPending ? <CircularProgress size={18} color="inherit" /> : <SendIcon />
+                  }
                   sx={{ width: 'auto', minWidth: 140, minHeight: 44, px: 3 }}
                 >
-                  {t('public.contact.send')}
+                  {mutation.isPending ? t('public.contact.sending') : t('public.contact.send')}
                 </Button>
               </Stack>
             </Stack>
           </Box>
         </Paper>
       </Container>
-    </Box>
-  )
-}
-
-interface SupportMethodProps {
-  /** Last row of the card has no divider below it. */
-  last?: boolean
-  testId: string
-  icon: ReactNode
-  label: string
-  value: string
-  href: string
-  accent: string
-  external?: boolean
-}
-
-function SupportMethod({ testId, icon, label, value, href, accent, external, last }: SupportMethodProps) {
-  return (
-    <Box
-      component="a"
-      href={href}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noopener noreferrer' : undefined}
-      data-testid={testId}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1.5,
-        textDecoration: 'none',
-        color: 'text.primary',
-        minHeight: 64,
-        borderBottom: last ? 'none' : '1px solid',
-        borderColor: 'divider',
-        transition: 'background-color 150ms ease',
-        '&:hover': { bgcolor: 'action.hover' },
-        '&:focus-visible': { outline: '2px solid', outlineColor: accent, outlineOffset: -2 },
-      }}
-    >
-      <Box
-        aria-hidden="true"
-        sx={{
-          width: 40,
-          height: 40,
-          borderRadius: '50%',
-          display: 'grid',
-          placeItems: 'center',
-          color: '#FFFFFF',
-          bgcolor: accent,
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="caption" color="text.secondary" component="span" sx={{ display: 'block' }}>
-          {label}
-        </Typography>
-        <Typography variant="body1" component="span" sx={{ display: 'block', fontWeight: 600, overflowWrap: 'anywhere' }}>
-          {value}
-        </Typography>
-      </Box>
     </Box>
   )
 }

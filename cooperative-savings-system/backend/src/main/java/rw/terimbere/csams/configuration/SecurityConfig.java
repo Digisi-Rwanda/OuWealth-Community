@@ -77,6 +77,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/public/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/public/contact")
+                        .permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/public/billing/mtn/callback",

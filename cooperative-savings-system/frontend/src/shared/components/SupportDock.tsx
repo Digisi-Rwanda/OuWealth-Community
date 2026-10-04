@@ -2,7 +2,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import { Box, IconButton, Tooltip } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+import { SUPPORT_CONTACTS, supportMailtoHref } from '@/shared/constants/supportContacts'
 
 const BUTTON_SX = {
   width: 44,
@@ -40,7 +40,7 @@ export function SupportDock() {
       <Tooltip title={t('support.emailSupport')} placement="left" arrow>
         <IconButton
           component="a"
-          href={SUPPORT_CONTACTS.emailHref}
+          href={supportMailtoHref(t('support.mailSubject'), t('support.mailBody'))}
           aria-label={t('support.emailSupport')}
           sx={{ ...BUTTON_SX, bgcolor: 'primary.main', '&:hover': { ...BUTTON_SX['&:hover'], bgcolor: 'primary.dark' } }}
         >

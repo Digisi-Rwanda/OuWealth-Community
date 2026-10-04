@@ -15,11 +15,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import rw.terimbere.csams.modules.contact.service.ContactDeliveryException;
 import rw.terimbere.csams.shared.common.dto.ErrorResponse;
 import rw.terimbere.csams.shared.common.dto.ErrorResponse.FieldErrorDetail;
 import rw.terimbere.csams.shared.utilities.RequestIdFilter;
@@ -86,6 +88,40 @@ public class GlobalExceptionHandler {
                 .requestId(requestId())
                 .build();
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.METHOD_NOT_ALLOWED.value())
+                .error(HttpStatus.METHOD_NOT_ALLOWED.getReasonPhrase())
+                .success(false)
+                .message("This operation is not supported for that HTTP method.")
+                .path(request.getRequestURI())
+                .requestId(requestId())
+                .build();
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED);
+        if (ex.getSupportedHttpMethods() != null && !ex.getSupportedHttpMethods().isEmpty()) {
+            response.allow(ex.getSupportedHttpMethods().toArray(new org.springframework.http.HttpMethod[0]));
+        }
+        return response.body(body);
+    }
+
+    @ExceptionHandler(ContactDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleContactDelivery(ContactDeliveryException ex, HttpServletRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error(HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase())
+                .success(false)
+                .code(ContactDeliveryException.CODE)
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .requestId(requestId())
+                .build();
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 
     @ExceptionHandler({ForbiddenException.class, AccessDeniedException.class})
