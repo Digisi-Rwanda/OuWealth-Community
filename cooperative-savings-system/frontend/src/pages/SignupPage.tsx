@@ -39,6 +39,7 @@ import { onboardCooperative } from '@/shared/api/onboarding'
 import { getErrorMessage } from '@/shared/api/client'
 import { AuthSplitShell } from '@/layouts/AuthSplitShell'
 import { AUTH_ACTION_BUTTON_SX } from '@/layouts/authFormStyles'
+import { plainLinkSx } from '@/shared/styles/plainLink'
 import { ROUTES } from '@/shared/constants/routes'
 import { formatMoney } from '@/shared/utils/formatMoney'
 
@@ -423,7 +424,7 @@ export function SignupPage() {
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
             {t('signup.haveAccount')}{' '}
-            <MuiLink component={RouterLink} to={ROUTES.login}>
+            <MuiLink component={RouterLink} to={ROUTES.login} underline="none" sx={plainLinkSx} data-testid="signup-login-link">
               {t('signup.signIn')}
             </MuiLink>
           </Typography>

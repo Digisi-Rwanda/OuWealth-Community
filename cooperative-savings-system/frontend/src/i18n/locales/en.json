@@ -347,7 +347,7 @@
     "foundationHint": "Verify the public health endpoint while you sign in.",
     "checkHealth": "Check API health",
     "noAccount": "Don't have an account?",
-    "createAccount": "Create account",
+    "createAccount": "Register",
     "shellText": "Sign in to manage your Saving Scheme's members, contributions, loans and reports."
   },
   "signup": {
@@ -365,7 +365,7 @@
     "next": "Next",
     "back": "Back",
     "haveAccount": "Already have an account?",
-    "signIn": "Sign in",
+    "signIn": "Login",
     "steps": {
       "scheme": "Saving Scheme Details",
       "account": "Your Details",

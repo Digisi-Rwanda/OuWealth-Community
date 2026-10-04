@@ -1,7 +1,8 @@
-import { ThemeProvider } from '@mui/material'
+import { Link as MuiLink, ThemeProvider } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configureStore } from '@reduxjs/toolkit'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -447,5 +448,107 @@ describe('auth form sizing', () => {
       expect(cssFor(button)).toMatch(/width: auto/)
     }
     expect(screen.getByTestId('auth-form-content')).toContainElement(actions())
+  })
+})
+
+/** The requested links have no underline in any state, a subtle hover, and a visible keyboard focus. */
+function expectPlainLink(link: Element) {
+  const css = cssFor(link)
+  expect(css).toMatch(/text-decoration: none/)
+  expect(css).not.toMatch(/text-decoration: underline/)
+  // hover keeps it underline-free and changes only the opacity
+  expect(css).toMatch(/:hover[^}]*text-decoration: none/)
+  expect(css).toMatch(/:hover[^}]*opacity: 0\.78/)
+  // keyboard focus is clearly visible
+  expect(css).toMatch(/:focus-visible[^}]*outline: 2px solid currentcolor/i)
+  expect(css).toMatch(/cursor: pointer/)
+}
+
+describe('plain text links', () => {
+  it('login: "Don\'t have an account? Register" links to signup, with no underline', async () => {
+    const user = userEvent.setup()
+    renderAt('/login')
+    const register = screen.getByRole('link', { name: 'Register' })
+    expect(register).toHaveAttribute('href', '/signup')
+    expect(register.parentElement).toHaveTextContent("Don't have an account? Register")
+    expect(screen.queryByText(/Create (an )?account/i)).not.toBeInTheDocument()
+    expectPlainLink(register)
+
+    await user.click(register)
+    expect(screen.getByTestId('where')).toHaveTextContent('/signup')
+  })
+
+  it('login: Forgot password stays a clickable link to the reset page, with no underline', async () => {
+    const user = userEvent.setup()
+    renderAt('/login')
+    const forgot = screen.getByRole('link', { name: 'Forgot password?' })
+    expect(forgot).toHaveAttribute('href', '/forgot-password')
+    expectPlainLink(forgot)
+    await user.click(forgot)
+    expect(screen.getByTestId('where')).toHaveTextContent('/forgot-password')
+  })
+
+  it('signup: "Already have an account? Login" links to login, styled like Register', async () => {
+    const user = userEvent.setup()
+    renderAt('/signup')
+    const login = screen.getByRole('link', { name: 'Login' })
+    expect(login).toHaveAttribute('href', '/login')
+    expect(login.parentElement).toHaveTextContent('Already have an account? Login')
+    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+    expectPlainLink(login)
+    // the same shared style as the Register link on the login page
+    const signupLoginCss = cssFor(login)
+    await user.click(login)
+    expect(screen.getByTestId('where')).toHaveTextContent('/login')
+    expect(cssFor(screen.getByRole('link', { name: 'Register' }))).toContain(
+      signupLoginCss.match(/text-decoration: none/)?.[0] ?? 'missing',
+    )
+  })
+
+  it('the landing footer contact links keep their destinations and have no underline', () => {
+    renderAt('/')
+    const contact = within(screen.getByTestId('public-footer')).getByTestId('footer-contact')
+    const phone = within(contact).getByRole('link', { name: '+250782102154' })
+    const email = within(contact).getByRole('link', { name: 'support@ozufy.com' })
+    const message = within(contact).getByRole('link', { name: 'Send us a message' })
+    expect(phone).toHaveAttribute('href', 'tel:+250782102154')
+    expect(email).toHaveAttribute('href', 'mailto:support@ozufy.com')
+    expect(message).toHaveAttribute('href', '/contact')
+    for (const link of [phone, email, message]) expectPlainLink(link)
+  })
+
+  it('does not strip underlines from other links in the app', () => {
+    render(
+      <ThemeProvider theme={lightTheme}>
+        <MuiLink href="/somewhere" data-testid="ordinary">
+          ordinary link
+        </MuiLink>
+      </ThemeProvider>,
+    )
+    expect(cssFor(screen.getByTestId('ordinary'))).toMatch(/text-decoration: underline/)
+  })
+})
+
+describe('global scrollbar hiding', () => {
+  const css = readFileSync('src/index.css', 'utf8')
+
+  it('hides scrollbars in Firefox, legacy Edge and WebKit/Chromium', () => {
+    expect(css).toMatch(/\*\s*\{[^}]*scrollbar-width:\s*none/)
+    expect(css).toMatch(/\*\s*\{[^}]*-ms-overflow-style:\s*none/)
+    expect(css).toMatch(/\*::-webkit-scrollbar\s*\{[^}]*display:\s*none/)
+  })
+
+  it('only hides the bars: it never sets overflow, so scrolling is unchanged', () => {
+    const rules = css.match(/\*\s*\{[^}]*scrollbar-width[^}]*\}|\*::-webkit-scrollbar\s*\{[^}]*\}/g) ?? []
+    expect(rules).toHaveLength(2)
+    for (const rule of rules) expect(rule).not.toMatch(/overflow(-x|-y)?\s*:/)
+    // and nowhere in the global stylesheet is overflow hidden forced onto the page
+    expect(css).not.toMatch(/overflow(-x|-y)?\s*:\s*hidden/)
+  })
+
+  it('is applied once, globally, instead of per component', () => {
+    for (const file of ['src/layouts/AppLayout.tsx', 'src/layouts/AppSidebar.tsx', 'src/layouts/PublicLayout.tsx']) {
+      expect(readFileSync(file, 'utf8')).not.toMatch(/scrollbar-width|::-webkit-scrollbar/)
+    }
   })
 })

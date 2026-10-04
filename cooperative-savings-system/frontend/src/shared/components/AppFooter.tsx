@@ -6,8 +6,9 @@ import { BrandHomeLink } from '@/shared/components/BrandHomeLink'
 import { BrandLogo } from '@/shared/components/BrandLogo'
 import { ROUTES } from '@/shared/constants/routes'
 import { SUPPORT_CONTACTS } from '@/shared/constants/supportContacts'
+import { plainLinkSx } from '@/shared/styles/plainLink'
 
-const footerLinkSx = { color: 'rgba(255,255,255,0.88)', textDecorationColor: 'rgba(255,255,255,0.4)' } as const
+const footerLinkSx = { ...plainLinkSx, color: 'rgba(255,255,255,0.88)' } as const
 
 interface AppFooterProps {
   /** `full` is the marketing footer (landing page only); `compact` is logo + copyright. */
@@ -136,17 +137,17 @@ function FullFooter() {
               </Typography>
               <Stack component="ul" spacing={0.5} sx={{ listStyle: 'none', m: 0, p: 0 }}>
                 <Typography component="li" sx={{ fontSize: '0.9rem' }}>
-                  <Link href={SUPPORT_CONTACTS.phoneHref} sx={footerLinkSx} data-testid="footer-phone">
+                  <Link href={SUPPORT_CONTACTS.phoneHref} underline="none" sx={footerLinkSx} data-testid="footer-phone">
                     {SUPPORT_CONTACTS.phoneInternational}
                   </Link>
                 </Typography>
                 <Typography component="li" sx={{ fontSize: '0.9rem' }}>
-                  <Link href={SUPPORT_CONTACTS.emailHref} sx={footerLinkSx} data-testid="footer-email">
+                  <Link href={SUPPORT_CONTACTS.emailHref} underline="none" sx={footerLinkSx} data-testid="footer-email">
                     {SUPPORT_CONTACTS.email}
                   </Link>
                 </Typography>
                 <Typography component="li" sx={{ fontSize: '0.9rem' }}>
-                  <Link component={RouterLink} to={ROUTES.contact} sx={footerLinkSx} data-testid="footer-contact-form">
+                  <Link component={RouterLink} to={ROUTES.contact} underline="none" sx={footerLinkSx} data-testid="footer-contact-form">
                     {t('public.footer.sendMessage')}
                   </Link>
                 </Typography>

@@ -22,6 +22,7 @@ import { getErrorMessage } from '@/shared/api/client'
 import { AuthSplitShell } from '@/layouts/AuthSplitShell'
 import { LOGIN_SUCCESS_STATE } from '@/features/branding/loginSuccessSplash'
 import { AUTH_ACTION_BUTTON_SX } from '@/layouts/authFormStyles'
+import { plainLinkSx } from '@/shared/styles/plainLink'
 import { ROUTES } from '@/shared/constants/routes'
 import { ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
 import { isPreviewLoginEnabled } from '@/shared/auth/previewLogin'
@@ -117,7 +118,7 @@ export function LoginPage() {
             {...register('password')}
           />
           <Box sx={{ textAlign: 'right', mt: -1 }}>
-            <MuiLink component={RouterLink} to={ROUTES.forgotPassword} variant="body2">
+            <MuiLink component={RouterLink} to={ROUTES.forgotPassword} variant="body2" underline="none" sx={plainLinkSx}>
               {t('login.forgotPassword')}
             </MuiLink>
           </Box>
@@ -136,7 +137,7 @@ export function LoginPage() {
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
             {t('login.noAccount')}{' '}
-            <MuiLink component={RouterLink} to={ROUTES.signup}>
+            <MuiLink component={RouterLink} to={ROUTES.signup} underline="none" sx={plainLinkSx} data-testid="login-register-link">
               {t('login.createAccount')}
             </MuiLink>
           </Typography>
