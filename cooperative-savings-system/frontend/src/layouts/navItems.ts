@@ -1,4 +1,3 @@
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn'
@@ -6,7 +5,6 @@ import DashboardIcon from '@mui/icons-material/Dashboard'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import GavelIcon from '@mui/icons-material/Gavel'
 import GroupsIcon from '@mui/icons-material/Groups'
-import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import HistoryEduIcon from '@mui/icons-material/HistoryEdu'
 import HistoryIcon from '@mui/icons-material/History'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
@@ -49,6 +47,8 @@ export interface NavItem {
   group?: 'main' | 'advanced' | 'super'
   /** Authenticated sidebar section. */
   sidebarGroup: SidebarGroupId
+  /** Active only on the exact path, never on its sub-routes (portal home items). */
+  end?: boolean
 }
 
 export const SIDEBAR_GROUP_ORDER: SidebarGroupId[] = [
@@ -69,7 +69,6 @@ export const SIDEBAR_GROUP_LABEL_KEYS: Record<SidebarGroupId, string> = {
   account: 'nav.group.account',
 }
 
-const SUPER_ADMIN_ROLES = [ROLE_SUPER_ADMIN]
 const LEADERSHIP_NAV_ROLES = [
   'PRESIDENT',
   'VICE_PRESIDENT',
@@ -283,22 +282,6 @@ export const adminModuleNavItems: NavItem[] = [
     roles: SECRETARY_ACCESS_ROLES,
     group: 'advanced',
     sidebarGroup: 'governance',
-  },
-  {
-    labelKey: 'nav.cooperatives',
-    path: ROUTES.cooperatives,
-    icon: AccountBalanceIcon,
-    roles: SUPER_ADMIN_ROLES,
-    group: 'super',
-    sidebarGroup: 'platform',
-  },
-  {
-    labelKey: 'nav.system',
-    path: ROUTES.system,
-    icon: HealthAndSafetyIcon,
-    roles: SUPER_ADMIN_ROLES,
-    group: 'super',
-    sidebarGroup: 'platform',
   },
 ]
 

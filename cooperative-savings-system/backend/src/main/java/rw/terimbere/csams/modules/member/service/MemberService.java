@@ -380,6 +380,7 @@ public class MemberService {
 
         CooperativeMembership membership = requireMembership(cooperativeId, memberUserId);
         User user = requireUser(memberUserId);
+        requireNotSystemSuperAdmin(user);
 
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmailIgnoreCaseAndDeletedFalseAndIdNot(email, user.getId())) {
@@ -468,6 +469,7 @@ public class MemberService {
                 + "\"}";
 
         if (request.getAccountStatus() != null) {
+            requireNotSystemSuperAdmin(user);
             if (request.getAccountStatus() == AccountStatus.LOCKED) {
                 throw new ValidationException("Use INACTIVE or SUSPENDED for member account status changes");
             }
@@ -699,6 +701,17 @@ public class MemberService {
                 .map(Cooperative::getName)
                 .filter(StringUtils::hasText)
                 .orElse("your Saving Scheme");
+    }
+
+    /**
+     * Cooperative member management edits the global user record. A system SUPER_ADMIN's account (status,
+     * identity) is managed only through {@code /api/v1/platform/super-admins}, never by a Saving Scheme.
+     */
+    private void requireNotSystemSuperAdmin(User target) {
+        if (target.getRoleCodes().contains(CooperativeAuthorizationService.SUPER_ADMIN)) {
+            throw new ForbiddenException(
+                    "System administrator accounts cannot be changed through Saving Scheme member management");
+        }
     }
 
     private void requireCooperativeExists(UUID cooperativeId) {

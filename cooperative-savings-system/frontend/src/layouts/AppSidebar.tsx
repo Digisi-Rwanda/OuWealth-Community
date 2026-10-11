@@ -21,6 +21,7 @@ import {
   getSidebarNavGroups,
   isNavItemActive,
   type NavItem,
+  type SidebarNavGroup,
 } from './navItems'
 
 export const APP_SIDEBAR_WIDTH = 260
@@ -40,6 +41,10 @@ interface AppSidebarProps {
   onNavigate?: () => void
   /** Desktop pin/unpin button. Omitted on mobile, where the drawer is always temporary. */
   pinControl?: SidebarPinControl
+  /** Replaces the role-derived Saving Scheme groups (used by the system-administration portal). */
+  groups?: SidebarNavGroup[]
+  /** Where the logo links to. Defaults to the Saving Scheme dashboard. */
+  homePath?: string
 }
 
 export function AppSidebar({
@@ -48,14 +53,18 @@ export function AppSidebar({
   onDarkBrand = false,
   onNavigate,
   pinControl,
+  groups: groupsOverride,
+  homePath = ROUTES.dashboard,
 }: AppSidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
-  const groups = getSidebarNavGroups(userRoles)
+  const groups = groupsOverride ?? getSidebarNavGroups(userRoles)
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon
-    const selected = isNavItemActive(location.pathname, location.search, item.path)
+    const selected = item.end
+      ? location.pathname === item.path
+      : isNavItemActive(location.pathname, location.search, item.path)
     const showBadge = item.path === ROUTES.notifications && unreadCount > 0
 
     return (
@@ -129,7 +138,7 @@ export function AppSidebar({
       >
         <Box
           component={NavLink}
-          to={ROUTES.dashboard}
+          to={homePath}
           aria-label={t('app.name')}
           sx={{
             display: 'inline-flex',
@@ -162,7 +171,7 @@ export function AppSidebar({
             key={group.id}
             dense
             subheader={
-              group.id === 'overview' ? undefined : (
+              group.id === 'overview' && !groupsOverride ? undefined : (
                 <ListSubheader
                   component="div"
                   disableSticky

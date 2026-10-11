@@ -31,11 +31,13 @@ const user: AuthUser = {
   cooperativeIds: ['coop-1'],
 }
 
-function renderPage(page: React.ReactNode) {
+function renderPage(page: React.ReactNode, options: { anonymous?: boolean } = {}) {
   const store = configureStore({
     reducer: { auth: authReducer, ui: uiReducer },
     preloadedState: {
-      auth: { user, accessToken: 't', selectedCooperativeId: 'coop-1', status: 'authenticated' as const },
+      auth: options.anonymous
+        ? { user: null, accessToken: null, selectedCooperativeId: null, status: 'anonymous' as const }
+        : { user, accessToken: 't', selectedCooperativeId: 'coop-1', status: 'authenticated' as const },
       ui: { sidebarOpen: false, themePreference: 'light' as const },
     },
   })
@@ -59,7 +61,7 @@ describe('LoginPage password rule', () => {
 
   it('requires a password but does not impose a minimum length (the backend only checks non-blank)', async () => {
     const u = userEvent.setup()
-    renderPage(<LoginPage />)
+    renderPage(<LoginPage />, { anonymous: true })
     fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'legacy' } })
     await u.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(await screen.findByText('Password is required')).toBeInTheDocument()

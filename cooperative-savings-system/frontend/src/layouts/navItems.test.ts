@@ -87,9 +87,10 @@ describe('getMobileNavItems', () => {
     expect(isSuperAdminUser([ROLE_PRESIDENT])).toBe(false)
   })
 
-  it('gives super admins full operational access plus cooperatives', () => {
+  it('keeps the platform pages out of the Saving Scheme nav (they live in the Super Admin portal)', () => {
     const items = getMobileNavItems([ROLE_SUPER_ADMIN])
-    expect(items.some((i) => i.path === '/cooperatives')).toBe(true)
+    expect(items.some((i) => i.path === '/cooperatives')).toBe(false)
+    expect(items.some((i) => i.path === '/system')).toBe(false)
     expect(items.some((i) => i.path === '/members')).toBe(true)
     expect(items.some((i) => i.path === '/ledger')).toBe(true)
     expect(items.some((i) => i.path === '/loans')).toBe(true)

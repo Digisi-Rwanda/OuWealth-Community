@@ -22,7 +22,7 @@ import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { ResponsiveTable, type TableColumn } from '@/shared/components/ResponsiveTable'
-import { ROUTES } from '@/shared/constants/routes'
+import { usePortalRoutes } from '@/shared/constants/portal'
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import type { Cooperative, CooperativeCreateRequest, CooperativeStatus } from '@/shared/types/cooperative'
 import { COOPERATIVE_STATUSES, isOnboardingIncomplete } from '@/shared/types/cooperative'
@@ -48,6 +48,7 @@ export function CooperativesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
+  const routes = usePortalRoutes()
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -203,7 +204,7 @@ export function CooperativesPage() {
             columns={columns}
             rows={rows}
             getRowId={(row) => row.id}
-            onRowClick={(row) => navigate(ROUTES.cooperativeDetail(row.id))}
+            onRowClick={(row) => navigate(routes.cooperativeDetail(row.id))}
           />
           <TablePagination
             component="div"
@@ -237,7 +238,7 @@ export function CooperativesPage() {
         onConfirm={() => {
           const id = welcomeCoop?.id
           setWelcomeCoop(null)
-          if (id) navigate(ROUTES.cooperativeDetail(id))
+          if (id) navigate(routes.cooperativeDetail(id))
         }}
         onCancel={() => setWelcomeCoop(null)}
       />

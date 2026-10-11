@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AppLayout } from '@/layouts/AppLayout'
+import { SuperAdminLayout } from '@/layouts/SuperAdminLayout'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { LandingPage } from '@/pages/LandingPage'
 import { AboutPage } from '@/pages/AboutPage'
@@ -38,18 +39,21 @@ import { AuditLogsPage } from '@/pages/AuditLogsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { CooperativesPage } from '@/pages/CooperativesPage'
 import { CooperativeDetailPage } from '@/pages/CooperativeDetailPage'
+import { SuperAdminHomePage } from '@/pages/SuperAdminHomePage'
+import { SuperAdminsPage } from '@/pages/SuperAdminsPage'
 import { SystemHealthPage } from '@/pages/SystemHealthPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
-import { ROUTES } from '@/shared/constants/routes'
+import { ROUTES, SUPER_ADMIN_ROUTES } from '@/shared/constants/routes'
 import {
   FINANCE_ACCESS_ROLES,
   LEADERSHIP_ROLES,
-  ROLE_SUPER_ADMIN,
   SECRETARY_ACCESS_ROLES,
 } from '@/shared/types/auth'
 import { AuthBootstrap } from './AuthBootstrap'
 import { ProtectedRoute } from './ProtectedRoute'
+import { ClientPortalRoute } from './ClientPortalRoute'
 import { RoleRoute } from './RoleRoute'
+import { SuperAdminRoute } from './SuperAdminRoute'
 
 /** The retired standalone privacy page. Kept only so old links still land somewhere useful. */
 const LEGACY_PRIVACY_PATH = '/privacy'
@@ -77,6 +81,7 @@ export function AppRouter() {
 
           <Route element={<ProtectedRoute />}>
             <Route path={ROUTES.loginSuccess} element={<LoginSuccessSplashPage />} />
+            <Route element={<ClientPortalRoute />}>
             <Route element={<AppLayout />}>
               <Route path={ROUTES.dashboard} element={<DashboardPage />} />
               <Route element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}>
@@ -116,10 +121,23 @@ export function AppRouter() {
               <Route element={<RoleRoute roles={SECRETARY_ACCESS_ROLES} />}>
                 <Route path={ROUTES.auditLogs} element={<AuditLogsPage />} />
               </Route>
-              <Route element={<RoleRoute roles={[ROLE_SUPER_ADMIN]} />}>
-                <Route path={ROUTES.cooperatives} element={<CooperativesPage />} />
-                <Route path="/cooperatives/:id" element={<CooperativeDetailPage />} />
-                <Route path={ROUTES.system} element={<SystemHealthPage />} />
+              {/* Legacy platform URLs: ClientPortalRoute sends a SUPER_ADMIN to the portal; everyone else lands on the dashboard. */}
+              <Route path={ROUTES.cooperatives} element={<Navigate to={ROUTES.dashboard} replace />} />
+              <Route path="/cooperatives/:id" element={<Navigate to={ROUTES.dashboard} replace />} />
+              <Route path={ROUTES.system} element={<Navigate to={ROUTES.dashboard} replace />} />
+            </Route>
+            </Route>
+
+            <Route element={<SuperAdminRoute />}>
+              <Route element={<SuperAdminLayout />}>
+                <Route path={SUPER_ADMIN_ROUTES.home} element={<SuperAdminHomePage />} />
+                <Route path={SUPER_ADMIN_ROUTES.admins} element={<SuperAdminsPage />} />
+                <Route path={SUPER_ADMIN_ROUTES.cooperatives} element={<CooperativesPage />} />
+                <Route path="/superadmin/cooperatives/:id" element={<CooperativeDetailPage />} />
+                <Route path={SUPER_ADMIN_ROUTES.system} element={<SystemHealthPage />} />
+                <Route path={SUPER_ADMIN_ROUTES.profile} element={<ProfilePage />} />
+                <Route path={SUPER_ADMIN_ROUTES.changePassword} element={<ChangePasswordPage />} />
+                <Route path="/superadmin/*" element={<NotFoundPage />} />
               </Route>
             </Route>
           </Route>

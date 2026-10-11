@@ -20,7 +20,7 @@ import { useAppDispatch } from '@/app/store/hooks'
 import { changePassword } from '@/shared/api/auth'
 import { getErrorMessage } from '@/shared/api/client'
 import { PageHeader } from '@/shared/components/PageHeader'
-import { ROUTES } from '@/shared/constants/routes'
+import { usePortalRoutes } from '@/shared/constants/portal'
 
 interface ChangePasswordFormValues {
   currentPassword: string
@@ -45,6 +45,7 @@ const schema = yup.object({
 export function ChangePasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const routes = usePortalRoutes()
   const dispatch = useAppDispatch()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -91,7 +92,7 @@ export function ChangePasswordPage() {
       <PageHeader
         title={t('changePassword.title')}
         description={t('changePassword.description')}
-        backTo={ROUTES.profile}
+        backTo={routes.profile}
       />
       <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', maxWidth: 520 }}>
         <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
@@ -137,7 +138,7 @@ export function ChangePasswordPage() {
                 >
                   {t('changePassword.submit')}
                 </Button>
-                <Button variant="outlined" onClick={() => navigate(ROUTES.profile)}>
+                <Button variant="outlined" onClick={() => navigate(routes.profile)}>
                   {t('common.cancel')}
                 </Button>
               </Stack>

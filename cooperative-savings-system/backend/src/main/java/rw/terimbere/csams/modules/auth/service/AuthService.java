@@ -83,6 +83,10 @@ public class AuthService {
      */
     @Transactional
     public AuthUserResponse bootstrapAdmin(BootstrapAdminRequest request, HttpServletRequest httpRequest) {
+        // Lock the role row so two simultaneous bootstraps cannot both see an empty users table.
+        Role superAdmin = roleRepository
+                .findByCodeForUpdate("SUPER_ADMIN")
+                .orElseThrow(() -> new IllegalStateException("SUPER_ADMIN role not seeded"));
         if (userRepository.countByDeletedFalse() > 0) {
             throw new ConflictException("Bootstrap is only allowed when no users exist");
         }
@@ -90,10 +94,6 @@ public class AuthService {
         String username = request.getUsername().trim();
         String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
         String nationalId = StringUtils.hasText(request.getNationalId()) ? request.getNationalId().trim() : null;
-
-        Role superAdmin = roleRepository
-                .findByCode("SUPER_ADMIN")
-                .orElseThrow(() -> new IllegalStateException("SUPER_ADMIN role not seeded"));
 
         User admin = User.builder()
                 .username(username)
@@ -126,7 +126,9 @@ public class AuthService {
     }
 
     /**
-     * Public self-registration. The first account becomes SUPER_ADMIN; later accounts are MEMBERs.
+     * Legacy public self-registration. Always creates a plain MEMBER account, never a SUPER_ADMIN,
+     * whatever the number of existing users. System administrators come only from
+     * {@code POST /api/v1/auth/bootstrap} (empty installation) or the Super Admin portal.
      */
     @Transactional
     public AuthResult signup(SignupRequest request, HttpServletRequest httpRequest) {
@@ -140,8 +142,7 @@ public class AuthService {
             throw new ConflictException("Email already exists");
         }
 
-        boolean firstUser = userRepository.countByDeletedFalse() == 0;
-        String roleCode = firstUser ? "SUPER_ADMIN" : "MEMBER";
+        String roleCode = "MEMBER";
         Role role = roleRepository
                 .findByCode(roleCode)
                 .orElseThrow(() -> new IllegalStateException(roleCode + " role not seeded"));

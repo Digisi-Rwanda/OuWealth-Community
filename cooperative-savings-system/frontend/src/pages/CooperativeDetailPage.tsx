@@ -28,7 +28,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
-import { ROUTES } from '@/shared/constants/routes'
+import { usePortalRoutes } from '@/shared/constants/portal'
 import type { AssignPresidentRequest, CooperativeStatus } from '@/shared/types/cooperative'
 import { COOPERATIVE_STATUSES, isOnboardingIncomplete } from '@/shared/types/cooperative'
 import { formatMoney } from '@/shared/utils/formatMoney'
@@ -65,6 +65,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export function CooperativeDetailPage() {
+  const routes = usePortalRoutes()
   const { id = '' } = useParams()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -145,7 +146,7 @@ export function CooperativeDetailPage() {
     <Box>
       <Button
         component={RouterLink}
-        to={ROUTES.cooperatives}
+        to={routes.cooperatives}
         startIcon={<ArrowBackIcon />}
         sx={{ mb: 1 }}
       >

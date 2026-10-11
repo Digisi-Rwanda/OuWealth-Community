@@ -40,3 +40,20 @@ export const ROUTES = {
 } as const
 
 export type AppRoute = Exclude<(typeof ROUTES)[keyof typeof ROUTES], (...args: never[]) => string>
+
+/** The OuWealth system-administration portal. Only the global SUPER_ADMIN role may enter. */
+export const SUPER_ADMIN_ROUTES = {
+  home: '/superadmin',
+  admins: '/superadmin/admins',
+  cooperatives: '/superadmin/cooperatives',
+  cooperativeDetail: (id: string) => `/superadmin/cooperatives/${id}`,
+  system: '/superadmin/system',
+  profile: '/superadmin/profile',
+  changePassword: '/superadmin/change-password',
+} as const
+
+export const SUPER_ADMIN_BASE = SUPER_ADMIN_ROUTES.home
+
+export function isSuperAdminPath(pathname: string): boolean {
+  return pathname === SUPER_ADMIN_BASE || pathname.startsWith(`${SUPER_ADMIN_BASE}/`)
+}

@@ -49,7 +49,10 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    @Operation(summary = "Create an account (first user becomes SUPER_ADMIN; later users are MEMBERs)")
+    @Operation(
+            summary = "Legacy self-registration (always creates a MEMBER, never a SUPER_ADMIN)",
+            description = "Saving Scheme sign-up is POST /api/v1/onboarding/signup. System administrators are "
+                    + "created by /auth/bootstrap on an empty installation or from the Super Admin portal.")
     public ResponseEntity<ApiResponse<LoginResponse>> signup(
             @Valid @RequestBody SignupRequest request,
             HttpServletRequest httpRequest,

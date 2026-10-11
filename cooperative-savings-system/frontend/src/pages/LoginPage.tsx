@@ -9,13 +9,13 @@ import {
   Typography,
 } from '@mui/material'
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useAppDispatch } from '@/app/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { setCredentials, setSelectedCooperativeId } from '@/app/store/authSlice'
 import { login } from '@/shared/api/auth'
 import { getErrorMessage } from '@/shared/api/client'
@@ -25,6 +25,7 @@ import { AUTH_ACTION_BUTTON_SX } from '@/layouts/authFormStyles'
 import { plainLinkSx } from '@/shared/styles/plainLink'
 import { ROUTES } from '@/shared/constants/routes'
 import { ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
+import { homeRouteForRoles } from '@/shared/constants/portal'
 import { isPreviewLoginEnabled } from '@/shared/auth/previewLogin'
 
 interface LoginFormValues {
@@ -52,11 +53,20 @@ export function LoginPage() {
     defaultValues: { username: '', password: '' },
   })
 
+  // Set when this page itself completes a login, so the "already signed in" redirect never skips the splash.
+  const loggedInHere = useRef(false)
+  const authStatus = useAppSelector((s) => s.auth.status)
+  const authRoles = useAppSelector((s) => s.auth.user?.roles)
+
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data) => {
+      loggedInHere.current = true
       dispatch(setCredentials({ user: data.user, accessToken: data.accessToken }))
-      navigate(ROUTES.loginSuccess, { replace: true, state: LOGIN_SUCCESS_STATE })
+      navigate(ROUTES.loginSuccess, {
+        replace: true,
+        state: { ...LOGIN_SUCCESS_STATE, next: homeRouteForRoles(data.user.roles) },
+      })
     },
     onError: (error) => {
       setErrorMessage(getErrorMessage(error, t('errors.loginFailed')))
@@ -90,6 +100,11 @@ export function LoginPage() {
     )
     dispatch(setSelectedCooperativeId('demo-coop-1'))
     navigate(ROUTES.dashboard, { replace: true })
+  }
+
+  // A restored session (refresh cookie) or an already signed-in user revisiting /login goes straight home.
+  if (authStatus === 'authenticated' && !loggedInHere.current) {
+    return <Navigate to={homeRouteForRoles(authRoles)} replace />
   }
 
   return (

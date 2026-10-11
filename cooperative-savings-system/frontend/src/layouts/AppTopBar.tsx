@@ -20,6 +20,10 @@ interface AppTopBarProps {
   sidebarHidden: boolean
   onOpenNav: () => void
   showBackToDashboard: boolean
+  /** Logo and back-link target. Defaults to the Saving Scheme dashboard. */
+  homePath?: string
+  /** Hide the in-app notification bell (the system portal has no notification centre). */
+  hideNotifications?: boolean
 }
 
 export function AppTopBar({
@@ -28,6 +32,8 @@ export function AppTopBar({
   sidebarHidden,
   onOpenNav,
   showBackToDashboard,
+  homePath = ROUTES.dashboard,
+  hideNotifications = false,
 }: AppTopBarProps) {
   const { t } = useTranslation()
 
@@ -59,7 +65,7 @@ export function AppTopBar({
         {!isMdUp && showBackToDashboard ? (
           <IconButton
             component={NavLink}
-            to={ROUTES.dashboard}
+            to={homePath}
             aria-label={t('common.backToDashboard')}
             sx={{ minWidth: 44, minHeight: 44, color: '#FFFFFF' }}
           >
@@ -70,7 +76,7 @@ export function AppTopBar({
         {sidebarHidden ? (
           <Box
             component={NavLink}
-            to={ROUTES.dashboard}
+            to={homePath}
             aria-label={t('app.name')}
             sx={{
               display: 'flex',
@@ -116,7 +122,7 @@ export function AppTopBar({
             </>
           )}
 
-          <NotificationBell />
+          {hideNotifications ? null : <NotificationBell />}
           <UserMenu />
         </Box>
       </Toolbar>

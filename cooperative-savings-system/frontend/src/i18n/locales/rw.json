@@ -2668,5 +2668,67 @@
     "whatsapp": "WhatsApp",
     "mailSubject": "Ubufasha bwa OuWealth",
     "mailBody": "Muraho itsinda ry'ubufasha rya OuWealth,\n\n"
+  },
+  "superAdmin": {
+    "nav": {
+      "groupAdministration": "Ubuyobozi bwa OuWealth",
+      "overview": "Incamake",
+      "savingSchemes": "Ibimina",
+      "superAdmins": "Abayobozi bakuru",
+      "system": "Sisitemu",
+      "changePassword": "Hindura ijambobanga"
+    },
+    "home": {
+      "title": "Ubuyobozi bwa OuWealth",
+      "subtitle": "Genzura urubuga rwa OuWealth, ibimina n’abayobozi bakuru ba sisitemu.",
+      "manageAdmins": "Genzura abayobozi bakuru",
+      "manageSchemes": "Genzura ibimina",
+      "systemHealth": "Ubuzima bwa sisitemu",
+      "totalSchemes": "Ibimina",
+      "activeSchemesHint": "{{count}} bikora",
+      "totalMembers": "Abanyamuryango mu bimina byose",
+      "activeMembersHint": "{{count}} bakora",
+      "totalUsers": "Abakoresha urubuga",
+      "totalSuperAdmins": "Abayobozi bakuru ba sisitemu bose"
+    },
+    "admins": {
+      "title": "Abayobozi bakuru",
+      "description": "Genzura abayobozi bafite uburenganzira ku rubuga rwose rwa OuWealth Community.",
+      "add": "Ongeraho umuyobozi mukuru",
+      "create": "Kora konti y’umuyobozi mukuru",
+      "createTitle": "Ongeraho umuyobozi mukuru",
+      "deactivate": "Hagarika",
+      "reactivate": "Subiza mu kazi",
+      "deactivateTitle": "Guhagarika uyu muyobozi mukuru?",
+      "deactivateMessage": "{{name}} azasohorwa muri konti kandi ntazongera kwinjira kugeza undi muyobozi mukuru asubije konti mu kazi.",
+      "statusActive": "Ikora",
+      "statusInactive": "Ntikora",
+      "you": "Wowe",
+      "cannotDeactivateSelf": "Ntushobora guhagarika konti yawe bwite",
+      "lastActiveBlocked": "Umuyobozi mukuru wa nyuma ukora ntashobora guhagarikwa",
+      "createSuccess": "Konti y’umuyobozi mukuru yakozwe neza.",
+      "deactivateSuccess": "Konti y’umuyobozi mukuru yahagaritswe",
+      "reactivateSuccess": "Konti y’umuyobozi mukuru yasubijwe mu kazi",
+      "emptyTitle": "Nta bayobozi bakuru babonetse",
+      "emptyDescription": "Kora umuyobozi mukuru wa mbere wa sisitemu kugira ngo utangire.",
+      "columns": {
+        "name": "Izina",
+        "username": "Izina ry’ukoresha",
+        "email": "Imeri",
+        "status": "Imiterere",
+        "lastLogin": "Ukwinjira kwa nyuma",
+        "created": "Yakozwe",
+        "actions": "Ibikorwa"
+      },
+      "fields": {
+        "firstName": "Izina ribanza",
+        "lastName": "Izina rya kabiri",
+        "username": "Izina ry’ukoresha",
+        "email": "Imeri",
+        "phone": "Telefoni",
+        "password": "Ijambobanga",
+        "confirmPassword": "Emeza ijambobanga"
+      }
+    }
   }
 }

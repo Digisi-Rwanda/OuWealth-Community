@@ -30,7 +30,7 @@ import { getErrorMessage } from '@/shared/api/client'
 import { fetchMyCooperatives } from '@/shared/api/cooperatives'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { RoleDutiesNote } from '@/shared/components/RoleDutiesNote'
-import { ROUTES } from '@/shared/constants/routes'
+import { usePortalRoutes } from '@/shared/constants/portal'
 import type { AuthUser } from '@/shared/types/auth'
 
 interface ProfileFormValues {
@@ -81,6 +81,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export function ProfilePage() {
+  const routes = usePortalRoutes()
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const { enqueueSnackbar } = useSnackbar()
@@ -116,7 +117,7 @@ export function ProfilePage() {
             >
               {t('common.edit')}
             </Button>
-            <Button component={RouterLink} to={ROUTES.changePassword} variant="contained">
+            <Button component={RouterLink} to={routes.changePassword} variant="contained">
               {t('profile.changePassword')}
             </Button>
           </Stack>

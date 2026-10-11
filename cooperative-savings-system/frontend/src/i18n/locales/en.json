@@ -2684,5 +2684,67 @@
     "whatsapp": "WhatsApp",
     "mailSubject": "OuWealth support",
     "mailBody": "Hello OuWealth support team,\n\n"
+  },
+  "superAdmin": {
+    "nav": {
+      "groupAdministration": "OuWealth Administration",
+      "overview": "Overview",
+      "savingSchemes": "Saving Schemes",
+      "superAdmins": "Super Admins",
+      "system": "System",
+      "changePassword": "Change Password"
+    },
+    "home": {
+      "title": "OuWealth Administration",
+      "subtitle": "Manage the OuWealth platform, Saving Schemes and system administrators.",
+      "manageAdmins": "Manage Super Admins",
+      "manageSchemes": "Manage Saving Schemes",
+      "systemHealth": "System Health",
+      "totalSchemes": "Saving Schemes",
+      "activeSchemesHint": "{{count}} active",
+      "totalMembers": "Members across all schemes",
+      "activeMembersHint": "{{count}} active",
+      "totalUsers": "Platform users",
+      "totalSuperAdmins": "Total System Super Admins"
+    },
+    "admins": {
+      "title": "Super Admins",
+      "description": "Manage administrators with platform-wide access to OuWealth Community.",
+      "add": "Add Super Admin",
+      "create": "Create Super Admin",
+      "createTitle": "Add Super Admin",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "deactivateTitle": "Deactivate this super admin?",
+      "deactivateMessage": "{{name}} will be signed out and will no longer be able to sign in until another super admin reactivates the account.",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "you": "You",
+      "cannotDeactivateSelf": "Cannot deactivate your own account",
+      "lastActiveBlocked": "The last active super admin cannot be deactivated",
+      "createSuccess": "Super admin account created successfully.",
+      "deactivateSuccess": "Super admin account deactivated",
+      "reactivateSuccess": "Super admin account reactivated",
+      "emptyTitle": "No super admins found",
+      "emptyDescription": "Create the first system administrator to get started.",
+      "columns": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "status": "Status",
+        "lastLogin": "Last login",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "fields": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "username": "Username",
+        "email": "Email",
+        "phone": "Phone",
+        "password": "Password",
+        "confirmPassword": "Confirm password"
+      }
+    }
   }
 }

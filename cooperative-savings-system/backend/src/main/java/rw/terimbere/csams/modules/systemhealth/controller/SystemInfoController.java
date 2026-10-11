@@ -14,6 +14,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,8 +51,9 @@ public class SystemInfoController {
     }
 
     @GetMapping("/system/info")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Authenticated system information")
+    @Operation(summary = "System information (SUPER_ADMIN only)")
     public ResponseEntity<ApiResponse<Map<String, Object>>> systemInfo() {
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("name", applicationName);

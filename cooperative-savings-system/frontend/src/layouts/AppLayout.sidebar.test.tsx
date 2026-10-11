@@ -229,11 +229,11 @@ describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
     expect(within(nav).queryByRole('link', { name: /^Billing$/i })).not.toBeInTheDocument()
   })
 
-  it('shows SUPER_ADMIN platform navigation', () => {
+  it('no longer shows platform navigation in the Saving Scheme sidebar (Super Admin portal owns it)', () => {
     renderLayout({ roles: [ROLE_SUPER_ADMIN] })
     const nav = desktopNav()
-    expect(within(nav).getByRole('link', { name: /^Saving Schemes$/i })).toBeInTheDocument()
-    expect(within(nav).getByRole('link', { name: /^System$/i })).toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /^Saving Schemes$/i })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /^System$/i })).not.toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
   })
 

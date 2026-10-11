@@ -19,11 +19,13 @@ import { clearAuth, selectIsSuperAdmin } from '@/app/store/authSlice'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { logout as logoutRequest } from '@/shared/api/auth'
 import { ROUTES } from '@/shared/constants/routes'
+import { usePortalRoutes } from '@/shared/constants/portal'
 import { primaryRole } from '@/shared/types/auth'
 
 export function UserMenu() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const routes = usePortalRoutes()
   const dispatch = useAppDispatch()
   const user = useAppSelector((s) => s.auth.user)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
@@ -124,7 +126,7 @@ export function UserMenu() {
         <MenuItem
           onClick={() => {
             setAnchor(null)
-            navigate(ROUTES.profile)
+            navigate(routes.profile)
           }}
         >
           <ListItemIcon>

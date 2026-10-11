@@ -19,7 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import rw.terimbere.csams.modules.user.repository.UserRepository;
 import rw.terimbere.csams.security.AuthenticationRateLimitFilter;
+import rw.terimbere.csams.security.SuperAdminStatusFilter;
 import rw.terimbere.csams.security.CooperativeAccessResolver;
 import rw.terimbere.csams.security.CooperativeScopeFilter;
 import rw.terimbere.csams.security.JwtAuthenticationFilter;
@@ -36,6 +38,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CooperativeAccessResolver cooperativeAccessResolver;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
     private final AuthenticationRateLimitFilter authenticationRateLimitFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
@@ -91,9 +94,10 @@ public class SecurityConfig {
                         .permitAll())
                 .addFilterBefore(authenticationRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new SuperAdminStatusFilter(userRepository), JwtAuthenticationFilter.class)
                 .addFilterAfter(
                         new CooperativeScopeFilter(cooperativeAccessResolver, objectMapper),
-                        JwtAuthenticationFilter.class);
+                        SuperAdminStatusFilter.class);
 
         return http.build();
     }
