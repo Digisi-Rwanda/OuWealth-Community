@@ -2745,6 +2745,16 @@
         "password": "Password",
         "confirmPassword": "Confirm password"
       }
+    },
+    "support": {
+      "badge": "System Admin Support",
+      "backToPlatform": "Back to Platform",
+      "banner": "System Admin Support — Viewing {{name}}",
+      "exit": "Exit Saving Scheme",
+      "open": "Open",
+      "openWorkspace": "Open Support Workspace",
+      "unavailable": "This Saving Scheme could not be opened.",
+      "backToSchemes": "Back to Saving Schemes"
     }
   }
 }

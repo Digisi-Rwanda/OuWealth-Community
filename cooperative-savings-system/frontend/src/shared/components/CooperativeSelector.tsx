@@ -11,10 +11,12 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
 import { selectIsSuperAdmin, setSelectedCooperativeId } from '@/app/store/authSlice'
 import { fetchMyCooperatives } from '@/shared/api/cooperatives'
 import { getErrorMessage } from '@/shared/api/client'
+import { SUPER_ADMIN_ROUTES, parseSupportPath, supportPath } from '@/shared/constants/routes'
 
 export function CooperativeSelector({ onDark = false }: { onDark?: boolean }) {
   const { t } = useTranslation()
@@ -22,6 +24,8 @@ export function CooperativeSelector({ onDark = false }: { onDark?: boolean }) {
   const selected = useAppSelector((s) => s.auth.selectedCooperativeId)
   const authStatus = useAppSelector((s) => s.auth.status)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   const query = useQuery({
     queryKey: ['cooperatives', 'mine'],
@@ -36,10 +40,7 @@ export function CooperativeSelector({ onDark = false }: { onDark?: boolean }) {
     if (!cooperatives.length) return
     const stillValid = Boolean(selected && cooperatives.some((c) => c.id === selected))
     if (stillValid) return
-    if (isSuperAdmin) {
-      if (selected) dispatch(setSelectedCooperativeId(null))
-      return
-    }
+    if (isSuperAdmin) return
     dispatch(setSelectedCooperativeId(cooperatives[0].id))
   }, [cooperatives, selected, dispatch, isSuperAdmin])
 
@@ -114,7 +115,17 @@ export function CooperativeSelector({ onDark = false }: { onDark?: boolean }) {
         displayEmpty={isSuperAdmin}
         notched={isSuperAdmin || Boolean(selected)}
         value={selected && cooperatives.some((c) => c.id === selected) ? selected : ''}
-        onChange={(e) => dispatch(setSelectedCooperativeId(e.target.value || null))}
+        onChange={(e) => {
+          const next = e.target.value || null
+          if (isSuperAdmin) {
+            // The support workspace is URL-driven: switching scheme (or leaving to the platform overview)
+            // is a navigation, and the workspace route then sets the selection once the scheme is verified.
+            const section = parseSupportPath(pathname)?.section ?? 'dashboard'
+            navigate(next ? supportPath(next, section) : SUPER_ADMIN_ROUTES.home)
+            return
+          }
+          dispatch(setSelectedCooperativeId(next))
+        }}
         startAdornment={
           query.isFetching ? (
             <CircularProgress size={14} sx={{ mr: 1 }} />

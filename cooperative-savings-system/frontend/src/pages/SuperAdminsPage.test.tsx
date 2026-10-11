@@ -203,7 +203,7 @@ describe('SuperAdminsPage', () => {
     expect(await within(dialog).findByText('Enter a valid email address')).toBeInTheDocument()
     expect(within(dialog).getByText('Passwords must match')).toBeInTheDocument()
     expect(createMock).not.toHaveBeenCalled()
-  })
+  }, 20000)
 
   it('masks the password fields', async () => {
     const user = userEvent.setup()

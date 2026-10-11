@@ -54,6 +54,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { ClientPortalRoute } from './ClientPortalRoute'
 import { RoleRoute } from './RoleRoute'
 import { SuperAdminRoute } from './SuperAdminRoute'
+import { SupportWorkspaceRoute } from './SupportWorkspaceRoute'
 
 /** The retired standalone privacy page. Kept only so old links still land somewhere useful. */
 const LEGACY_PRIVACY_PATH = '/privacy'
@@ -134,6 +135,34 @@ export function AppRouter() {
                 <Route path={SUPER_ADMIN_ROUTES.admins} element={<SuperAdminsPage />} />
                 <Route path={SUPER_ADMIN_ROUTES.cooperatives} element={<CooperativesPage />} />
                 <Route path="/superadmin/cooperatives/:id" element={<CooperativeDetailPage />} />
+                {/* Support workspace: the existing Saving Scheme pages, opened by a SUPER_ADMIN inside the portal. */}
+                <Route element={<SupportWorkspaceRoute />}>
+                  <Route path="/superadmin/cooperatives/:cooperativeId/dashboard" element={<DashboardPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/members" element={<MembersPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/members/:userId" element={<MemberDetailPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/contributions" element={<ContributionsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/contributions/special/:campaignId" element={<ContributionsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/loans" element={<LoansPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/loans/:loanId" element={<LoanDetailRoute />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/fines" element={<FinesPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/fines/:fineId" element={<FineDetailPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/fine-payments" element={<FinePaymentQueuePage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/social-fund" element={<SocialFundPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/investments" element={<InvestmentsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/investments/:investmentId" element={<InvestmentDetailPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/transactions" element={<TransactionsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/ledger" element={<LedgerPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/payouts" element={<PayoutsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/payouts/:runId" element={<PayoutDetailPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/reports" element={<ReportsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/billing" element={<BillingPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/billing/payment-return" element={<PaymentReturnPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/historical-import" element={<HistoricalImportPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/settings" element={<SettingsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/audit-logs" element={<AuditLogsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/notifications" element={<NotificationsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/*" element={<NotFoundPage />} />
+                </Route>
                 <Route path={SUPER_ADMIN_ROUTES.system} element={<SystemHealthPage />} />
                 <Route path={SUPER_ADMIN_ROUTES.profile} element={<ProfilePage />} />
                 <Route path={SUPER_ADMIN_ROUTES.changePassword} element={<ChangePasswordPage />} />

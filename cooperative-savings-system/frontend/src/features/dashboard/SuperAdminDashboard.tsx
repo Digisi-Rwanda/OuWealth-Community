@@ -1,5 +1,6 @@
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import AddIcon from '@mui/icons-material/Add'
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import GroupsIcon from '@mui/icons-material/Groups'
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'
@@ -9,14 +10,13 @@ import { Box, Button, Chip, Grid, Paper, Stack, Typography } from '@mui/material
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { setSelectedCooperativeId } from '@/app/store/authSlice'
+import { useAppSelector } from '@/app/store/hooks'
 import { getErrorMessage } from '@/shared/api/client'
 import { fetchCooperatives } from '@/shared/api/cooperatives'
 import { fetchDashboardSummary, fetchPlatformOverviewIfAvailable } from '@/shared/api/dashboard'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { MetricCard } from '@/shared/components/MetricCard'
-import { ROUTES } from '@/shared/constants/routes'
+import { SUPER_ADMIN_ROUTES } from '@/shared/constants/routes'
 import {
   applyCooperativeSummaries,
   platformOverviewFromCooperatives,
@@ -24,15 +24,21 @@ import {
 import { SuperAdminOverviewCharts } from './SuperAdminOverviewCharts'
 import { dashboardPageTitleSx, dashboardSectionTitleSx } from './dashboardTypography'
 
-export function SuperAdminDashboard() {
+interface SuperAdminDashboardProps {
+  /** The portal home draws its own page header and quick links, so it hides this one. */
+  showHeader?: boolean
+  /** Number of system super admins, shown as one more platform metric when known. */
+  superAdminCount?: number
+}
+
+/** Platform-wide overview and Saving Scheme list; picking a scheme opens its support workspace. */
+export function SuperAdminDashboard({ showHeader = true, superAdminCount }: SuperAdminDashboardProps = {}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const user = useAppSelector((s) => s.auth.user)
 
   const openCooperative = (cooperativeId: string) => {
-    dispatch(setSelectedCooperativeId(cooperativeId))
-    navigate(ROUTES.dashboard)
+    navigate(SUPER_ADMIN_ROUTES.workspaceDashboard(cooperativeId))
   }
 
   const query = useQuery({
@@ -75,6 +81,7 @@ export function SuperAdminDashboard() {
 
   return (
     <Box>
+      {showHeader ? (
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
@@ -97,7 +104,7 @@ export function SuperAdminDashboard() {
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
           <Button
             component={RouterLink}
-            to={ROUTES.system}
+            to={SUPER_ADMIN_ROUTES.system}
             variant="outlined"
             startIcon={<HealthAndSafetyIcon />}
           >
@@ -105,7 +112,7 @@ export function SuperAdminDashboard() {
           </Button>
           <Button
             component={RouterLink}
-            to={ROUTES.cooperatives}
+            to={SUPER_ADMIN_ROUTES.cooperatives}
             variant="contained"
             startIcon={<AddIcon />}
           >
@@ -113,6 +120,7 @@ export function SuperAdminDashboard() {
           </Button>
         </Stack>
       </Stack>
+      ) : null}
 
       {query.isError ? (
         <Box sx={{ mb: 2 }}>
@@ -133,7 +141,7 @@ export function SuperAdminDashboard() {
       ) : null}
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.totalCooperatives')}
@@ -148,7 +156,7 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading && query.isLoading}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.totalMembers')}
@@ -163,7 +171,7 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading || derivedLoading}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.totalUsers')}
@@ -173,7 +181,7 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.pendingReviews')}
@@ -187,7 +195,7 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading || derivedLoading}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.pendingLoans')}
@@ -197,7 +205,7 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
           <MetricCard
             scale="dashboard"
             label={t('dashboard.super.overdueLoans')}
@@ -207,6 +215,17 @@ export function SuperAdminDashboard() {
             loading={overviewQuery.isLoading || derivedLoading}
           />
         </Grid>
+        {superAdminCount !== undefined ? (
+          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+            <MetricCard
+              scale="dashboard"
+              label={t('superAdmin.home.totalSuperAdmins')}
+              value={String(superAdminCount)}
+              icon={<AdminPanelSettingsIcon fontSize="small" />}
+              accent="teal"
+            />
+          </Grid>
+        ) : null}
       </Grid>
 
       {overview ? <SuperAdminOverviewCharts overview={overview} /> : null}

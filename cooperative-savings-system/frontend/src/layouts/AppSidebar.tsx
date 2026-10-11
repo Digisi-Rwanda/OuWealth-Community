@@ -13,6 +13,7 @@ import {
   Toolbar,
   Tooltip,
 } from '@mui/material'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { BrandLogo } from '@/shared/components/BrandLogo'
@@ -45,6 +46,8 @@ interface AppSidebarProps {
   groups?: SidebarNavGroup[]
   /** Where the logo links to. Defaults to the Saving Scheme dashboard. */
   homePath?: string
+  /** Optional block shown under the logo (e.g. the open Saving Scheme in the support workspace). */
+  header?: ReactNode
 }
 
 export function AppSidebar({
@@ -55,6 +58,7 @@ export function AppSidebar({
   pinControl,
   groups: groupsOverride,
   homePath = ROUTES.dashboard,
+  header,
 }: AppSidebarProps) {
   const { t } = useTranslation()
   const location = useLocation()
@@ -165,6 +169,7 @@ export function AppSidebar({
         ) : null}
       </Toolbar>
       <Divider />
+      {header}
       <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
         {groups.map((group) => (
           <List

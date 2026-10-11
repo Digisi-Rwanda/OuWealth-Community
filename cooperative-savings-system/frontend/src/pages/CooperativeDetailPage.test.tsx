@@ -43,7 +43,7 @@ const incomplete = {
   registrationNumber: 'RCA/2024/0123',
 }
 
-function renderPage() {
+function renderPage(base = '/cooperatives') {
   const store = configureStore({
     reducer: { auth: authReducer, ui: uiReducer },
     preloadedState: {
@@ -74,9 +74,9 @@ function renderPage() {
       <QueryClientProvider client={client}>
         <ThemeProvider theme={lightTheme}>
           <SnackbarProvider>
-            <MemoryRouter initialEntries={['/cooperatives/coop-1']}>
+            <MemoryRouter initialEntries={[`${base}/coop-1`]}>
               <Routes>
-                <Route path="/cooperatives/:id" element={<CooperativeDetailPage />} />
+                <Route path={`${base}/:id`} element={<CooperativeDetailPage />} />
               </Routes>
             </MemoryRouter>
           </SnackbarProvider>
@@ -110,6 +110,21 @@ describe('CooperativeDetailPage onboarding', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Assign President' }).length).toBeGreaterThan(0)
     expect(screen.getByText(/Free trial started/i)).toBeInTheDocument()
+  })
+
+  it('offers Open Support Workspace inside the system portal', async () => {
+    renderPage('/superadmin/cooperatives')
+    const link = await screen.findByTestId('open-support-workspace')
+    expect(link).toHaveTextContent('Open Support Workspace')
+    expect(link).toHaveAttribute('href', '/superadmin/cooperatives/coop-1/dashboard')
+    // Management of the scheme stays on this page.
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+  })
+
+  it('does not offer the support workspace outside the system portal', async () => {
+    renderPage()
+    await screen.findByText('Need President')
+    expect(screen.queryByTestId('open-support-workspace')).not.toBeInTheDocument()
   })
 
   it('assigns a President through the administrators wrapper and clears the warning', async () => {

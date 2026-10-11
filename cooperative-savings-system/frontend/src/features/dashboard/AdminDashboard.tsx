@@ -12,13 +12,12 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Box, Button, Grid, Paper, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
+import { useAppSelector } from '@/app/store/hooks'
 import {
   selectCanManageMembers,
   selectIsSuperAdmin,
-  setSelectedCooperativeId,
 } from '@/app/store/authSlice'
 import { getErrorMessage } from '@/shared/api/client'
 import { fetchMyCooperatives } from '@/shared/api/cooperatives'
@@ -30,7 +29,7 @@ import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu'
 import { ReportsMenu } from '@/shared/components/ReportsMenu'
 import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
 import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
-import { ROUTES } from '@/shared/constants/routes'
+import { ROUTES, SUPER_ADMIN_ROUTES } from '@/shared/constants/routes'
 import type { DashboardSummary } from '@/shared/types/dashboard'
 import {
   canViewAnyMemberInsights,
@@ -183,7 +182,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
+  const navigate = useNavigate()
   const authStatus = useAppSelector((s) => s.auth.status)
   const userRoles = useAppSelector((s) => s.auth.user?.roles ?? [])
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
@@ -455,7 +454,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
             <Button
               variant="outlined"
               onClick={() => {
-                dispatch(setSelectedCooperativeId(null))
+                navigate(SUPER_ADMIN_ROUTES.home)
               }}
             >
               {t('dashboard.super.allCooperatives')}

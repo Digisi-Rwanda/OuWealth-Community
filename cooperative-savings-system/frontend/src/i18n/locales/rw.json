@@ -2729,6 +2729,16 @@
         "password": "Ijambobanga",
         "confirmPassword": "Emeza ijambobanga"
       }
+    },
+    "support": {
+      "badge": "Ubufasha bw’ubuyobozi bwa sisitemu",
+      "backToPlatform": "Subira ku rubuga",
+      "banner": "Ubufasha bw’ubuyobozi bwa sisitemu — Urareba {{name}}",
+      "exit": "Sohoka mu kimina",
+      "open": "Fungura",
+      "openWorkspace": "Fungura ahakorerwa ubufasha",
+      "unavailable": "Iki kimina nticyabashije gufungurwa.",
+      "backToSchemes": "Subira ku bimina"
     }
   }
 }

@@ -1,5 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
+import SupportAgentIcon from '@mui/icons-material/SupportAgent'
 import {
   Alert,
   Box,
@@ -163,6 +164,18 @@ export function CooperativeDetailPage() {
               {isOnboardingIncomplete(coop) ? (
                 <Button variant="outlined" onClick={() => setAssignOpen(true)}>
                   {t('cooperatives.onboarding.assignPresident')}
+                </Button>
+              ) : null}
+              {routes.inPortal ? (
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<SupportAgentIcon />}
+                  component={RouterLink}
+                  to={routes.workspace(id)}
+                  data-testid="open-support-workspace"
+                >
+                  {t('superAdmin.support.openWorkspace')}
                 </Button>
               ) : null}
               <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>

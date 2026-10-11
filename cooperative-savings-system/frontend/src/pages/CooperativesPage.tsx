@@ -125,6 +125,26 @@ export function CooperativesPage() {
           formatMoney(row.monthlyContributionAmount ?? 0, { currency: row.currency || 'RWF' }),
         hideOnMobile: true,
       },
+      ...(routes.inPortal
+        ? [
+            {
+              id: 'open',
+              label: '',
+              render: (row: Cooperative) => (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    navigate(routes.workspace(row.id))
+                  }}
+                >
+                  {t('superAdmin.support.open')}
+                </Button>
+              ),
+            },
+          ]
+        : []),
       {
         id: 'registration',
         label: t('cooperatives.fields.registrationNumber'),
@@ -132,7 +152,7 @@ export function CooperativesPage() {
         hideOnMobile: true,
       },
     ],
-    [t],
+    [t, routes, navigate],
   )
 
   const rows = query.data?.content ?? []
