@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -62,6 +63,24 @@ public class HistoricalImport extends BaseEntity {
 
     @Column(name = "reconciliation_summary", columnDefinition = "TEXT")
     private String reconciliationSummary;
+
+    /**
+     * "Historical data through" date of an opening-balance migration: every imported balance is the
+     * Saving Scheme's position at the end of this day. Null for legacy 16-sheet imports.
+     */
+    @Column(name = "cutover_date")
+    private LocalDate cutoverDate;
+
+    /**
+     * Actual funds available to the Saving Scheme at the end of the cutover date (already net of anything
+     * spent or lent before it). Starting point of Available Group Funds. Null for legacy imports.
+     */
+    @Column(name = "opening_available_funds", precision = 19, scale = 4)
+    private java.math.BigDecimal openingAvailableFunds;
+
+    /** JSON {@code HistoricalMigrationSummary} for opening-balance migrations; null for legacy imports. */
+    @Column(name = "migration_summary", columnDefinition = "TEXT")
+    private String migrationSummary;
 
     @Column(name = "error_summary", columnDefinition = "TEXT")
     private String errorSummary;

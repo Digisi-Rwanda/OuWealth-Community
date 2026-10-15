@@ -95,6 +95,7 @@ public class User extends SoftDeletableEntity {
     }
 
     public String getFullName() {
-        return firstName + " " + lastName;
+        // Single-name members (e.g. from the opening-balance migration) keep an empty last name.
+        return (firstName + " " + (lastName == null ? "" : lastName)).trim();
     }
 }

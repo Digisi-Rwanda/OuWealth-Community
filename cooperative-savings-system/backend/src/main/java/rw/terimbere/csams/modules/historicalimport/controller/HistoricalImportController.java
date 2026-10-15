@@ -4,9 +4,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,11 +41,11 @@ public class HistoricalImportController {
     @GetMapping("/template")
     @PreAuthorize(
             "hasRole('PRESIDENT') or hasRole('VICE_PRESIDENT') or hasRole('SUPER_ADMIN') or hasRole('COOPERATIVE_ADMIN')")
-    @Operation(summary = "Download historical import XLSX template")
+    @Operation(summary = "Download the Ikimina opening-balance migration XLSX template (3 sheets)")
     public ResponseEntity<byte[]> template(@PathVariable UUID cooperativeId) {
         byte[] bytes = historicalImportService.downloadTemplate(cooperativeId);
         ContentDisposition disposition = ContentDisposition.attachment()
-                .filename("historical-import-template.xlsx")
+                .filename("ikimina-migration-template.xlsx")
                 .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
@@ -53,12 +56,14 @@ public class HistoricalImportController {
     @PostMapping(value = "/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(
             "hasRole('PRESIDENT') or hasRole('VICE_PRESIDENT') or hasRole('SUPER_ADMIN') or hasRole('COOPERATIVE_ADMIN')")
-    @Operation(summary = "Upload and validate a historical workbook (does not persist financial records)")
+    @Operation(summary = "Upload and validate an opening-balance workbook for a cutover date (persists no financial records)")
     public ResponseEntity<ApiResponse<HistoricalImportPreviewResponse>> preview(
             @PathVariable UUID cooperativeId,
             @RequestPart("file") MultipartFile file,
+            @RequestParam(name = "cutoverDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate cutoverDate,
+            @RequestParam(name = "openingAvailableFunds", required = false) java.math.BigDecimal openingAvailableFunds,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.ok(historicalImportService.preview(cooperativeId, file, httpRequest)));
+        return ResponseEntity.ok(ApiResponse.ok(historicalImportService.preview(cooperativeId, file, cutoverDate, openingAvailableFunds, httpRequest)));
     }
 
     @PostMapping("/{importId}/confirm")

@@ -136,6 +136,7 @@ public class ReportService {
     private final ReportExporter reportExporter;
     private final FullFinancialReportAssembler fullFinancialReportAssembler;
     private final MemberContributionScheduleService memberContributionScheduleService;
+    private final rw.terimbere.csams.modules.membership.repository.MemberOpeningBalanceRepository openingBalanceRepository;
     private final PlatformTransactionManager transactionManager;
 
     @Transactional(readOnly = true)
@@ -274,6 +275,10 @@ public class ReportService {
         Instant periodTo = periodEnd(request.getToDate());
         List<List<Object>> rows = new ArrayList<>();
         int additionalTotal = 0;
+        Map<UUID, rw.terimbere.csams.modules.membership.entity.MemberOpeningBalance> openingByMember = new java.util.HashMap<>();
+        openingBalanceRepository.findByCooperativeId(cooperativeId).forEach(b -> openingByMember.put(b.getMemberUserId(), b));
+        BigDecimal openingContributionTotal = MoneyUtils.scale(BigDecimal.ZERO);
+        BigDecimal openingCapitalTotal = MoneyUtils.scale(BigDecimal.ZERO);
         for (CooperativeMembership m : memberships) {
             User u = users.get(m.getUserId());
             if (u == null) {
@@ -289,6 +294,15 @@ public class ReportService {
             int sharesHeldEnd = Math.max(0, owned - afterPeriod);
             int sharesAtStart = Math.max(0, sharesHeldEnd - additional);
             additionalTotal += additional;
+            var openingBalance = openingByMember.get(m.getUserId());
+            BigDecimal openingContribution = openingBalance == null
+                    ? MoneyUtils.scale(BigDecimal.ZERO)
+                    : MoneyUtils.scale(openingBalance.getOpeningContributionAmount());
+            BigDecimal openingCapital = openingBalance == null
+                    ? MoneyUtils.scale(BigDecimal.ZERO)
+                    : MoneyUtils.scale(openingBalance.getOpeningShareCapitalAmount());
+            openingContributionTotal = MoneyUtils.add(openingContributionTotal, openingContribution);
+            openingCapitalTotal = MoneyUtils.add(openingCapitalTotal, openingCapital);
             BigDecimal memberCurrentOwnershipValue =
                     MoneyUtils.multiply(valuation.getCurrentShareValue(), BigDecimal.valueOf(sharesHeldEnd));
             rows.add(cells(
@@ -303,7 +317,9 @@ public class ReportService {
                     additional,
                     sharesHeldEnd,
                     MoneyUtils.scale(valuation.getCurrentShareValue()),
-                    memberCurrentOwnershipValue));
+                    memberCurrentOwnershipValue,
+                    openingContribution,
+                    openingCapital));
         }
         return ReportSheetData.builder()
                 .sheetName("Members")
@@ -319,7 +335,9 @@ public class ReportService {
                         "Additional Shares Purchased During Period",
                         "Shares Held at End of Period",
                         "Current Share Value",
-                        "Member Current Ownership Value"))
+                        "Member Current Ownership Value",
+                        "Opening Contributions (through cutover)",
+                        "Opening Share Capital (through cutover)"))
                 .rows(rows)
                 .totalsRow(List.of(
                         "TOTAL",
@@ -333,7 +351,9 @@ public class ReportService {
                         additionalTotal,
                         "",
                         "",
-                        ""))
+                        "",
+                        openingContributionTotal,
+                        openingCapitalTotal))
                 .build();
     }
 

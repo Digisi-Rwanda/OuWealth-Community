@@ -148,6 +148,14 @@ public class Loan extends BaseEntity {
     @Column(name = "purpose", length = 2000)
     private String purpose;
 
+    /**
+     * Set only for loans registered through the opening-balance migration: an opening receivable with no
+     * historical disbursement/repayment ledger rows. Its approval/disbursement actors stay empty because
+     * the original manual loan was never approved in this system.
+     */
+    @Column(name = "opening_import_id")
+    private UUID openingImportId;
+
     @Column(name = "rejection_reason", length = 2000)
     private String rejectionReason;
 

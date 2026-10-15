@@ -240,5 +240,18 @@ public interface ContributionRepository
             @Param("cooperativeId") UUID cooperativeId,
             @Param("year") int year,
             @Param("month") int month);
-}
 
+    @Query(
+            """
+            SELECT COALESCE(SUM(c.paidAmount), 0)
+            FROM Contribution c
+            WHERE c.cooperativeId = :cooperativeId
+              AND c.memberUserId = :memberUserId
+              AND c.paymentDate IS NOT NULL
+              AND c.paymentDate <= :date
+            """)
+    java.math.BigDecimal sumPaidByMemberOnOrBefore(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("memberUserId") UUID memberUserId,
+            @Param("date") java.time.LocalDate date);
+}

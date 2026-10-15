@@ -6,6 +6,7 @@ import {
   CardContent,
   Chip,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -32,13 +33,15 @@ import { importStatusColor } from '@/features/reports/reportHelpers'
 import {
   canCancelHistoricalImport,
   isHistoricalImportReady,
+  isLegacyHistoricalImport,
+  isValidOpeningFunds,
   type HistoricalImportConfirm,
   type HistoricalImportError,
   type HistoricalImportPreview,
-  type HistoricalImportSheetSummary,
   type HistoricalImportSummary,
 } from '@/shared/types/historicalImport'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 
 export function HistoricalImportPage() {
   const { t } = useTranslation()
@@ -47,6 +50,8 @@ export function HistoricalImportPage() {
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [cutoverDate, setCutoverDate] = useState('')
+  const [openingFunds, setOpeningFunds] = useState('')
   const [preview, setPreview] = useState<HistoricalImportPreview | null>(null)
   const [confirmResult, setConfirmResult] = useState<HistoricalImportConfirm | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -69,7 +74,7 @@ export function HistoricalImportPage() {
   })
 
   const previewMutation = useMutation({
-    mutationFn: (selected: File) => previewHistoricalImport(cooperativeId!, selected),
+    mutationFn: (selected: File) => previewHistoricalImport(cooperativeId!, selected, cutoverDate, openingFunds.trim()),
     onSuccess: (data) => {
       setPreview(data)
       setConfirmResult(null)
@@ -92,8 +97,10 @@ export function HistoricalImportPage() {
       enqueueSnackbar(t('historicalImport.confirmSuccess'), { variant: 'success' })
       void queryClient.invalidateQueries({ queryKey: ['historical-imports'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      void queryClient.invalidateQueries({ queryKey: ['members'] })
+      void queryClient.invalidateQueries({ queryKey: ['loans'] })
       void queryClient.invalidateQueries({ queryKey: ['contributions'] })
-      void queryClient.invalidateQueries({ queryKey: ['ledger'] })
+      void queryClient.invalidateQueries({ queryKey: ['shares'] })
     },
     onError: (error) => {
       enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
@@ -131,6 +138,16 @@ export function HistoricalImportPage() {
         id: 'file',
         label: t('historicalImport.fields.filename'),
         render: (row) => row.originalFilename || '—',
+      },
+      {
+        id: 'cutover',
+        label: t('historicalImport.fields.cutoverDate'),
+        render: (row) =>
+          isLegacyHistoricalImport(row.format) || !row.cutoverDate ? (
+            <Chip size="small" variant="outlined" label={t('historicalImport.legacyFormat')} />
+          ) : (
+            dayjs(row.cutoverDate).format('YYYY-MM-DD')
+          ),
       },
       {
         id: 'uploadedBy',
@@ -204,8 +221,10 @@ export function HistoricalImportPage() {
   }
 
   const confirmEnabled = isHistoricalImportReady(preview)
-  const recon = preview?.reconciliation
-  const yearSummaries = preview?.yearSummaries ?? []
+  const migration = preview?.migration
+  const previewCutover = preview?.cutoverDate ?? migration?.cutoverDate ?? cutoverDate
+  const fundsValid = isValidOpeningFunds(openingFunds)
+  const canPreview = Boolean(file) && Boolean(cutoverDate) && fundsValid && !previewMutation.isPending
 
   return (
     <Box>
@@ -215,9 +234,56 @@ export function HistoricalImportPage() {
       />
 
       <Stack spacing={3}>
-        <Alert severity="info">{t('historicalImport.instructions')}</Alert>
+        <Alert severity="info">
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {t('historicalImport.instructions')}
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 3 }}>
+            {(['sheets', 'availableFunds', 'username', 'nationalId', 'loans', 'loanTypes', 'schedule', 'noTransactions'] as const).map(
+              (key) => (
+                <li key={key}>
+                  <Typography variant="body2">{t(`historicalImport.points.${key}`)}</Typography>
+                </li>
+              ),
+            )}
+          </Box>
+        </Alert>
 
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' } }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' } }}>
+          <TextField
+            type="date"
+            required
+            size="small"
+            label={t('historicalImport.cutoverDate')}
+            helperText={t('historicalImport.cutoverHelp')}
+            value={cutoverDate}
+            onChange={(event) => {
+              setCutoverDate(event.target.value)
+              setPreview(null)
+              setConfirmResult(null)
+            }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+            sx={{ minWidth: 260 }}
+          />
+          <TextField
+            required
+            size="small"
+            label={t('historicalImport.openingFunds')}
+            helperText={
+              openingFunds.trim() && !fundsValid
+                ? t('historicalImport.openingFundsInvalid')
+                : t('historicalImport.openingFundsHelp')
+            }
+            error={Boolean(openingFunds.trim()) && !fundsValid}
+            value={openingFunds}
+            onChange={(event) => {
+              setOpeningFunds(event.target.value)
+              setPreview(null)
+              setConfirmResult(null)
+            }}
+            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+            sx={{ minWidth: 300 }}
+          />
           <Button
             variant="outlined"
             onClick={() => templateMutation.mutate()}
@@ -245,7 +311,7 @@ export function HistoricalImportPage() {
           </Typography>
           <Button
             variant="contained"
-            disabled={!file || previewMutation.isPending}
+            disabled={!canPreview}
             onClick={() => file && previewMutation.mutate(file)}
           >
             {t('historicalImport.preview')}
@@ -263,88 +329,83 @@ export function HistoricalImportPage() {
         {preview && (
           <Stack spacing={2}>
             <Typography variant="h6">{t('historicalImport.previewTitle')}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('historicalImport.cutoverNotice', { date: formatDate(previewCutover) })}
+            </Typography>
+            <Typography variant="subtitle1">
+              {t('historicalImport.metrics.openingFunds')}:{' '}
+              <strong>{formatMoney(migration?.openingAvailableFunds)}</strong>
+            </Typography>
             <Box
               sx={{
                 display: 'grid',
                 gap: 2,
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
               }}
             >
-              {(preview.sheets ?? []).map((sheet) => (
-                <SheetSummaryCard key={sheet.sheet} sheet={sheet} />
-              ))}
+              <SectionCard
+                title={t('historicalImport.sections.members')}
+                lines={
+                  migration?.members
+                    ? [
+                        rowsLine(t, migration.members),
+                        [
+                          t('historicalImport.metrics.openingContributions'),
+                          formatMoney(migration.members.totalOpeningContributions),
+                        ],
+                      ]
+                    : []
+                }
+              />
+              <SectionCard
+                title={t('historicalImport.sections.shareCapital')}
+                lines={
+                  migration?.shareCapital
+                    ? [
+                        rowsLine(t, migration.shareCapital),
+                        [
+                          t('historicalImport.metrics.openingShares'),
+                          String(migration.shareCapital.totalOpeningShares),
+                        ],
+                        [
+                          t('historicalImport.metrics.openingShareCapital'),
+                          formatMoney(migration.shareCapital.totalOpeningShareCapital),
+                        ],
+                      ]
+                    : []
+                }
+              />
+              <SectionCard
+                title={t('historicalImport.sections.loans')}
+                lines={
+                  migration?.loans
+                    ? [
+                        rowsLine(t, migration.loans),
+                        [t('historicalImport.metrics.endOfTerm'), String(migration.loans.endOfTermCount)],
+                        [t('historicalImport.metrics.monthly'), String(migration.loans.monthlyCount)],
+                        [
+                          t('historicalImport.metrics.originalPrincipal'),
+                          formatMoney(migration.loans.totalOriginalPrincipal),
+                        ],
+                        [
+                          t('historicalImport.metrics.outstandingPrincipal'),
+                          formatMoney(migration.loans.totalOutstandingPrincipal),
+                        ],
+                        [
+                          t('historicalImport.metrics.amountPaid'),
+                          formatMoney(migration.loans.totalAmountPaid),
+                        ],
+                      ]
+                    : []
+                }
+              />
             </Box>
-
-            {yearSummaries.length > 0 && (
-              <Alert severity="info">
-                <Typography variant="subtitle2">{t('historicalImport.yearSummaryTitle')}</Typography>
-                {yearSummaries.map((summary) => (
-                  <Typography key={summary.year} variant="body2">
-                    {t('historicalImport.yearSummaryLine', {
-                      year: summary.year,
-                      contributions: summary.contributions ?? 0,
-                      loans: summary.loans ?? 0,
-                      repayments: summary.repayments ?? 0,
-                      fines: summary.fines ?? 0,
-                      investments: summary.investments ?? 0,
-                      payouts: summary.payouts ?? 0,
-                    })}
-                  </Typography>
-                ))}
-              </Alert>
-            )}
-
-            {recon && (
-              <Alert severity={recon.blocked ? 'error' : recon.warnings?.length ? 'warning' : 'info'}>
-                <Typography variant="subtitle2">{t('historicalImport.reconciliationTitle')}</Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationCredits', {
-                    value: formatMoney(recon.projectedCredits ?? 0),
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationDebits', {
-                    value: formatMoney(recon.projectedDebits ?? 0),
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationOutstanding', {
-                    value: formatMoney(recon.projectedOutstandingLoanPrincipal ?? 0),
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationPayouts', {
-                    value: formatMoney(recon.projectedPayouts ?? 0),
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationAvailable', {
-                    value: formatMoney(recon.projectedAvailableFund ?? 0),
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  {t('historicalImport.reconciliationSocial', {
-                    value: formatMoney(recon.projectedSocialBalance ?? 0),
-                  })}
-                </Typography>
-                {(recon.warnings ?? []).map((warning) => (
-                  <Typography key={warning} variant="body2">
-                    {warning}
-                  </Typography>
-                ))}
-                {(recon.errors ?? []).map((error) => (
-                  <Typography key={error} variant="body2">
-                    {error}
-                  </Typography>
-                ))}
-              </Alert>
-            )}
 
             {preview.totalRows === 0 && (
               <Alert severity="info">{t('historicalImport.emptyWorkbook')}</Alert>
             )}
 
-            {preview.invalidRows > 0 && (
+            {(preview.invalidRows > 0 || (preview.errors ?? []).length > 0) && (
               <Alert severity="error">{t('historicalImport.fixAndReupload')}</Alert>
             )}
 
@@ -372,11 +433,21 @@ export function HistoricalImportPage() {
             <Typography variant="subtitle2">{t('historicalImport.confirmSummaryTitle')}</Typography>
             <Typography variant="body2">
               {t('historicalImport.confirmSummaryBody', {
+                date: formatDate(confirmResult.cutoverDate),
+                funds: formatMoney(confirmResult.openingAvailableFunds),
                 members: confirmResult.membersImported,
-                contributions: confirmResult.contributionsImported,
+                balances: confirmResult.memberOpeningBalancesImported,
+                shareBalances: confirmResult.shareOpeningBalancesImported,
                 loans: confirmResult.loansImported,
-                repayments: confirmResult.repaymentsImported,
-                ledger: confirmResult.ledgerEntriesCreated,
+                installments: confirmResult.loanInstallmentsCreated,
+              })}
+            </Typography>
+            <Typography variant="body2">
+              {t('historicalImport.confirmTotals', {
+                contributions: formatMoney(confirmResult.totalHistoricalContributions),
+                shares: confirmResult.totalHistoricalShares,
+                capital: formatMoney(confirmResult.totalHistoricalShareCapital),
+                outstanding: formatMoney(confirmResult.totalOutstandingLoanPrincipal),
               })}
             </Typography>
           </Alert>
@@ -407,7 +478,7 @@ export function HistoricalImportPage() {
       <ConfirmDialog
         open={confirmOpen}
         title={t('historicalImport.confirmTitle')}
-        message={t('historicalImport.confirmWarning')}
+        message={t('historicalImport.confirmWarning', { date: formatDate(previewCutover) })}
         loading={confirmMutation.isPending}
         onConfirm={() => confirmMutation.mutate()}
         onCancel={() => setConfirmOpen(false)}
@@ -424,19 +495,43 @@ export function HistoricalImportPage() {
   )
 }
 
-function SheetSummaryCard({ sheet }: { sheet: HistoricalImportSheetSummary }) {
-  const { t } = useTranslation()
+function formatDate(value?: string | null): string {
+  return value ? dayjs(value).format('D MMM YYYY') : '—'
+}
+
+function rowsLine(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  section: { totalRows: number; validRows: number; invalidRows: number },
+): [string, string] {
+  return [
+    t('historicalImport.metrics.rows'),
+    t('historicalImport.sheetCounts', {
+      total: section.totalRows,
+      valid: section.validRows,
+      invalid: section.invalidRows,
+    }),
+  ]
+}
+
+function SectionCard({ title, lines }: { title: string; lines: Array<[string, string]> }) {
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="subtitle2">{sheet.sheet}</Typography>
-        <Typography variant="body2">
-          {t('historicalImport.sheetCounts', {
-            total: sheet.totalRows,
-            valid: sheet.validRows,
-            invalid: sheet.invalidRows,
-          })}
+        <Typography variant="subtitle1" gutterBottom>
+          {title}
         </Typography>
+        <Stack spacing={0.5}>
+          {lines.map(([label, value]) => (
+            <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                {label}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
       </CardContent>
     </Card>
   )

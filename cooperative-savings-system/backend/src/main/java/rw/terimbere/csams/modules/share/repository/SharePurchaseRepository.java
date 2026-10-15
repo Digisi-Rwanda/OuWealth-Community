@@ -93,4 +93,29 @@ public interface SharePurchaseRepository extends JpaRepository<SharePurchase, UU
             """)
     java.math.BigDecimal sumApprovedAmountInPeriod(
             @Param("cooperativeId") UUID cooperativeId, @Param("from") Instant from, @Param("to") Instant to);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.totalAmount), 0)
+            FROM SharePurchase p
+            WHERE p.cooperativeId = :cooperativeId
+              AND p.memberUserId = :memberUserId
+              AND p.status = rw.terimbere.csams.modules.share.entity.SharePurchaseStatus.APPROVED
+            """)
+    java.math.BigDecimal sumApprovedAmountByMember(
+            @Param("cooperativeId") UUID cooperativeId, @Param("memberUserId") UUID memberUserId);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(p.numberOfShares), 0)
+            FROM SharePurchase p
+            WHERE p.cooperativeId = :cooperativeId
+              AND p.memberUserId = :memberUserId
+              AND p.status = rw.terimbere.csams.modules.share.entity.SharePurchaseStatus.APPROVED
+              AND p.reviewedAt <= :to
+            """)
+    Number sumApprovedSharesUpTo(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("memberUserId") UUID memberUserId,
+            @Param("to") Instant to);
 }

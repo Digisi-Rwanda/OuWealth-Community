@@ -1,0 +1,309 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from '@mui/material'
+import { configureStore } from '@reduxjs/toolkit'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { SnackbarProvider } from 'notistack'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import authReducer from '@/app/store/authSlice'
+import uiReducer from '@/app/store/uiSlice'
+import en from '@/i18n/locales/en.json'
+import rw from '@/i18n/locales/rw.json'
+import {
+  confirmHistoricalImport,
+  downloadHistoricalImportTemplate,
+  fetchHistoricalImportHistory,
+  previewHistoricalImport,
+} from '@/shared/api/historicalImport'
+import type {
+  HistoricalImportConfirm,
+  HistoricalImportPreview,
+  HistoricalImportSummary,
+} from '@/shared/types/historicalImport'
+import { lightTheme } from '@/theme/theme'
+import { HistoricalImportPage } from './HistoricalImportPage'
+
+vi.mock('@/shared/api/historicalImport', () => ({
+  cancelHistoricalImport: vi.fn(),
+  confirmHistoricalImport: vi.fn(),
+  downloadHistoricalImportTemplate: vi.fn(),
+  fetchHistoricalImport: vi.fn(),
+  fetchHistoricalImportHistory: vi.fn(),
+  previewHistoricalImport: vi.fn(),
+}))
+
+const previewMock = vi.mocked(previewHistoricalImport)
+const confirmMock = vi.mocked(confirmHistoricalImport)
+const historyMock = vi.mocked(fetchHistoricalImportHistory)
+const templateMock = vi.mocked(downloadHistoricalImportTemplate)
+
+function migrationPreview(overrides: Partial<HistoricalImportPreview> = {}): HistoricalImportPreview {
+  return {
+    importId: 'imp-1',
+    status: 'READY',
+    format: 'OPENING_BALANCE',
+    cutoverDate: '2026-09-30',
+    totalRows: 5,
+    validRows: 5,
+    invalidRows: 0,
+    confirmAllowed: true,
+    reportReady: true,
+    migration: {
+      cutoverDate: '2026-09-30',
+      openingAvailableFunds: 800000,
+      members: { totalRows: 2, validRows: 2, invalidRows: 0, totalOpeningContributions: 850000 },
+      shareCapital: {
+        totalRows: 1,
+        validRows: 1,
+        invalidRows: 0,
+        totalOpeningShares: 8,
+        totalOpeningShareCapital: 240000,
+      },
+      loans: {
+        totalRows: 2,
+        validRows: 2,
+        invalidRows: 0,
+        endOfTermCount: 1,
+        monthlyCount: 1,
+        totalOriginalPrincipal: 1300000,
+        totalOutstandingPrincipal: 750000,
+        totalAmountPaid: 600000,
+      },
+    },
+    sheets: [],
+    errors: [],
+    ...overrides,
+  }
+}
+
+const confirmResult: HistoricalImportConfirm = {
+  importId: 'imp-1',
+  status: 'CONFIRMED',
+  cutoverDate: '2026-09-30',
+  membersImported: 2,
+  memberOpeningBalancesImported: 2,
+  shareOpeningBalancesImported: 1,
+  loansImported: 2,
+  loanInstallmentsCreated: 11,
+  totalHistoricalContributions: 850000,
+  totalHistoricalShares: 8,
+  totalHistoricalShareCapital: 240000,
+  totalOriginalLoanAmount: 1300000,
+  totalOutstandingLoanPrincipal: 750000,
+  totalHistoricalLoanPayments: 600000,
+}
+
+function renderPage() {
+  const store = configureStore({
+    reducer: { auth: authReducer, ui: uiReducer },
+    preloadedState: {
+      auth: { user: null, accessToken: null, selectedCooperativeId: 'coop-1', status: 'anonymous' as const },
+      ui: { sidebarOpen: false, themePreference: 'light' as const },
+    },
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  return render(
+    <Provider store={store}>
+      <QueryClientProvider client={client}>
+        <ThemeProvider theme={lightTheme}>
+          <SnackbarProvider>
+            <MemoryRouter>
+              <HistoricalImportPage />
+            </MemoryRouter>
+          </SnackbarProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </Provider>,
+  )
+}
+
+function chooseFile(name = 'opening.xlsx') {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  const file = new File(['x'], name, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  fireEvent.change(input, { target: { files: [file] } })
+  return file
+}
+
+function setFunds(value: string) {
+  fireEvent.change(screen.getByLabelText(/Available Group Funds at Cutover/i), { target: { value } })
+}
+
+function setCutover(value: string) {
+  fireEvent.change(screen.getByLabelText(/Historical data through/i), { target: { value } })
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  historyMock.mockResolvedValue([])
+  templateMock.mockResolvedValue({ filename: 'ikimina-migration-template.xlsx' })
+})
+
+describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }, () => {
+  it('explains the migration and what to import', async () => {
+    renderPage()
+    expect(await screen.findByText(/operating before joining OuWealth/i)).toBeInTheDocument()
+    expect(screen.getByText(/National ID is optional/i)).toBeInTheDocument()
+    expect(screen.getByText(/The Username connects the sheets/i)).toBeInTheDocument()
+    expect(screen.getByText(/Import only loans that are still outstanding/i)).toBeInTheDocument()
+    expect(screen.getByText(/END_OF_TERM \(principal and interest/i)).toBeInTheDocument()
+    expect(screen.getByText(/remaining amortization schedule/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not recreate them as new contributions/i)).toBeInTheDocument()
+    expect(screen.getByText(/real cash position at the cutover date/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Do not enter total historical contributions unless that is also the actual available balance/i),
+    ).toBeInTheDocument()
+  })
+
+  it('requires the cutover date before a file can be previewed', async () => {
+    previewMock.mockResolvedValue(migrationPreview())
+    renderPage()
+    const previewButton = await screen.findByRole('button', { name: 'Preview Import' })
+    const file = chooseFile()
+    expect(previewButton).toBeDisabled()
+
+    setCutover('2026-09-30')
+    expect(previewButton).toBeDisabled() // cutover cash is also required
+    setFunds('800,000')
+    expect(previewButton).toBeDisabled()
+    expect(screen.getByText(/at most two decimals/i)).toBeInTheDocument()
+    setFunds('-5')
+    expect(previewButton).toBeDisabled()
+    setFunds('800000')
+    expect(previewButton).toBeEnabled()
+    await act(async () => {
+      fireEvent.click(previewButton)
+    })
+    await waitFor(() => expect(previewMock).toHaveBeenCalledWith('coop-1', file, '2026-09-30', '800000'))
+  })
+
+  it('shows the cutover date and the three migration sections instead of the old sheet grid', async () => {
+    previewMock.mockResolvedValue(migrationPreview())
+    renderPage()
+    chooseFile()
+    setCutover('2026-09-30')
+    setFunds('800000')
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
+    })
+
+    expect(await screen.findByText(/position at the end of 30 Sep 2026/i)).toBeInTheDocument()
+    expect(screen.getByText(/Available Group Funds at Cutover:/i)).toBeInTheDocument()
+    const members = screen.getByText('Members').closest('.MuiCard-root') as HTMLElement
+    expect(within(members).getByText('Opening contributions')).toBeInTheDocument()
+    const shares = screen.getByText('Share capital').closest('.MuiCard-root') as HTMLElement
+    expect(within(shares).getByText('Opening shares')).toBeInTheDocument()
+    expect(within(shares).getByText('8')).toBeInTheDocument()
+    const loans = screen.getByText('Loans').closest('.MuiCard-root') as HTMLElement
+    expect(within(loans).getByText('END_OF_TERM loans')).toBeInTheDocument()
+    expect(within(loans).getByText('MONTHLY loans')).toBeInTheDocument()
+    expect(within(loans).getByText('Outstanding principal')).toBeInTheDocument()
+    // the retired sections are gone
+    expect(screen.queryByText(/Fund reconciliation/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Historical years in this workbook/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Import' })).toBeEnabled()
+  })
+
+  it('lists row errors with sheet, row, column and message and keeps confirm disabled', async () => {
+    previewMock.mockResolvedValue(
+      migrationPreview({
+        status: 'INVALID',
+        confirmAllowed: false,
+        validRows: 3,
+        invalidRows: 2,
+        errors: [
+          {
+            sheet: 'Member Registration',
+            rowNumber: 5,
+            field: 'Username',
+            code: 'DUPLICATE_USERNAME',
+            message: 'Username is duplicated in this workbook.',
+          },
+          {
+            sheet: 'Loan Registration',
+            rowNumber: 8,
+            field: 'Last Payment Date',
+            code: 'REQUIRED',
+            message: 'Last Payment Date is required when Amount Paid to Date is greater than zero.',
+          },
+        ],
+      }),
+    )
+    renderPage()
+    chooseFile()
+    setCutover('2026-09-30')
+    setFunds('800000')
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
+    })
+
+    expect(await screen.findByText('Username is duplicated in this workbook.')).toBeInTheDocument()
+    expect(screen.getAllByText('Member Registration').length).toBeGreaterThan(0)
+    expect(screen.getByText('Loan Registration')).toBeInTheDocument()
+    expect(screen.getByText('Last Payment Date')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+    expect(screen.getByText(/Fix the errors in the workbook/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm Import' })).toBeDisabled()
+  })
+
+  it('confirms and reports the migration result', async () => {
+    previewMock.mockResolvedValue(migrationPreview())
+    confirmMock.mockResolvedValue(confirmResult)
+    renderPage()
+    chooseFile()
+    setCutover('2026-09-30')
+    setFunds('800000')
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
+    })
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirm Import' }))
+    })
+    expect(await screen.findByText(/does not create contribution, share purchase or loan payment/i)).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm$/i }))
+    })
+
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledWith('coop-1', 'imp-1'))
+    expect(await screen.findByText('Migration completed')).toBeInTheDocument()
+    expect(screen.getByText(/11 remaining instalments/i)).toBeInTheDocument()
+  })
+
+  it('keeps earlier (legacy) confirmed imports visible in history', async () => {
+    const legacy: HistoricalImportSummary = {
+      id: 'old-1',
+      cooperativeId: 'coop-1',
+      originalFilename: 'history-2022.xlsx',
+      status: 'CONFIRMED',
+      format: 'LEGACY',
+      totalRows: 100,
+      validRows: 100,
+      invalidRows: 0,
+    }
+    const current: HistoricalImportSummary = {
+      ...legacy,
+      id: 'new-1',
+      originalFilename: 'opening.xlsx',
+      format: 'OPENING_BALANCE',
+      cutoverDate: '2026-09-30',
+    }
+    historyMock.mockResolvedValue([current, legacy])
+    renderPage()
+    expect(await screen.findByText('history-2022.xlsx')).toBeInTheDocument()
+    expect(screen.getByText('Earlier format')).toBeInTheDocument()
+    expect(screen.getByText('2026-09-30')).toBeInTheDocument()
+  })
+
+  it('has matching English and Kinyarwanda copy for every historical import key', () => {
+    const flatten = (value: unknown, prefix = ''): string[] =>
+      value && typeof value === 'object'
+        ? Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
+            flatten(child, prefix ? `${prefix}.${key}` : key),
+          )
+        : [prefix]
+    expect(flatten(rw.historicalImport).sort()).toEqual(flatten(en.historicalImport).sort())
+    expect(rw.historicalImport.instructions.length).toBeGreaterThan(40)
+  })
+})

@@ -160,4 +160,16 @@ public interface LedgerEntryRepository
             @Param("cooperativeId") UUID cooperativeId,
             @Param("throughDate") LocalDate throughDate,
             @Param("excludedTypes") Collection<LedgerTransactionType> excludedTypes);
+
+    @Query(
+            """
+            SELECT COUNT(e) FROM LedgerEntry e
+            WHERE e.cooperativeId = :cooperativeId
+              AND e.transactionDate <= :date
+              AND e.transactionType NOT IN :excluded
+            """)
+    long countActivityOnOrBefore(
+            @Param("cooperativeId") UUID cooperativeId,
+            @Param("date") LocalDate date,
+            @Param("excluded") Collection<LedgerTransactionType> excluded);
 }

@@ -104,6 +104,8 @@ public class MemberService {
     private final PayoutService payoutService;
     private final PayoutLineRepository payoutLineRepository;
     private final ShareValuationService shareValuationService;
+    private final rw.terimbere.csams.modules.membership.repository.MemberOpeningBalanceRepository openingBalanceRepository;
+    private final rw.terimbere.csams.modules.share.repository.SharePurchaseRepository sharePurchaseRepository;
     private final NotificationFacade notificationFacade;
     private final CooperativeOnboardingService onboardingService;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -260,7 +262,20 @@ public class MemberService {
         CooperativeMembership membership = requireMembership(cooperativeId, memberUserId);
         User user = requireUser(memberUserId);
 
-        BigDecimal regular = scaleOrZero(contributionRepository.sumPaidByMember(cooperativeId, memberUserId));
+        // Lifetime regular contributions = opening balance (cutover) + OuWealth-recorded paid contributions.
+        // The opening balance lives in member_opening_balances only; it is never also a Contribution row.
+        var opening = openingBalanceRepository.findByCooperativeIdAndMemberUserId(cooperativeId, memberUserId);
+        BigDecimal openingContributions = opening
+                .map(b -> scaleOrZero(b.getOpeningContributionAmount()))
+                .orElse(scaleOrZero(null));
+        BigDecimal openingShareCapital =
+                opening.map(b -> scaleOrZero(b.getOpeningShareCapitalAmount())).orElse(scaleOrZero(null));
+        BigDecimal contributedShareCapital = MoneyUtils.add(
+                openingShareCapital,
+                scaleOrZero(sharePurchaseRepository.sumApprovedAmountByMember(cooperativeId, memberUserId)));
+        BigDecimal regular = MoneyUtils.add(
+                openingContributions,
+                scaleOrZero(contributionRepository.sumPaidByMember(cooperativeId, memberUserId)));
         BigDecimal special =
                 scaleOrZero(specialContributionRepository.sumApprovedAmountByMember(cooperativeId, memberUserId));
         BigDecimal actual = MoneyUtils.add(regular, special);
@@ -292,7 +307,9 @@ public class MemberService {
         BigDecimal socialContributions = scaleOrZero(
                 socialContributionRepository.sumApprovedAmountByMember(cooperativeId, memberUserId));
 
-        BigDecimal coopRegular = scaleOrZero(contributionRepository.sumPaidForPeriod(cooperativeId, null, null));
+        BigDecimal coopRegular = MoneyUtils.add(
+                scaleOrZero(contributionRepository.sumPaidForPeriod(cooperativeId, null, null)),
+                scaleOrZero(openingBalanceRepository.sumOpeningContributions(cooperativeId)));
         BigDecimal coopSpecial = scaleOrZero(specialContributionRepository.sumApprovedAmount(cooperativeId));
         BigDecimal coopActual = MoneyUtils.add(coopRegular, coopSpecial);
         BigDecimal contributionPercentage = null;
@@ -337,6 +354,11 @@ public class MemberService {
                 .sharesHeld(sharesHeld)
                 .currentShareValue(currentShareValue)
                 .totalShareValue(totalShareValue)
+                .openingContributions(openingContributions)
+                .openingCutoverDate(opening.map(b -> b.getCutoverDate()).orElse(null))
+                .openingShareCount(opening.map(b -> b.getOpeningShareCount()).orElse(0))
+                .openingShareCapital(openingShareCapital)
+                .contributedShareCapital(contributedShareCapital)
                 .build();
     }
 

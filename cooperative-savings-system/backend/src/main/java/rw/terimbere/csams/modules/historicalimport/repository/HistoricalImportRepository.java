@@ -15,4 +15,15 @@ public interface HistoricalImportRepository extends JpaRepository<HistoricalImpo
 
     boolean existsByCooperativeIdAndFileHashAndStatus(
             UUID cooperativeId, String fileHash, HistoricalImportStatus status);
+
+    /** Sum of the explicit cutover cash positions of confirmed opening-balance migrations. */
+    @org.springframework.data.jpa.repository.Query(
+            "select coalesce(sum(i.openingAvailableFunds), 0) from HistoricalImport i"
+                    + " where i.cooperativeId = :cooperativeId and i.status = :status"
+                    + " and i.openingAvailableFunds is not null")
+    java.math.BigDecimal sumOpeningAvailableFunds(
+            @org.springframework.data.repository.query.Param("cooperativeId") UUID cooperativeId,
+            @org.springframework.data.repository.query.Param("status") HistoricalImportStatus status);
+
+    boolean existsByCooperativeIdAndStatusAndCutoverDateIsNotNull(UUID cooperativeId, HistoricalImportStatus status);
 }

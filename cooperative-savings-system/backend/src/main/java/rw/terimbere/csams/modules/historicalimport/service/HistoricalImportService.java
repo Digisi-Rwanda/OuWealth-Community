@@ -1,12 +1,15 @@
 package rw.terimbere.csams.modules.historicalimport.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,15 +32,14 @@ import rw.terimbere.csams.modules.historicalimport.dto.HistoricalImportError;
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalImportPreviewResponse;
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalImportSheetSummary;
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalImportSummaryResponse;
+import rw.terimbere.csams.modules.historicalimport.dto.HistoricalMigrationSummary;
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalReconciliationSummary;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImport;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportRow;
-import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportSheet;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportStatus;
 import rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRepository;
 import rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRowRepository;
 import rw.terimbere.csams.modules.report.export.ExcelReportExporter;
-import rw.terimbere.csams.modules.report.export.ExcelReportWriter;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
 import rw.terimbere.csams.security.UserPrincipal;
@@ -47,19 +49,31 @@ import rw.terimbere.csams.shared.exceptions.ForbiddenException;
 import rw.terimbere.csams.shared.exceptions.ResourceNotFoundException;
 import rw.terimbere.csams.shared.exceptions.ValidationException;
 import rw.terimbere.csams.shared.file.FileStorageService;
+import rw.terimbere.csams.shared.utilities.MoneyUtils;
+import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
 
+/**
+ * Ikimina historical migration (opening balances at a cutover date).
+ *
+ * <p>The workbook captures the Saving Scheme's <em>position</em> at the end of the cutover date: member
+ * contribution totals, share count and share capital, and loans still outstanding. It never recreates
+ * old monthly transactions. Imports confirmed in the retired 16-sheet format remain readable through
+ * {@link #get} and {@link #history} but can no longer be created.
+ */
 @Service
 @RequiredArgsConstructor
 public class HistoricalImportService {
 
     private static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+    private static final LocalDate MIN_CUTOVER = LocalDate.of(1950, 1, 1);
+    private static final TypeReference<List<HistoricalImportError>> ERROR_LIST = new TypeReference<>() {};
 
     private final CooperativeRepository cooperativeRepository;
     private final HistoricalImportRepository importRepository;
     private final HistoricalImportRowRepository importRowRepository;
-    private final HistoricalWorkbookParser parser = new HistoricalWorkbookParser();
-    private final HistoricalImportValidator validator;
-    private final HistoricalPersistenceService persistenceService;
+    private final MigrationWorkbookParser parser = new MigrationWorkbookParser();
+    private final MigrationValidator validator;
+    private final MigrationPersistenceService persistenceService;
     private final FileStorageService fileStorageService;
     private final CooperativeAuthorizationService authorizationService;
     private final AuditService auditService;
@@ -70,32 +84,35 @@ public class HistoricalImportService {
     public byte[] downloadTemplate(UUID cooperativeId) {
         requireCooperative(cooperativeId);
         requireLeadership(cooperativeId);
-        List<ExcelReportWriter.TemplateSheet> sheets = new ArrayList<>();
-        sheets.add(new ExcelReportWriter.TemplateSheet(
-                HistoricalImportSheet.INSTRUCTIONS_SHEET, List.of(), List.of(), instructionLines()));
-        for (HistoricalImportSheet sheet : HistoricalImportSheet.values()) {
-            sheets.add(new ExcelReportWriter.TemplateSheet(
-                    sheet.getSheetName(), sheet.getHeaders(), List.of(), null));
-        }
-        return ExcelReportWriter.writeMultiSheetTemplate(sheets);
+        return MigrationTemplateWriter.write();
     }
 
     @Transactional
-    public HistoricalImportPreviewResponse preview(UUID cooperativeId, MultipartFile file, HttpServletRequest request) {
+    public HistoricalImportPreviewResponse preview(
+            UUID cooperativeId,
+            MultipartFile file,
+            LocalDate cutoverDate,
+            BigDecimal openingAvailableFunds,
+            HttpServletRequest request) {
         Cooperative cooperative = requireCooperative(cooperativeId);
         UserPrincipal principal = requireLeadership(cooperativeId);
+        requireValidCutover(cutoverDate);
+        BigDecimal funds = requireValidOpeningFunds(openingAvailableFunds);
         byte[] bytes = readXlsx(file);
         String hash = HistoricalFingerprint.sha256Hex(bytes);
         if (importRepository.existsByCooperativeIdAndFileHashAndStatus(
                 cooperativeId, hash, HistoricalImportStatus.CONFIRMED)) {
             throw new BusinessException("This workbook has already been confirmed for this Saving Scheme");
         }
+        // Parse first: an old-format workbook is rejected before anything is stored.
+        MigrationWorkbook parsed = parser.parse(bytes);
+
         String originalFilename = file.getOriginalFilename() == null ? "historical-import.xlsx" : file.getOriginalFilename();
         String storageKey = "historical-imports/" + cooperativeId + "/" + UUID.randomUUID() + ".xlsx";
         fileStorageService.store(
                 storageKey, new ByteArrayInputStream(bytes), bytes.length, ExcelReportExporter.CONTENT_TYPE);
 
-        HistoricalImport importEntity = HistoricalImport.builder()
+        HistoricalImport importEntity = importRepository.save(HistoricalImport.builder()
                 .cooperativeId(cooperativeId)
                 .originalFilename(originalFilename)
                 .storageKey(storageKey)
@@ -103,33 +120,23 @@ public class HistoricalImportService {
                 .sizeBytes((long) bytes.length)
                 .fileHash(hash)
                 .status(HistoricalImportStatus.UPLOADED)
+                .cutoverDate(cutoverDate)
+                .openingAvailableFunds(funds)
                 .uploadedBy(principal.getId())
-                .build();
-        importEntity = importRepository.save(importEntity);
+                .build());
 
-        ParsedWorkbook parsed;
-        try {
-            parsed = parser.parse(bytes);
-        } catch (ValidationException ex) {
-            importEntity.setStatus(HistoricalImportStatus.FAILED);
-            importEntity.setErrorSummary(ex.getMessage());
-            importRepository.save(importEntity);
-            throw ex;
-        }
-
-        ValidatedWorkbook validated = validator.validate(cooperative.getId(), parsed, principal);
+        ValidatedMigration validated = validator.validate(cooperative.getId(), parsed, cutoverDate, funds);
         persistPreviewRows(importEntity.getId(), validated);
         importEntity.setTotalRows(validated.totalRows());
         importEntity.setValidRows(validated.validRows());
         importEntity.setInvalidRows(validated.invalidRows());
         importEntity.setValidatedAt(Instant.now());
-        importEntity.setSheetSummary(toJson(validated.sheetSummaries.values()));
-        importEntity.setReconciliationSummary(toJson(validated.reconciliation));
-        boolean blocked = validated.hasErrors()
-                || (validated.reconciliation != null && validated.reconciliation.isBlocked());
+        importEntity.setSheetSummary(toJson(sheetSummaries(validated.summary)));
+        importEntity.setMigrationSummary(toJson(validated.summary));
+        boolean blocked = validated.hasErrors();
         importEntity.setStatus(blocked ? HistoricalImportStatus.INVALID : HistoricalImportStatus.READY);
         if (blocked) {
-            importEntity.setErrorSummary(validated.invalidRows() + " invalid row(s)");
+            importEntity.setErrorSummary(validated.errors.size() + " error(s) found");
         }
         importRepository.save(importEntity);
 
@@ -140,10 +147,12 @@ public class HistoricalImportService {
                 "HistoricalImport",
                 importEntity.getId(),
                 null,
-                "{\"phase\":\"preview\",\"filename\":\""
+                "{\"phase\":\"preview\",\"format\":\"OPENING_BALANCE\",\"filename\":\""
                         + escape(originalFilename)
                         + "\",\"hash\":\""
                         + hash
+                        + "\",\"cutoverDate\":\""
+                        + cutoverDate
                         + "\",\"valid\":"
                         + validated.validRows()
                         + ",\"invalid\":"
@@ -151,7 +160,23 @@ public class HistoricalImportService {
                         + "}",
                 clientIp(request),
                 userAgent(request));
-        return toPreview(importEntity, validated);
+        return HistoricalImportPreviewResponse.builder()
+                .importId(importEntity.getId())
+                .status(importEntity.getStatus())
+                .format(HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE)
+                .originalFilename(importEntity.getOriginalFilename())
+                .fileHash(importEntity.getFileHash())
+                .cutoverDate(cutoverDate)
+                .totalRows(validated.totalRows())
+                .validRows(validated.validRows())
+                .invalidRows(validated.invalidRows())
+                .confirmAllowed(confirmAllowed(importEntity))
+                .reportReady(confirmAllowed(importEntity))
+                .migration(validated.summary)
+                .sheets(sheetSummaries(validated.summary))
+                .errors(validated.errors)
+                .errorSummary(importEntity.getErrorSummary())
+                .build();
     }
 
     public HistoricalImportConfirmResponse confirm(UUID cooperativeId, UUID importId, HttpServletRequest request) {
@@ -184,6 +209,9 @@ public class HistoricalImportService {
         if (importEntity.getStatus() == HistoricalImportStatus.CONFIRMED) {
             throw new BusinessException("This historical import has already been confirmed");
         }
+        if (importEntity.getCutoverDate() == null || importEntity.getOpeningAvailableFunds() == null) {
+            throw new ValidationException(MigrationWorkbookParser.UNSUPPORTED_FORMAT);
+        }
         if (importEntity.getStatus() != HistoricalImportStatus.READY) {
             throw new BusinessException("Import cannot be confirmed in status " + importEntity.getStatus());
         }
@@ -192,23 +220,26 @@ public class HistoricalImportService {
             throw new BusinessException("This workbook has already been confirmed for this Saving Scheme");
         }
 
-        byte[] bytes = readStored(importEntity.getStorageKey());
-        ParsedWorkbook parsed = parser.parse(bytes);
-        ValidatedWorkbook validated = validator.validate(cooperative.getId(), parsed, principal);
-        if (!validated.reportReady
-                || validated.hasErrors()
-                || (validated.reconciliation != null && validated.reconciliation.isBlocked())) {
+        // Re-validate against the data as it is now: balances or identities may have changed since preview.
+        MigrationWorkbook parsed = parser.parse(readStored(importEntity.getStorageKey()));
+        ValidatedMigration validated =
+                validator.validate(
+                        cooperative.getId(),
+                        parsed,
+                        importEntity.getCutoverDate(),
+                        importEntity.getOpeningAvailableFunds());
+        if (validated.hasErrors() || validated.invalidRows() > 0) {
             throw new ValidationException("Workbook is no longer valid. Fix the errors and upload again.");
         }
         if (validated.validRows() <= 0) {
-            throw new ValidationException("Workbook has no importable business rows");
+            throw new ValidationException("Workbook has no importable rows");
         }
 
-        HistoricalPersistenceService.PersistResult persisted =
-                persistenceService.persist(cooperative, validated, principal.getId());
+        MigrationPersistenceService.PersistResult persisted =
+                persistenceService.persist(cooperative, validated, importId, principal.getId());
         List<HistoricalImportRow> rows = importRowRepository.findByImportIdOrderBySheetAscRowNumberAsc(importId);
         for (HistoricalImportRow row : rows) {
-            UUID entityId = persisted.resultingEntityIds().get(row.getSheet() + ":" + row.getRowNumber());
+            UUID entityId = persisted.resultingEntityIds().get(MigrationPersistenceService.key(row.getSheet(), row.getRowNumber()));
             if (entityId != null) {
                 row.setResultingEntityId(entityId);
                 row.setResultingEntityType(row.getSheet());
@@ -216,16 +247,16 @@ public class HistoricalImportService {
         }
         importRowRepository.saveAll(rows);
 
-        importEntity.setStatus(HistoricalImportStatus.CONFIRMED);
-        importEntity.setConfirmedBy(principal.getId());
-        importEntity.setConfirmedAt(Instant.now());
-        importEntity.setReconciliationSummary(toJson(validated.reconciliation));
-        importRepository.save(importEntity);
-
         HistoricalImportConfirmResponse response = persisted.counts();
         response.setImportId(importEntity.getId());
         response.setStatus(HistoricalImportStatus.CONFIRMED);
-        response.setReconciliation(validated.reconciliation);
+        validated.summary.setResult(response);
+
+        importEntity.setStatus(HistoricalImportStatus.CONFIRMED);
+        importEntity.setConfirmedBy(principal.getId());
+        importEntity.setConfirmedAt(Instant.now());
+        importEntity.setMigrationSummary(toJson(validated.summary));
+        importRepository.save(importEntity);
 
         auditService.record(
                 principal.getId(),
@@ -269,6 +300,7 @@ public class HistoricalImportService {
         return toSummary(importEntity);
     }
 
+    /** Reads any import, including ones confirmed in the retired 16-sheet format. */
     @Transactional(readOnly = true)
     public HistoricalImportPreviewResponse get(UUID cooperativeId, UUID importId) {
         requireLeadership(cooperativeId);
@@ -276,37 +308,55 @@ public class HistoricalImportService {
                 .findByIdAndCooperativeId(importId, cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("HistoricalImport", importId));
         List<HistoricalImportRow> rows = importRowRepository.findByImportIdOrderBySheetAscRowNumberAsc(importId);
+        boolean openingBalance = isOpeningBalance(importEntity);
         List<HistoricalImportError> errors = new ArrayList<>();
         for (HistoricalImportRow row : rows) {
-            if (!row.isValid() && StringUtils.hasText(row.getErrorMessages())) {
-                errors.add(HistoricalImportError.builder()
-                        .sheet(row.getSheet())
-                        .rowNumber(row.getRowNumber())
-                        .message(row.getErrorMessages())
-                        .build());
+            if (row.isValid() || !StringUtils.hasText(row.getErrorMessages())) {
+                continue;
             }
+            if (openingBalance) {
+                List<HistoricalImportError> stored = readJson(row.getErrorMessages(), ERROR_LIST);
+                if (stored != null) {
+                    errors.addAll(stored);
+                    continue;
+                }
+            }
+            errors.add(HistoricalImportError.builder()
+                    .sheet(row.getSheet())
+                    .rowNumber(row.getRowNumber())
+                    .message(row.getErrorMessages())
+                    .build());
         }
-        HistoricalReconciliationSummary reconciliation =
-                readJson(importEntity.getReconciliationSummary(), HistoricalReconciliationSummary.class);
         boolean ready = confirmAllowed(importEntity);
-        return HistoricalImportPreviewResponse.builder()
-                .importId(importEntity.getId())
-                .status(importEntity.getStatus())
-                .originalFilename(importEntity.getOriginalFilename())
-                .fileHash(importEntity.getFileHash())
-                .totalRows(importEntity.getTotalRows())
-                .validRows(importEntity.getValidRows())
-                .invalidRows(importEntity.getInvalidRows())
-                .confirmAllowed(ready)
-                .reportReady(ready)
-                .sheets(readJsonList(importEntity.getSheetSummary(), HistoricalImportSheetSummary.class))
-                .errors(errors)
-                .yearSummaries(reconciliation == null || reconciliation.getYearSummaries() == null
-                        ? List.of()
-                        : reconciliation.getYearSummaries())
-                .reconciliation(reconciliation)
-                .errorSummary(importEntity.getErrorSummary())
-                .build();
+        HistoricalImportPreviewResponse.HistoricalImportPreviewResponseBuilder builder =
+                HistoricalImportPreviewResponse.builder()
+                        .importId(importEntity.getId())
+                        .status(importEntity.getStatus())
+                        .originalFilename(importEntity.getOriginalFilename())
+                        .fileHash(importEntity.getFileHash())
+                        .cutoverDate(importEntity.getCutoverDate())
+                        .totalRows(importEntity.getTotalRows())
+                        .validRows(importEntity.getValidRows())
+                        .invalidRows(importEntity.getInvalidRows())
+                        .confirmAllowed(ready)
+                        .reportReady(ready)
+                        .sheets(readJson(importEntity.getSheetSummary(), new TypeReference<List<HistoricalImportSheetSummary>>() {}))
+                        .errors(errors)
+                        .errorSummary(importEntity.getErrorSummary());
+        if (openingBalance) {
+            builder.format(HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE)
+                    .migration(readJson(importEntity.getMigrationSummary(), new TypeReference<HistoricalMigrationSummary>() {}));
+        } else {
+            HistoricalReconciliationSummary reconciliation = readJson(
+                    importEntity.getReconciliationSummary(),
+                    new TypeReference<HistoricalReconciliationSummary>() {});
+            builder.format(HistoricalImportPreviewResponse.FORMAT_LEGACY)
+                    .yearSummaries(reconciliation == null || reconciliation.getYearSummaries() == null
+                            ? List.of()
+                            : reconciliation.getYearSummaries())
+                    .reconciliation(reconciliation);
+        }
+        return builder.build();
     }
 
     @Transactional(readOnly = true)
@@ -317,10 +367,20 @@ public class HistoricalImportService {
                 .toList();
     }
 
-    private void persistPreviewRows(UUID importId, ValidatedWorkbook validated) {
+    private void persistPreviewRows(UUID importId, ValidatedMigration validated) {
         importRowRepository.deleteByImportId(importId);
         List<HistoricalImportRow> rows = new ArrayList<>();
-        for (ValidatedWorkbook.ValidatedRow<?> row : validated.allRows()) {
+        // Workbook-level problems (missing sheet, wrong header) are kept as header-row entries so they can be re-read later.
+        validated.errors.stream()
+                .filter(e -> e.getRowNumber() == null || e.getRowNumber() <= 1 && "Header".equals(e.getField()))
+                .forEach(e -> rows.add(HistoricalImportRow.builder()
+                        .importId(importId)
+                        .sheet(e.getSheet() == null ? "Workbook" : e.getSheet())
+                        .rowNumber(e.getRowNumber() == null ? 1 : e.getRowNumber())
+                        .valid(false)
+                        .errorMessages(toJson(List.of(e)))
+                        .build()));
+        for (ValidatedMigration.ValidatedRow<?> row : validated.allRows()) {
             rows.add(HistoricalImportRow.builder()
                     .importId(importId)
                     .sheet(row.sheet().getSheetName())
@@ -328,31 +388,30 @@ public class HistoricalImportService {
                     .sourceKey(row.sourceKey() == null ? null : HistoricalFingerprint.normalize(row.sourceKey()))
                     .fingerprint(row.fingerprint())
                     .valid(row.valid())
-                    .errorMessages(row.errors() == null || row.errors().isEmpty()
-                            ? null
-                            : String.join("; ", row.errors().stream().map(HistoricalImportError::getMessage).toList()))
+                    .errorMessages(row.errors() == null || row.errors().isEmpty() ? null : toJson(row.errors()))
                     .build());
         }
         importRowRepository.saveAll(rows);
     }
 
-    private HistoricalImportPreviewResponse toPreview(HistoricalImport entity, ValidatedWorkbook validated) {
-        return HistoricalImportPreviewResponse.builder()
-                .importId(entity.getId())
-                .status(entity.getStatus())
-                .originalFilename(entity.getOriginalFilename())
-                .fileHash(entity.getFileHash())
-                .totalRows(validated.totalRows())
-                .validRows(validated.validRows())
-                .invalidRows(validated.invalidRows())
-                .confirmAllowed(confirmAllowed(entity) && validated.reportReady)
-                .reportReady(validated.reportReady)
-                .sheets(new ArrayList<>(validated.sheetSummaries.values()))
-                .errors(validated.errors)
-                .yearSummaries(validated.yearSummaries)
-                .reconciliation(validated.reconciliation)
-                .errorSummary(entity.getErrorSummary())
-                .build();
+    private static List<HistoricalImportSheetSummary> sheetSummaries(HistoricalMigrationSummary summary) {
+        List<HistoricalImportSheetSummary> sheets = new ArrayList<>();
+        sheets.add(new HistoricalImportSheetSummary(
+                "Member Registration",
+                summary.getMembers().getTotalRows(),
+                summary.getMembers().getValidRows(),
+                summary.getMembers().getInvalidRows()));
+        sheets.add(new HistoricalImportSheetSummary(
+                "Share Capital Registration",
+                summary.getShareCapital().getTotalRows(),
+                summary.getShareCapital().getValidRows(),
+                summary.getShareCapital().getInvalidRows()));
+        sheets.add(new HistoricalImportSheetSummary(
+                "Loan Registration",
+                summary.getLoans().getTotalRows(),
+                summary.getLoans().getValidRows(),
+                summary.getLoans().getInvalidRows()));
+        return sheets;
     }
 
     private HistoricalImportSummaryResponse toSummary(HistoricalImport entity) {
@@ -362,6 +421,10 @@ public class HistoricalImportService {
                 .originalFilename(entity.getOriginalFilename())
                 .fileHash(entity.getFileHash())
                 .status(entity.getStatus())
+                .format(isOpeningBalance(entity)
+                        ? HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE
+                        : HistoricalImportPreviewResponse.FORMAT_LEGACY)
+                .cutoverDate(entity.getCutoverDate())
                 .totalRows(entity.getTotalRows())
                 .validRows(entity.getValidRows())
                 .invalidRows(entity.getInvalidRows())
@@ -371,6 +434,36 @@ public class HistoricalImportService {
                 .cancelledAt(entity.getCancelledAt())
                 .errorSummary(entity.getErrorSummary())
                 .build();
+    }
+
+    private static boolean isOpeningBalance(HistoricalImport entity) {
+        return entity.getCutoverDate() != null;
+    }
+
+    private static BigDecimal requireValidOpeningFunds(BigDecimal value) {
+        if (value == null) {
+            throw new ValidationException("Available Group Funds at Cutover (RWF) is required");
+        }
+        if (value.signum() < 0) {
+            throw new ValidationException("Available Group Funds at Cutover (RWF) cannot be negative");
+        }
+        BigDecimal scaled = MoneyUtils.scale(value);
+        if (scaled.compareTo(new BigDecimal("999999999999.99")) > 0) {
+            throw new ValidationException("Available Group Funds at Cutover (RWF) is too large");
+        }
+        return scaled;
+    }
+
+    private static void requireValidCutover(LocalDate cutoverDate) {
+        if (cutoverDate == null) {
+            throw new ValidationException("Historical data through (cutover date) is required");
+        }
+        if (cutoverDate.isBefore(MIN_CUTOVER)) {
+            throw new ValidationException("Historical data through (cutover date) is not a realistic date");
+        }
+        if (cutoverDate.isAfter(LocalDate.now(CooperativeFieldRules.ZONE))) {
+            throw new ValidationException("Historical data through (cutover date) cannot be in the future");
+        }
     }
 
     private byte[] readXlsx(MultipartFile file) {
@@ -423,42 +516,7 @@ public class HistoricalImportService {
         }
     }
 
-    private <T> List<T> readJsonList(String json, Class<T> type) {
-        if (!StringUtils.hasText(json)) {
-            return List.of();
-        }
-        try {
-            return objectMapper.readValue(
-                    json, objectMapper.getTypeFactory().constructCollectionType(List.class, type));
-        } catch (JsonProcessingException ex) {
-            return List.of();
-        }
-    }
-
-    private static Map<String, Object> confirmAuditPayload(
-            HistoricalImport importEntity, HistoricalImportConfirmResponse response) {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("phase", "confirm");
-        payload.put("filename", importEntity.getOriginalFilename());
-        payload.put("members", response.getMembersImported());
-        payload.put("contributions", response.getContributionsImported());
-        payload.put("loans", response.getLoansImported());
-        payload.put("repayments", response.getRepaymentsImported());
-        payload.put("fines", response.getFinesImported());
-        payload.put("finePayments", response.getFinePaymentsImported());
-        payload.put("investments", response.getInvestmentsImported());
-        payload.put("income", response.getIncomeImported());
-        payload.put("expenses", response.getExpensesImported());
-        payload.put(
-                "social",
-                response.getSocialContributionsImported() + response.getSocialDisbursementsImported());
-        payload.put("payouts", response.getPayoutsImported());
-        payload.put("ledgerEntries", response.getLedgerEntriesCreated());
-        payload.put("status", "CONFIRMED");
-        return payload;
-    }
-
-    private <T> T readJson(String json, Class<T> type) {
+    private <T> T readJson(String json, TypeReference<T> type) {
         if (!StringUtils.hasText(json)) {
             return null;
         }
@@ -469,51 +527,23 @@ public class HistoricalImportService {
         }
     }
 
-    private static List<String> instructionLines() {
-        return List.of(
-                "Historical Data Import — Instructions",
-                "",
-                "Historical imports reconstruct reports for previous years. Dates must be the actual historical business dates. Do not use today's date unless the transaction actually happened today.",
-                "",
-                "1. The Saving Scheme is the one selected in CSAMS. Do not put a Saving Scheme UUID in this file.",
-                "2. Do not rename sheets. Do not change header row text.",
-                "3. Use Username to reference members on every financial sheet.",
-                "4. Use business codes (Loan Code, Fine Code, Campaign Code, Investment Code, Payout Code) to connect child rows.",
-                "5. Do not use database UUIDs.",
-                "6. Dates must be the original historical dates (YYYY-MM-DD, dd/MM/yyyy, or Excel date cells).",
-                "7. Amounts must be numeric. Do not recompute old contribution amounts from today's settings.",
-                "8. Empty business sheets are ignored. Unknown sheet names are rejected.",
-                "9. Existing CSAMS financial records are never overwritten. Duplicates fail validation.",
-                "10. Every row must be valid before Confirm Import is allowed. If a row cannot be reported correctly, it cannot be imported.",
-                "11. Historical members who already left may be INACTIVE or SUSPENDED.",
-                "12. New member accounts receive an unknown password. They must use Forgot password before signing in.",
-                "13. Allowed loan statuses: ACTIVE, OVERDUE, CLOSED, WRITTEN_OFF.",
-                "14. Historical fines must be MANUAL. FinePayments are required when Paid Amount > 0.",
-                "15. Paid historical payouts must include the actual Payout Date (the day money was distributed), not only Period To.",
-                "16. Business sheets contain headers only. Examples below are documentation — they are not imported.",
-                "17. Income Category is OTHER_INCOME. Expense Category is GENERAL_EXPENSE or INTEREST_EXPENSE. Ledger type is derived by CSAMS; do not request ADJUSTMENT.",
-                "18. To attach child rows to a loan/fine/investment/payout/campaign that already exists in CSAMS, include a parent row whose natural fields match that record. The parent will not be reinserted.",
-                "",
-                "Required Dates for Historical Reporting",
-                "Members: Membership Date is required. Do not default it to today.",
-                "Contributions: Payment Date is required when Paid Amount > 0 because contribution reports filter by Payment Date. Unpaid rows (Paid Amount = 0) may leave Payment Date blank. Year and Month remain required. Late payment in a later month is allowed.",
-                "Special Contributions: Contribution Date is required.",
-                "Social Contributions: Contribution Date is required.",
-                "Social Disbursements: Disbursement Date is required.",
-                "Loans: Request Date, Approval Date, Disbursement Date, and Due Date are required for disbursed historical loans. Chronology: Request Date <= Approval Date <= Disbursement Date <= Due Date.",
-                "Loan Repayments: Payment Date, Amount Total, Principal Portion, and Interest Portion are required. Principal + Interest must equal Total.",
-                "Fines: Issued Date is required because the Fines report filters by Issued Date.",
-                "Fine Payments: Payment Date is required because the payment report and ledger use it.",
-                "Investments: Investment Date is required for money-out investments. The system cannot use today's date.",
-                "Investment Returns: Return Date is required. Capital Portion + Profit Portion must equal Amount Total.",
-                "Income / Expenses: Transaction Date is required. Never use import date as the business date.",
-                "Payouts: Period From, Period To, and Payout Date (when PAID) are required. Period From <= Period To. Do not substitute Period To for Payout Date.",
-                "",
-                "Examples (do not copy these onto business sheets unless they are real history):",
-                "Members: hist_jane | Jane | Uwase | jane.uwase@example.com | 0781234567 | | 2022-01-15 | 1 | ACTIVE | MEMBER",
-                "Contributions: hist_jane | 2022 | 3 | 10000 | 10000 | 2022-03-05 | REF-2022-03",
-                "Loans: L-2022-001 | hist_jane | principal 100000 | requested 2022-05-01 | disbursed 2022-05-10 | CLOSED",
-                "Payouts: PAY-2022-01 | 2022-01-01 | 2022-12-31 | Payout Date 2023-01-15 | PAID");
+    private static Map<String, Object> confirmAuditPayload(
+            HistoricalImport importEntity, HistoricalImportConfirmResponse response) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("phase", "confirm");
+        payload.put("format", "OPENING_BALANCE");
+        payload.put("filename", importEntity.getOriginalFilename());
+        payload.put("cutoverDate", String.valueOf(importEntity.getCutoverDate()));
+        payload.put("members", response.getMembersImported());
+        payload.put("memberOpeningBalances", response.getMemberOpeningBalancesImported());
+        payload.put("shareOpeningBalances", response.getShareOpeningBalancesImported());
+        payload.put("loans", response.getLoansImported());
+        payload.put("loanInstallments", response.getLoanInstallmentsCreated());
+        payload.put("totalHistoricalContributions", response.getTotalHistoricalContributions());
+        payload.put("totalHistoricalShareCapital", response.getTotalHistoricalShareCapital());
+        payload.put("totalOutstandingLoanPrincipal", response.getTotalOutstandingLoanPrincipal());
+        payload.put("status", "CONFIRMED");
+        return payload;
     }
 
     private static boolean confirmAllowed(HistoricalImport entity) {

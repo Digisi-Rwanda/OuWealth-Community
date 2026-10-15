@@ -41,4 +41,15 @@ public interface LoanRepaymentRepository
             @Param("cooperativeId") UUID cooperativeId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    /** Principal repaid in OuWealth on loans imported by the opening-balance migration. */
+    @Query(
+            """
+            SELECT COALESCE(SUM(r.principalPortion), 0)
+            FROM LoanRepayment r, rw.terimbere.csams.modules.loan.entity.Loan l
+            WHERE r.loanId = l.id
+              AND l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NOT NULL
+            """)
+    BigDecimal sumPrincipalRepaidOnImportedLoans(@Param("cooperativeId") UUID cooperativeId);
 }

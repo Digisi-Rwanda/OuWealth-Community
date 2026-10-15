@@ -48,6 +48,7 @@ public class FullFinancialReportAssembler {
 
     private final LedgerPeriodAggregationService ledgerPeriodAggregationService;
     private final ShareValuationService shareValuationService;
+    private final rw.terimbere.csams.modules.membership.repository.MemberOpeningBalanceRepository openingBalanceRepository;
     private final SocialFundBalanceService socialFundBalanceService;
     private final MemberContributionScheduleService memberContributionScheduleService;
     private final SharePurchaseRepository sharePurchaseRepository;
@@ -213,6 +214,25 @@ public class FullFinancialReportAssembler {
                 .build();
     }
 
+    private List<String> reconciliationNotes(ShareValuationResponse valuation) {
+        List<String> notes = new ArrayList<>(List.of(
+                "Do not interpret Available Funds alone as total assets.",
+                "Social Fund Balance is reported separately and is not included in Current Ikimina Value."));
+        BigDecimal openingContributions = openingBalanceRepository.sumOpeningContributions(valuation.getCooperativeId());
+        BigDecimal openingCapital = openingBalanceRepository.sumOpeningShareCapital(valuation.getCooperativeId());
+        BigDecimal opening = MoneyUtils.add(
+                MoneyUtils.scale(openingContributions == null ? BigDecimal.ZERO : openingContributions),
+                MoneyUtils.scale(openingCapital == null ? BigDecimal.ZERO : openingCapital));
+        if (opening.signum() > 0) {
+            notes.add("Available Funds start from the explicit cash position entered at the migration cutover, then"
+                    + " add later ledger activity. Opening member contributions and share capital ("
+                    + opening
+                    + ") are lifetime member balances: they are reported separately and are neither cash nor"
+                    + " period transactions.");
+        }
+        return notes;
+    }
+
     private FullFinancialReportModel.FinancialPosition buildPosition(
             ShareValuationResponse valuation,
             BigDecimal socialBalance,
@@ -239,9 +259,7 @@ public class FullFinancialReportAssembler {
                 .socialFundBalance(socialBalance)
                 .liabilitiesNote(
                         "Formal liabilities are not currently modeled as a complete payable ledger in OuWealth. No liability total is shown.")
-                .reconciliationNotes(List.of(
-                        "Do not interpret Available Funds alone as total assets.",
-                        "Social Fund Balance is reported separately and is not included in Current Ikimina Value."))
+                .reconciliationNotes(reconciliationNotes(valuation))
                 .build();
     }
 

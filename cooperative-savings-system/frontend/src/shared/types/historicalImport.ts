@@ -7,6 +7,11 @@ export type HistoricalImportStatus =
   | 'CANCELLED'
   | 'FAILED'
 
+/** OPENING_BALANCE = the cutover migration; LEGACY = read-only history of the retired 16-sheet import. */
+export type HistoricalImportFormat = 'OPENING_BALANCE' | 'LEGACY'
+
+export type MoneyValue = string | number | null | undefined
+
 export interface HistoricalImportError {
   sheet?: string | null
   rowNumber?: number | null
@@ -40,6 +45,7 @@ export interface HistoricalYearSummary {
   payouts?: number
 }
 
+/** Legacy (retired 16-sheet) imports only. */
 export interface HistoricalReconciliationSummary {
   currentAvailableFund?: string | number | null
   projectedCredits?: string | number | null
@@ -56,19 +62,78 @@ export interface HistoricalReconciliationSummary {
   yearSummaries?: HistoricalYearSummary[]
 }
 
+export interface HistoricalMigrationMembers {
+  totalRows: number
+  validRows: number
+  invalidRows: number
+  totalOpeningContributions: MoneyValue
+}
+
+export interface HistoricalMigrationShares {
+  totalRows: number
+  validRows: number
+  invalidRows: number
+  totalOpeningShares: number
+  totalOpeningShareCapital: MoneyValue
+}
+
+export interface HistoricalMigrationLoans {
+  totalRows: number
+  validRows: number
+  invalidRows: number
+  endOfTermCount: number
+  monthlyCount: number
+  totalOriginalPrincipal: MoneyValue
+  totalOutstandingPrincipal: MoneyValue
+  totalAmountPaid: MoneyValue
+}
+
+export interface HistoricalImportConfirm {
+  importId: string
+  status: HistoricalImportStatus | string
+  cutoverDate?: string | null
+  openingAvailableFunds?: MoneyValue
+  membersImported: number
+  memberOpeningBalancesImported: number
+  shareOpeningBalancesImported: number
+  loansImported: number
+  loanInstallmentsCreated: number
+  totalHistoricalContributions: MoneyValue
+  totalHistoricalShares: number
+  totalHistoricalShareCapital: MoneyValue
+  totalOriginalLoanAmount: MoneyValue
+  totalOutstandingLoanPrincipal: MoneyValue
+  totalHistoricalLoanPayments: MoneyValue
+}
+
+export interface HistoricalMigrationSummary {
+  cutoverDate?: string | null
+  /** Explicit cash available at the end of the cutover date. */
+  openingAvailableFunds?: MoneyValue
+  members?: HistoricalMigrationMembers | null
+  shareCapital?: HistoricalMigrationShares | null
+  loans?: HistoricalMigrationLoans | null
+  result?: HistoricalImportConfirm | null
+}
+
 export interface HistoricalImportPreview {
   importId: string
   status: HistoricalImportStatus | string
+  format?: HistoricalImportFormat | string | null
   originalFilename?: string | null
   fileHash?: string | null
+  cutoverDate?: string | null
   totalRows: number
   validRows: number
   invalidRows: number
   confirmAllowed: boolean
   reportReady?: boolean
+  migration?: HistoricalMigrationSummary | null
   sheets: HistoricalImportSheetSummary[]
   errors: HistoricalImportError[]
+  /** Legacy imports only. */
   yearSummaries?: HistoricalYearSummary[]
+  /** Legacy imports only. */
   reconciliation?: HistoricalReconciliationSummary | null
   errorSummary?: string | null
 }
@@ -79,6 +144,8 @@ export interface HistoricalImportSummary {
   originalFilename?: string | null
   fileHash?: string | null
   status: HistoricalImportStatus | string
+  format?: HistoricalImportFormat | string | null
+  cutoverDate?: string | null
   totalRows: number
   validRows: number
   invalidRows: number
@@ -89,31 +156,12 @@ export interface HistoricalImportSummary {
   errorSummary?: string | null
 }
 
-export interface HistoricalImportConfirm {
-  importId: string
-  status: HistoricalImportStatus | string
-  membersImported: number
-  contributionsImported: number
-  specialCampaignsImported: number
-  specialContributionsImported: number
-  socialContributionsImported: number
-  socialDisbursementsImported: number
-  loansImported: number
-  repaymentsImported: number
-  finesImported: number
-  finePaymentsImported: number
-  investmentsImported: number
-  investmentReturnsImported: number
-  incomeImported: number
-  expensesImported: number
-  payoutsImported: number
-  payoutLinesImported: number
-  ledgerEntriesCreated: number
-  reconciliation?: HistoricalReconciliationSummary | null
-}
-
 export function canCancelHistoricalImport(status?: string | null): boolean {
   return status === 'UPLOADED' || status === 'VALIDATING' || status === 'READY' || status === 'INVALID'
+}
+
+export function isLegacyHistoricalImport(format?: string | null): boolean {
+  return format === 'LEGACY'
 }
 
 export function isHistoricalImportReady(preview: HistoricalImportPreview | null): boolean {
@@ -125,4 +173,18 @@ export function isHistoricalImportReady(preview: HistoricalImportPreview | null)
     preview.validRows > 0 &&
     preview.status === 'READY'
   )
+}
+
+/** Short label of one validation error: `Sheet — Row 5 — Column`, as shown to the user. */
+export function describeHistoricalImportError(error: HistoricalImportError): string {
+  const parts: string[] = []
+  if (error.sheet) parts.push(error.sheet)
+  if (error.rowNumber != null) parts.push(`Row ${error.rowNumber}`)
+  if (error.field) parts.push(error.field)
+  return parts.join(' — ')
+}
+
+/** Non-negative decimal with at most two fraction digits; thousands separators are not accepted. */
+export function isValidOpeningFunds(value: string): boolean {
+  return /^\d+(\.\d{1,2})?$/.test(value.trim())
 }

@@ -19,6 +19,7 @@ import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
+import rw.terimbere.csams.modules.membership.repository.MemberOpeningBalanceRepository;
 
 @ExtendWith(MockitoExtension.class)
 class LedgerFinancialCalculationServiceTest {
@@ -31,6 +32,15 @@ class LedgerFinancialCalculationServiceTest {
 
     @Mock
     private InvestmentRepository investmentRepository;
+
+    @Mock
+    private MemberOpeningBalanceRepository openingBalanceRepository;
+
+    @Mock
+    private rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRepository historicalImportRepository;
+
+    @Mock
+    private rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository loanRepaymentRepository;
 
     @InjectMocks
     private LedgerFinancialCalculationService service;
@@ -71,7 +81,7 @@ class LedgerFinancialCalculationServiceTest {
         when(ledgerEntryRepository.sumApprovedDebits(
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.INTEREST_EXPENSE))))
                 .thenReturn(new BigDecimal("20.0000"));
-        when(loanRepository.sumOutstandingPrincipalByStatuses(
+        when(loanRepository.sumOutstandingPrincipalExcludingImported(
                         eq(cooperativeId), eq(EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE))))
                 .thenReturn(new BigDecimal("2000.0000"));
         when(ledgerEntryRepository.sumApprovedDebits(
@@ -99,9 +109,58 @@ class LedgerFinancialCalculationServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(ledgerEntryRepository.sumApprovedDebits(eq(cooperativeId), any(Collection.class)))
                 .thenReturn(BigDecimal.ZERO);
-        when(loanRepository.sumOutstandingPrincipalByStatuses(eq(cooperativeId), any(Collection.class)))
+        when(loanRepository.sumOutstandingPrincipalExcludingImported(eq(cooperativeId), any(Collection.class)))
                 .thenReturn(BigDecimal.ZERO);
 
         assertThat(service.calculateAvailableGroupFund(cooperativeId)).isEqualByComparingTo("0.00");
+    }
+
+
+    @Test
+    void explicitCutoverCashIsNotReducedByImportedLoansAndIgnoresMemberBalances() {
+        when(ledgerEntryRepository.sumApprovedCredits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(ledgerEntryRepository.sumApprovedDebits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(historicalImportRepository.sumOpeningAvailableFunds(eq(cooperativeId), any()))
+                .thenReturn(new BigDecimal("800000.0000"));
+        // the 400,000 imported loan is excluded from the deduction: only OuWealth-issued loans reduce cash
+        when(loanRepository.sumOutstandingPrincipalExcludingImported(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+
+        assertThat(service.calculateAvailableGroupFund(cooperativeId)).isEqualByComparingTo("800000.00");
+        // member lifetime balances never feed the cash position
+        org.mockito.Mockito.verifyNoInteractions(openingBalanceRepository);
+        // the repository query used for deduction is the non-imported one, never the all-loans sum
+        org.mockito.Mockito.verify(loanRepository, org.mockito.Mockito.never())
+                .sumOutstandingPrincipalByStatuses(any(), any());
+    }
+
+    @Test
+    void principalRepaidOnImportedLoansAfterCutoverIsCashIn_andLiveLoansStillReduceCash() {
+        when(ledgerEntryRepository.sumApprovedCredits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(ledgerEntryRepository.sumApprovedDebits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(historicalImportRepository.sumOpeningAvailableFunds(eq(cooperativeId), any()))
+                .thenReturn(new BigDecimal("800000.0000"));
+        when(loanRepaymentRepository.sumPrincipalRepaidOnImportedLoans(cooperativeId))
+                .thenReturn(new BigDecimal("100000.0000"));
+        when(loanRepository.sumOutstandingPrincipalExcludingImported(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(new BigDecimal("30000.0000"));
+
+        // 800,000 + 100,000 repaid principal - 30,000 lent from OuWealth
+        assertThat(service.calculateAvailableGroupFund(cooperativeId)).isEqualByComparingTo("870000.00");
+    }
+
+    @Test
+    void schemeWithoutMigrationKeepsThePreviousFormula() {
+        when(ledgerEntryRepository.sumApprovedCredits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(ledgerEntryRepository.sumApprovedDebits(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(loanRepository.sumOutstandingPrincipalExcludingImported(eq(cooperativeId), any(Collection.class)))
+                .thenReturn(new BigDecimal("2000.0000"));
+        assertThat(service.calculateAvailableGroupFund(cooperativeId)).isEqualByComparingTo("-2000.00");
     }
 }

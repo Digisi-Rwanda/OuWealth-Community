@@ -16,7 +16,7 @@ const LONG_TIMEOUT_MS = 120_000
 
 export async function downloadHistoricalImportTemplate(
   cooperativeId: string,
-  fallbackFilename = 'historical-import-template.xlsx',
+  fallbackFilename = 'ikimina-migration-template.xlsx',
 ): Promise<{ filename: string }> {
   const response = await apiClient.get(
     `/cooperatives/${cooperativeId}/historical-imports/template`,
@@ -35,9 +35,13 @@ export async function downloadHistoricalImportTemplate(
 export async function previewHistoricalImport(
   cooperativeId: string,
   file: File,
+  cutoverDate: string,
+  openingAvailableFunds: string,
 ): Promise<HistoricalImportPreview> {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('cutoverDate', cutoverDate)
+  formData.append('openingAvailableFunds', openingAvailableFunds)
   const response = await apiClient.post<ApiResponse<HistoricalImportPreview>>(
     `/cooperatives/${cooperativeId}/historical-imports/preview`,
     formData,

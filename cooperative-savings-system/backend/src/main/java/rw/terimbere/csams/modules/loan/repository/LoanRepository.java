@@ -212,6 +212,7 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
             SELECT COUNT(l)
             FROM Loan l
             WHERE l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NULL
               AND l.disbursementDate IS NOT NULL
               AND l.disbursementDate >= :fromDate
               AND l.disbursementDate <= :toDate
@@ -228,6 +229,7 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
             SELECT COALESCE(SUM(l.principalAmount), 0)
             FROM Loan l
             WHERE l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NULL
               AND l.disbursementDate IS NOT NULL
               AND l.disbursementDate >= :fromDate
               AND l.disbursementDate <= :toDate
@@ -253,6 +255,7 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
                    COALESCE(SUM(l.principalAmount), 0)
             FROM Loan l
             WHERE l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NULL
               AND l.disbursementDate IS NOT NULL
               AND l.disbursementDate >= :fromDate
               AND l.disbursementDate <= :toDate
@@ -277,6 +280,7 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
                    COALESCE(SUM(l.principalAmount), 0)
             FROM Loan l
             WHERE l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NULL
               AND l.disbursementDate IS NOT NULL
               AND l.disbursementDate >= :fromDate
               AND l.disbursementDate <= :toDate
@@ -313,4 +317,19 @@ public interface LoanRepository extends JpaRepository<Loan, UUID> {
             @Param("cooperativeId") UUID cooperativeId,
             @Param("today") LocalDate today,
             Pageable pageable);
+
+    /**
+     * Outstanding principal of loans issued inside OuWealth. Loans imported by the opening-balance
+     * migration are excluded: the explicit cutover cash is already net of them.
+     */
+    @Query(
+            """
+            SELECT COALESCE(SUM(l.outstandingPrincipal), 0)
+            FROM Loan l
+            WHERE l.cooperativeId = :cooperativeId
+              AND l.openingImportId IS NULL
+              AND l.status IN :statuses
+            """)
+    BigDecimal sumOutstandingPrincipalExcludingImported(
+            @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<LoanStatus> statuses);
 }

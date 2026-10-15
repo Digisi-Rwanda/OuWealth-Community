@@ -12,6 +12,7 @@ import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.ledger.repository.LedgerEntryRepository;
 import rw.terimbere.csams.modules.loan.entity.LoanStatus;
 import rw.terimbere.csams.modules.loan.repository.LoanRepository;
+import rw.terimbere.csams.modules.membership.repository.MemberOpeningBalanceRepository;
 import rw.terimbere.csams.shared.utilities.MoneyUtils;
 
 /**
@@ -25,7 +26,9 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
  *   + returnedInvestmentCapital (INVESTMENT_CAPITAL_RETURN)
  *   + approved SHARE_PURCHASE credits (cash in; part of availableFunds / total Ikimina value)
  *   + availableInterest
- *   − outstandingLoanPrincipal (ACTIVE/OVERDUE)
+ *   + openingAvailableFunds (explicit cash at the migration cutover; 0 when not migrated)
+ *   + principal repaid after the cutover on migrated loans
+ *   − outstandingLoanPrincipal (ACTIVE/OVERDUE, loans issued in OuWealth only)
  *   − investmentOutflows (INVESTMENT_OUTFLOW debits)
  *   − generalExpenses (GENERAL_EXPENSE)
  *   − memberPayouts (MEMBER_PAYOUT debits)
@@ -49,6 +52,9 @@ public class LedgerFinancialCalculationService implements FinancialCalculationSe
     private final LedgerEntryRepository ledgerEntryRepository;
     private final LoanRepository loanRepository;
     private final InvestmentRepository investmentRepository;
+    private final MemberOpeningBalanceRepository openingBalanceRepository;
+    private final rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRepository historicalImportRepository;
+    private final rw.terimbere.csams.modules.loanrepayment.repository.LoanRepaymentRepository loanRepaymentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,10 +73,15 @@ public class LedgerFinancialCalculationService implements FinancialCalculationSe
                         MoneyUtils.add(otherIncome, returnedCapital)),
                 MoneyUtils.add(sharePurchases, availableInterest));
 
-        BigDecimal outstandingPrincipal = loanRepository.sumOutstandingPrincipalByStatuses(
+        // Loans issued inside OuWealth reduce cash. Loans imported by the migration do not: the explicit
+        // cutover cash is already net of them. Principal repaid on them after the cutover is cash coming in.
+        BigDecimal outstandingPrincipal = loanRepository.sumOutstandingPrincipalExcludingImported(
                 cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE));
         BigDecimal outstanding =
                 MoneyUtils.scale(outstandingPrincipal == null ? BigDecimal.ZERO : outstandingPrincipal);
+        BigDecimal opening = MoneyUtils.add(
+                sumOpeningAvailableFunds(cooperativeId), sumPrincipalRepaidOnImportedLoans(cooperativeId));
+        credits = MoneyUtils.add(credits, opening);
 
         BigDecimal investmentOutflows =
                 sumApprovedDebitsByType(cooperativeId, LedgerTransactionType.INVESTMENT_OUTFLOW);
@@ -82,6 +93,32 @@ public class LedgerFinancialCalculationService implements FinancialCalculationSe
                         MoneyUtils.subtract(MoneyUtils.subtract(credits, outstanding), investmentOutflows),
                         generalExpenses),
                 memberPayouts);
+    }
+
+    /** Opening regular contributions through the migration cutover (balance, not a transaction). */
+    @Transactional(readOnly = true)
+    public BigDecimal sumOpeningContributions(UUID cooperativeId) {
+        BigDecimal contributions = openingBalanceRepository.sumOpeningContributions(cooperativeId);
+        return MoneyUtils.scale(contributions == null ? BigDecimal.ZERO : contributions);
+    }
+
+
+    /**
+     * Explicit cash position at the migration cutover, as entered by the Saving Scheme. It is never derived
+     * from member contributions, share capital or loans: those are lifetime member facts, not cash.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal sumOpeningAvailableFunds(UUID cooperativeId) {
+        BigDecimal funds = historicalImportRepository.sumOpeningAvailableFunds(
+                cooperativeId, rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportStatus.CONFIRMED);
+        return MoneyUtils.scale(funds == null ? BigDecimal.ZERO : funds);
+    }
+
+    /** Principal repaid after the cutover on migrated loans: cash received that the cutover cash excludes. */
+    @Transactional(readOnly = true)
+    public BigDecimal sumPrincipalRepaidOnImportedLoans(UUID cooperativeId) {
+        BigDecimal repaid = loanRepaymentRepository.sumPrincipalRepaidOnImportedLoans(cooperativeId);
+        return MoneyUtils.scale(repaid == null ? BigDecimal.ZERO : repaid);
     }
 
     @Transactional(readOnly = true)

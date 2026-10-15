@@ -69,4 +69,22 @@ public class MemberFinancialSummaryResponse {
     private Integer sharesHeld;
     private BigDecimal currentShareValue;
     private BigDecimal totalShareValue;
+
+    /**
+     * Opening balance imported at the migration cutover (not a transaction). Already included in
+     * {@link #regularContributions}; shown separately so it can be labelled
+     * "Opening balance through {@link #openingCutoverDate}".
+     */
+    private BigDecimal openingContributions;
+
+    private LocalDate openingCutoverDate;
+
+    /** Shares owned at the cutover (already part of {@link #sharesHeld}). */
+    private Integer openingShareCount;
+
+    /** Share capital historically paid before OuWealth (not valued: current share value is separate). */
+    private BigDecimal openingShareCapital;
+
+    /** Opening share capital + approved share purchases made in OuWealth. */
+    private BigDecimal contributedShareCapital;
 }

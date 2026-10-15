@@ -19,6 +19,8 @@ public class HistoricalImportSummaryResponse {
     private String originalFilename;
     private String fileHash;
     private HistoricalImportStatus status;
+    private String format;
+    private java.time.LocalDate cutoverDate;
     private int totalRows;
     private int validRows;
     private int invalidRows;

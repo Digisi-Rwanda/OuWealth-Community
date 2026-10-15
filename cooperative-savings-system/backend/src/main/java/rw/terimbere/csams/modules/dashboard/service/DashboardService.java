@@ -126,7 +126,10 @@ public class DashboardService {
         long activeMembers = membershipRepository.countByCooperativeIdAndMembershipStatus(cooperativeId, "ACTIVE");
 
         BigDecimal regularFromTable = contributionRepository.sumPaidForPeriod(cooperativeId, null, null);
-        BigDecimal regular = MoneyUtils.scale(regularFromTable == null ? BigDecimal.ZERO : regularFromTable);
+        // Lifetime regular contributions include the opening balance imported at the migration cutover.
+        BigDecimal regular = MoneyUtils.add(
+                MoneyUtils.scale(regularFromTable == null ? BigDecimal.ZERO : regularFromTable),
+                financialCalculationService.sumOpeningContributions(cooperativeId));
 
         BigDecimal special = financialCalculationService.sumApprovedCreditsByType(
                 cooperativeId, LedgerTransactionType.SPECIAL_CONTRIBUTION);
