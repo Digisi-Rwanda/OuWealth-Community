@@ -2567,7 +2567,6 @@
     }
   },
   "historicalImport": {
-    "instructions": "Iyi nzira ni iy'ibimina byakoraga mbere yo kwinjira muri OuWealth. Andika amafaranga buri munyamuryango yatanze n'imigabane afite kugeza ku itariki yo guhindura, hamwe n'inguzanyo zikiri hanze kuri iyo tariki. OuWealth izabifata nk'imibare y'intangiriro, hanyuma ikomeze kwandika ibikorwa bishya nyuma y'iyo tariki.",
     "points": {
       "sheets": "Inyandiko ya Excel igizwe n'impapuro eshatu: Member Registration, Share Capital Registration na Loan Registration. Ntugahindure amazina yazo cyangwa ngo wongereho izindi.",
       "username": "Izina ry'ukoresha (Username) rihuza impapuro. Buri Username iri ku rupapuro rw'imigabane cyangwa inguzanyo igomba kuba iri muri Member Registration cyangwa isanzwe iri muri iki kimina.",
@@ -2582,12 +2581,12 @@
     "chooseFile": "Hitamo dosiye",
     "noFile": "Nta dosiye yahiswemo",
     "preview": "Suzuma",
-    "previewTitle": "Incamake y'isuzuma",
+    "previewTitle": "Isuzuma ry'ibyinjizwa",
     "previewSuccess": "Isuzuma ryateguwe",
     "previewFailed": "Isuzuma ryananiwe",
     "templateSuccess": "Byamanuye {{filename}}",
     "cutoverDate": "Amateka agera ku itariki",
-    "cutoverHelp": "Imibare ni uko ikimina cyari kimeze ku iherezo ry'uyu munsi. OuWealth izandika ibiba nyuma yawo.",
+    "cutoverHelp": "Umunsi wa nyuma amateka agezeho.",
     "cutoverNotice": "Imibare yose iri hasi ni uko ikimina cyari kimeze ku iherezo rya {{date}}.",
     "legacyFormat": "Uburyo bwa kera",
     "sections": {
@@ -2652,8 +2651,11 @@
       "FAILED": "Byananiranye"
     },
     "openingFunds": "Amafaranga ikimina gifite ku itariki yo guhindura (RWF)",
-    "openingFundsHelp": "Ni amafaranga nyakuri ikimina cyari gifite ku iherezo ry'itariki yo guhindura. Ntukandike amafaranga yose abanyamuryango batanze mu mateka keretse ari yo mafaranga asigaye koko.",
-    "openingFundsInvalid": "Andika umubare utari munsi ya 0, ufite imibare ibiri nyuma y'akadomo cyane (nta nkomane)."
+    "openingFundsHelp": "Amafaranga ikimina gifite koko kuri iyo tariki.",
+    "openingFundsInvalid": "Andika umubare utari munsi ya 0, ufite imibare ibiri nyuma y'akadomo cyane (nta nkomane).",
+    "setupTitle": "Gutegura kwinjiza amateka",
+    "setupDescription": "Injiza uko ikimina cyari kimeze ku munsi cyatangiriyeho gukoresha OuWealth.",
+    "setupHint": "Koresha inyandiko ya Excel utange abanyamuryango, imigabane n'inguzanyo zikiri hanze."
   },
   "theme": {
     "label": "Isura",

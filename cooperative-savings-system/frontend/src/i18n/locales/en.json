@@ -2583,7 +2583,6 @@
     }
   },
   "historicalImport": {
-    "instructions": "This migration is for Saving Schemes that were operating before joining OuWealth. Enter each member's historical contribution and share balances, plus any loans that are still outstanding as of the cutover date. OuWealth will use these as opening balances and continue recording new activity after that date.",
     "points": {
       "sheets": "The workbook has three sheets: Member Registration, Share Capital Registration and Loan Registration. Do not rename or add sheets.",
       "username": "The Username connects the sheets. Every Username on the Share Capital and Loan sheets must exist in Member Registration or already belong to this Saving Scheme.",
@@ -2598,12 +2597,12 @@
     "chooseFile": "Choose File",
     "noFile": "No file selected",
     "preview": "Preview Import",
-    "previewTitle": "Validation summary",
+    "previewTitle": "Import preview",
     "previewSuccess": "Workbook preview is ready",
     "previewFailed": "Preview failed",
     "templateSuccess": "Downloaded {{filename}}",
     "cutoverDate": "Historical data through",
-    "cutoverHelp": "Balances are the position at the end of this day. OuWealth records everything after it.",
+    "cutoverHelp": "Last day covered by historical records.",
     "cutoverNotice": "All balances below are the Saving Scheme position at the end of {{date}}.",
     "legacyFormat": "Earlier format",
     "sections": {
@@ -2668,8 +2667,11 @@
       "FAILED": "Failed"
     },
     "openingFunds": "Available Group Funds at Cutover (RWF)",
-    "openingFundsHelp": "The actual funds available to the Saving Scheme at the end of the cutover date. Do not enter total historical contributions unless that is also the actual available balance.",
-    "openingFundsInvalid": "Enter a number of 0 or more, with at most two decimals (no commas)."
+    "openingFundsHelp": "Actual funds available at the cutover date.",
+    "openingFundsInvalid": "Enter a number of 0 or more, with at most two decimals (no commas).",
+    "setupTitle": "Historical migration setup",
+    "setupDescription": "Import the Saving Scheme's opening position as of the date it started using OuWealth.",
+    "setupHint": "Use the template to provide members, share capital and outstanding loans."
   },
   "theme": {
     "label": "Theme",

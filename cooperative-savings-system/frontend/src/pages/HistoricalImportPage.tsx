@@ -234,89 +234,103 @@ export function HistoricalImportPage() {
       />
 
       <Stack spacing={3}>
-        <Alert severity="info">
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            {t('historicalImport.instructions')}
-          </Typography>
-          <Box component="ul" sx={{ m: 0, pl: 3 }}>
-            {(['sheets', 'availableFunds', 'username', 'nationalId', 'loans', 'loanTypes', 'schedule', 'noTransactions'] as const).map(
-              (key) => (
-                <li key={key}>
-                  <Typography variant="body2">{t(`historicalImport.points.${key}`)}</Typography>
-                </li>
-              ),
-            )}
-          </Box>
-        </Alert>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  {t('historicalImport.setupTitle')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('historicalImport.setupDescription')} {t('historicalImport.setupHint')}
+                </Typography>
+              </Box>
 
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' } }}>
-          <TextField
-            type="date"
-            required
-            size="small"
-            label={t('historicalImport.cutoverDate')}
-            helperText={t('historicalImport.cutoverHelp')}
-            value={cutoverDate}
-            onChange={(event) => {
-              setCutoverDate(event.target.value)
-              setPreview(null)
-              setConfirmResult(null)
-            }}
-            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
-            sx={{ minWidth: 260 }}
-          />
-          <TextField
-            required
-            size="small"
-            label={t('historicalImport.openingFunds')}
-            helperText={
-              openingFunds.trim() && !fundsValid
-                ? t('historicalImport.openingFundsInvalid')
-                : t('historicalImport.openingFundsHelp')
-            }
-            error={Boolean(openingFunds.trim()) && !fundsValid}
-            value={openingFunds}
-            onChange={(event) => {
-              setOpeningFunds(event.target.value)
-              setPreview(null)
-              setConfirmResult(null)
-            }}
-            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-            sx={{ minWidth: 300 }}
-          />
-          <Button
-            variant="outlined"
-            onClick={() => templateMutation.mutate()}
-            disabled={templateMutation.isPending}
-          >
-            {t('historicalImport.downloadTemplate')}
-          </Button>
-          <Button variant="outlined" component="label">
-            {t('historicalImport.chooseFile')}
-            <input
-              ref={fileInputRef}
-              hidden
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(event) => {
-                const selected = event.target.files?.[0] ?? null
-                setFile(selected)
-                setPreview(null)
-                setConfirmResult(null)
-              }}
-            />
-          </Button>
-          <Typography variant="body2" color="text.secondary">
-            {file?.name ?? t('historicalImport.noFile')}
-          </Typography>
-          <Button
-            variant="contained"
-            disabled={!canPreview}
-            onClick={() => file && previewMutation.mutate(file)}
-          >
-            {t('historicalImport.preview')}
-          </Button>
-        </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'flex-start' } }}>
+                <TextField
+                  type="date"
+                  required
+                  size="small"
+                  label={t('historicalImport.cutoverDate')}
+                  helperText={t('historicalImport.cutoverHelp')}
+                  value={cutoverDate}
+                  onChange={(event) => {
+                    setCutoverDate(event.target.value)
+                    setPreview(null)
+                    setConfirmResult(null)
+                  }}
+                  slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
+                  sx={{ width: { xs: '100%', sm: 230 } }}
+                />
+                <TextField
+                  required
+                  size="small"
+                  label={t('historicalImport.openingFunds')}
+                  helperText={
+                    openingFunds.trim() && !fundsValid
+                      ? t('historicalImport.openingFundsInvalid')
+                      : t('historicalImport.openingFundsHelp')
+                  }
+                  error={Boolean(openingFunds.trim()) && !fundsValid}
+                  value={openingFunds}
+                  onChange={(event) => {
+                    setOpeningFunds(event.target.value)
+                    setPreview(null)
+                    setConfirmResult(null)
+                  }}
+                  slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+                  sx={{ width: { xs: '100%', sm: 250 } }}
+                />
+              </Stack>
+
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 1.5, sm: 2 }}
+                sx={{ alignItems: { sm: 'center' } }}
+              >
+                <Button
+                  variant="outlined"
+                  onClick={() => templateMutation.mutate()}
+                  disabled={templateMutation.isPending}
+                >
+                  {t('historicalImport.downloadTemplate')}
+                </Button>
+                <Button variant="outlined" component="label">
+                  {t('historicalImport.chooseFile')}
+                  <input
+                    ref={fileInputRef}
+                    hidden
+                    type="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={(event) => {
+                      const selected = event.target.files?.[0] ?? null
+                      setFile(selected)
+                      setPreview(null)
+                      setConfirmResult(null)
+                    }}
+                  />
+                </Button>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  title={file?.name ?? undefined}
+                  noWrap
+                  sx={{ maxWidth: { xs: '100%', sm: 280 }, minWidth: 0 }}
+                >
+                  {file?.name ?? t('historicalImport.noFile')}
+                </Typography>
+                <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
+                <Button
+                  variant="contained"
+                  disabled={!canPreview}
+                  onClick={() => file && previewMutation.mutate(file)}
+                >
+                  {t('historicalImport.preview')}
+                </Button>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
 
         {previewMutation.isPending && <LoadingState />}
         {previewMutation.isError && (
@@ -328,14 +342,20 @@ export function HistoricalImportPage() {
 
         {preview && (
           <Stack spacing={2}>
-            <Typography variant="h6">{t('historicalImport.previewTitle')}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('historicalImport.cutoverNotice', { date: formatDate(previewCutover) })}
-            </Typography>
-            <Typography variant="subtitle1">
-              {t('historicalImport.metrics.openingFunds')}:{' '}
-              <strong>{formatMoney(migration?.openingAvailableFunds)}</strong>
-            </Typography>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {t('historicalImport.previewTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('historicalImport.cutoverDate')}: {formatDate(previewCutover)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('historicalImport.metrics.openingFunds')}:{' '}
+                <Box component="span" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                  {formatMoney(migration?.openingAvailableFunds)}
+                </Box>
+              </Typography>
+            </Box>
             <Box
               sx={{
                 display: 'grid',
@@ -418,13 +438,17 @@ export function HistoricalImportPage() {
               }
             />
 
-            <Button
-              variant="contained"
-              disabled={!confirmEnabled || confirmMutation.isPending}
-              onClick={() => setConfirmOpen(true)}
-            >
-              {t('historicalImport.confirm')}
-            </Button>
+            <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+              <Button
+                variant="contained"
+                fullWidth={false}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+                disabled={!confirmEnabled || confirmMutation.isPending}
+                onClick={() => setConfirmOpen(true)}
+              >
+                {t('historicalImport.confirm')}
+              </Button>
+            </Box>
           </Stack>
         )}
 

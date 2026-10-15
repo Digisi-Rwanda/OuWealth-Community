@@ -142,19 +142,14 @@ beforeEach(() => {
 })
 
 describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }, () => {
-  it('explains the migration and what to import', async () => {
+  it('shows a short setup description instead of a large instruction panel', async () => {
     renderPage()
-    expect(await screen.findByText(/operating before joining OuWealth/i)).toBeInTheDocument()
-    expect(screen.getByText(/National ID is optional/i)).toBeInTheDocument()
-    expect(screen.getByText(/The Username connects the sheets/i)).toBeInTheDocument()
-    expect(screen.getByText(/Import only loans that are still outstanding/i)).toBeInTheDocument()
-    expect(screen.getByText(/END_OF_TERM \(principal and interest/i)).toBeInTheDocument()
-    expect(screen.getByText(/remaining amortization schedule/i)).toBeInTheDocument()
-    expect(screen.getByText(/does not recreate them as new contributions/i)).toBeInTheDocument()
-    expect(screen.getByText(/real cash position at the cutover date/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/Do not enter total historical contributions unless that is also the actual available balance/i),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Historical migration setup')).toBeInTheDocument()
+    expect(screen.getByText(/opening position as of the date it started using OuWealth/i)).toBeInTheDocument()
+    expect(screen.getByText(/Last day covered by historical records/i)).toBeInTheDocument()
+    expect(screen.getByText(/Actual funds available at the cutover date/i)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByText(/The Username connects the sheets/i)).not.toBeInTheDocument()
   })
 
   it('requires the cutover date before a file can be previewed', async () => {
@@ -189,7 +184,8 @@ describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }
       fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
     })
 
-    expect(await screen.findByText(/position at the end of 30 Sep 2026/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Import preview/i)).toBeInTheDocument()
+    expect(screen.getByText(/Historical data through: 30 Sep 2026/i)).toBeInTheDocument()
     expect(screen.getByText(/Available Group Funds at Cutover:/i)).toBeInTheDocument()
     const members = screen.getByText('Members').closest('.MuiCard-root') as HTMLElement
     expect(within(members).getByText('Opening contributions')).toBeInTheDocument()
@@ -304,6 +300,5 @@ describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }
           )
         : [prefix]
     expect(flatten(rw.historicalImport).sort()).toEqual(flatten(en.historicalImport).sort())
-    expect(rw.historicalImport.instructions.length).toBeGreaterThan(40)
   })
 })
