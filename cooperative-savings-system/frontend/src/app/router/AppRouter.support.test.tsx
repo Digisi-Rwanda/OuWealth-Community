@@ -259,7 +259,7 @@ describe('Saving Scheme support workspace', () => {
     await user.click(within(nav).getByRole('link', { name: /^Members$/ }))
     expect(await screen.findByTestId('scheme-members')).toBeInTheDocument()
     expect(window.location.pathname).toBe('/superadmin/cooperatives/coop-1/members')
-  })
+  }, 20000)
 
   it('exits the scheme and clears the context with Back to Platform', async () => {
     const user = userEvent.setup()

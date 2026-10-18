@@ -87,16 +87,24 @@ class OpeningBalanceMigrationIntegrationTest {
     // ------------------------------------------------------------------ template / authorization / cutover
 
     @Test
-    void template_isTheThreeSheetWorkbook_andOnlyLeadershipCanUseIt() throws Exception {
+    void template_isTheTwoSheetWorkbook_andOnlyLeadershipCanUseIt() throws Exception {
         MvcResult result = mockMvc.perform(get(base(cooperativeId) + "/template")
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
                 .andReturn();
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
-            assertThat(workbook.getNumberOfSheets()).isEqualTo(3);
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(2);
             assertThat(workbook.getSheetName(0)).isEqualTo("Member Registration");
             assertThat(workbook.getSheetName(1)).isEqualTo("Share Capital Registration");
-            assertThat(workbook.getSheetName(2)).isEqualTo("Loan Registration");
+        }
+        // loans are imported separately, with their own one-sheet template
+        MvcResult loanTemplate = mockMvc.perform(get(base(cooperativeId) + "/loan-template")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(loanTemplate.getResponse().getContentAsByteArray()))) {
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(1);
+            assertThat(workbook.getSheetName(0)).isEqualTo("Loan Registration");
         }
 
         String president = registerAndLogin(cooperativeId, "PRESIDENT");
@@ -128,7 +136,9 @@ class OpeningBalanceMigrationIntegrationTest {
                         .file(file)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isBadRequest());
-        mockMvc.perform(preview(file, "2099-01-01", superAdminToken)).andExpect(status().isBadRequest());
+        mockMvc.perform(preview(file, "2099-01-01", superAdminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CUTOVER_IN_FUTURE"));
         mockMvc.perform(preview(file, CUTOVER, superAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.cutoverDate").value(CUTOVER))
@@ -155,12 +165,8 @@ class OpeningBalanceMigrationIntegrationTest {
         assertThat(preview.path("migration").path("shareCapital").path("totalOpeningShares").asLong()).isEqualTo(8);
         assertThat(preview.path("migration").path("shareCapital").path("totalOpeningShareCapital").decimalValue())
                 .isEqualByComparingTo("240000");
-        JsonNode loans = preview.path("migration").path("loans");
-        assertThat(loans.path("endOfTermCount").asInt()).isEqualTo(1);
-        assertThat(loans.path("monthlyCount").asInt()).isEqualTo(1);
-        assertThat(loans.path("totalOriginalPrincipal").decimalValue()).isEqualByComparingTo("1300000");
-        assertThat(loans.path("totalOutstandingPrincipal").decimalValue()).isEqualByComparingTo("750000");
-        assertThat(loans.path("totalAmountPaid").decimalValue()).isEqualByComparingTo("600000");
+        assertThat(preview.path("kind").asText()).isEqualTo("OPENING_BALANCE");
+        assertThat(preview.path("migration").path("loans").path("totalRows").asInt()).isZero();
         // preview never persists business data
         assertThat(userRepository.findByUsernameIgnoreCaseAndDeletedFalse(alice)).isEmpty();
         assertThat(openingBalanceRepository.findByCooperativeId(cooperativeId)).isEmpty();
@@ -170,14 +176,10 @@ class OpeningBalanceMigrationIntegrationTest {
         assertThat(result.path("membersImported").asInt()).isEqualTo(2);
         assertThat(result.path("memberOpeningBalancesImported").asInt()).isEqualTo(2);
         assertThat(result.path("shareOpeningBalancesImported").asInt()).isEqualTo(2);
-        assertThat(result.path("loansImported").asInt()).isEqualTo(2);
-        assertThat(result.path("loanInstallmentsCreated").asInt()).isEqualTo(11); // 10 remaining monthly + 1 end-of-term
+        assertThat(result.path("loansImported").asInt()).isZero();
         assertThat(result.path("totalHistoricalContributions").decimalValue()).isEqualByComparingTo("850000");
         assertThat(result.path("totalHistoricalShares").asLong()).isEqualTo(8);
         assertThat(result.path("totalHistoricalShareCapital").decimalValue()).isEqualByComparingTo("240000");
-        assertThat(result.path("totalOriginalLoanAmount").decimalValue()).isEqualByComparingTo("1300000");
-        assertThat(result.path("totalOutstandingLoanPrincipal").decimalValue()).isEqualByComparingTo("750000");
-        assertThat(result.path("totalHistoricalLoanPayments").decimalValue()).isEqualByComparingTo("600000");
 
         HistoricalImport stored = historicalImportRepository.findById(importId).orElseThrow();
         assertThat(stored.getStatus()).isEqualTo(HistoricalImportStatus.CONFIRMED);
@@ -234,9 +236,33 @@ class OpeningBalanceMigrationIntegrationTest {
         assertThat(ledgerEntryRepository.findAll().stream().filter(l -> cooperativeId.equals(l.getCooperativeId())))
                 .isEmpty();
 
+        // the loans outstanding at the cutover come in separately, on top of the confirmed opening balances
+        assertThat(loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent()).isEmpty();
+        JsonNode loanPreview = previewOk(loanWorkbook(alice, bob).file("loans.xlsx"));
+        assertThat(loanPreview.path("status").asText()).as(loanPreview.path("errors").toString()).isEqualTo("READY");
+        assertThat(loanPreview.path("kind").asText()).isEqualTo("OPENING_LOANS");
+        JsonNode loans = loanPreview.path("migration").path("loans");
+        assertThat(loans.path("endOfTermCount").asInt()).isEqualTo(1);
+        assertThat(loans.path("monthlyCount").asInt()).isEqualTo(1);
+        assertThat(loans.path("totalOriginalPrincipal").decimalValue()).isEqualByComparingTo("1300000");
+        assertThat(loans.path("totalOutstandingPrincipal").decimalValue()).isEqualByComparingTo("750000");
+        assertThat(loans.path("totalAmountPaid").decimalValue()).isEqualByComparingTo("600000");
+        UUID loanImportId = UUID.fromString(loanPreview.path("importId").asText());
+        JsonNode loanResult = confirmOk(loanImportId);
+        assertThat(loanResult.path("membersImported").asInt()).isZero();
+        assertThat(loanResult.path("memberOpeningBalancesImported").asInt()).isZero();
+        assertThat(loanResult.path("loansImported").asInt()).isEqualTo(2);
+        assertThat(loanResult.path("loanInstallmentsCreated").asInt()).isEqualTo(11); // 10 remaining monthly + 1 end-of-term
+        assertThat(loanResult.path("totalOriginalLoanAmount").decimalValue()).isEqualByComparingTo("1300000");
+        assertThat(loanResult.path("totalOutstandingLoanPrincipal").decimalValue()).isEqualByComparingTo("750000");
+        assertThat(loanResult.path("totalHistoricalLoanPayments").decimalValue()).isEqualByComparingTo("600000");
+        assertThat(contributionRepository.findAll().stream().filter(c -> cooperativeId.equals(c.getCooperativeId())))
+                .as("importing the loans creates no transactions either").isEmpty();
+        assertThat(ledgerEntryRepository.findAll().stream().filter(l -> cooperativeId.equals(l.getCooperativeId()))).isEmpty();
+
         // imported loans
         List<Loan> imported = loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent();
-        assertThat(imported).hasSize(2).allSatisfy(l -> assertThat(l.getOpeningImportId()).isEqualTo(importId));
+        assertThat(imported).hasSize(2).allSatisfy(l -> assertThat(l.getOpeningImportId()).isEqualTo(loanImportId));
         Loan monthly = imported.stream().filter(l -> l.getMemberUserId().equals(aliceUser.getId())).findFirst().orElseThrow();
         assertThat(monthly.getPrincipalAmount()).isEqualByComparingTo("1200000");
         assertThat(monthly.getOutstandingPrincipal()).isEqualByComparingTo("650000");
@@ -265,8 +291,15 @@ class OpeningBalanceMigrationIntegrationTest {
         assertThat(single.get(0).getDueDate()).isEqualTo(LocalDate.of(2026, 12, 30));
 
         // import rows link back to what they produced
-        List<HistoricalImportRow> rows = historicalImportRowRepository.findByImportIdOrderBySheetAscRowNumberAsc(importId);
-        assertThat(rows).isNotEmpty().allSatisfy(r -> assertThat(r.getResultingEntityId()).isNotNull());
+        for (UUID id : List.of(importId, loanImportId)) {
+            List<HistoricalImportRow> rows = historicalImportRowRepository.findByImportIdOrderBySheetAscRowNumberAsc(id);
+            assertThat(rows).isNotEmpty().allSatisfy(r -> assertThat(r.getResultingEntityId()).isNotNull());
+        }
+        // a second loan file is refused: the loans outstanding at the cutover are imported once
+        JsonNode secondLoans = previewOk(loanWorkbook(alice, bob).loan(alice, "END_OF_TERM", "50000", "2", "2026-08-01", "6", "", "", "")
+                .file("loans-again.xlsx"));
+        assertThat(secondLoans.path("status").asText()).isEqualTo("INVALID");
+        assertThat(secondLoans.path("errors").toString()).contains("LOANS_ALREADY_MIGRATED");
 
         // confirming again / uploading the same confirmed file again is refused
         mockMvc.perform(post(base(cooperativeId) + "/" + importId + "/confirm")
@@ -285,9 +318,11 @@ class OpeningBalanceMigrationIntegrationTest {
         // history exposes the import, cutover date and result
         mockMvc.perform(get(base(cooperativeId)).header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[?(@.status=='CONFIRMED')].format").value("OPENING_BALANCE"))
-                .andExpect(jsonPath("$.data[?(@.status=='CONFIRMED')].cutoverDate").value(CUTOVER));
-        mockMvc.perform(get(base(cooperativeId) + "/" + importId)
+                .andExpect(jsonPath("$.data[?(@.status=='CONFIRMED')].kind").value(
+                        org.hamcrest.Matchers.containsInAnyOrder("OPENING_BALANCE", "OPENING_LOANS")))
+                .andExpect(jsonPath("$.data[?(@.status=='CONFIRMED')].cutoverDate").value(
+                        org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(CUTOVER))));
+        mockMvc.perform(get(base(cooperativeId) + "/" + loanImportId)
                         .header("Authorization", "Bearer " + superAdminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.migration.result.loansImported").value(2));
@@ -300,6 +335,7 @@ class OpeningBalanceMigrationIntegrationTest {
         String alice = "alice_" + id8();
         String bob = "bob_" + id8();
         confirmOk(previewOk(fullWorkbook(alice, bob, "").file("fin.xlsx")).path("importId").asText());
+        confirmOk(previewOk(loanWorkbook(alice, bob).file("fin-loans.xlsx")).path("importId").asText());
         UUID aliceId = userRepository.findByUsernameIgnoreCaseAndDeletedFalse(alice).orElseThrow().getId();
         UUID bobId = userRepository.findByUsernameIgnoreCaseAndDeletedFalse(bob).orElseThrow().getId();
 
@@ -548,8 +584,8 @@ class OpeningBalanceMigrationIntegrationTest {
     @Test
     void loanRows_reportClearErrorsForEveryRule() throws Exception {
         String u = "ln_" + id8();
+        registerMember(cooperativeId, u, "MEMBER");
         MigrationWorkbooks workbook = MigrationWorkbooks.create()
-                .member("Loan Person", u, "0")
                 // row 2: outstanding above the original amount
                 .loan(u, "MONTHLY", "100000", "2", "2026-05-01", "6", "0", "100001", "")
                 // row 3: paid > 0 without a last payment date
@@ -596,16 +632,15 @@ class OpeningBalanceMigrationIntegrationTest {
     @Test
     void endOfTermLoan_needsOnlyCoreFields_andRejectsFullyRepaidLoans() throws Exception {
         String u = "eot_" + id8();
+        registerMember(cooperativeId, u, "MEMBER");
         JsonNode ok = previewOk(MigrationWorkbooks.create()
-                .member("Eot Person", u, "0")
                 .loan(u, "end_of_term", "500000", "1.5", "2026-04-15", "6", "", "", "")
                 .file("eot.xlsx"));
         assertThat(ok.path("status").asText()).isEqualTo("READY");
         assertThat(ok.path("migration").path("loans").path("totalOutstandingPrincipal").decimalValue())
                 .isEqualByComparingTo("500000");
         JsonNode repaid = previewOk(MigrationWorkbooks.create()
-                .member("Eot Two", "eot2_" + id8(), "0")
-                .loan("eot2_x", "MONTHLY", "100000", "2", "2026-05-01", "6", "112000", "0", "2026-09-01")
+                .loan(u, "MONTHLY", "100000", "2", "2026-05-01", "6", "112000", "0", "2026-09-01")
                 .file("repaid.xlsx"));
         assertThat(repaid.path("status").asText()).isEqualTo("INVALID");
     }
@@ -613,8 +648,8 @@ class OpeningBalanceMigrationIntegrationTest {
     @Test
     void zeroPaidMonthlyLoan_withBlankLastPaymentDate_isAccepted() throws Exception {
         String u = "zp_" + id8();
+        confirmOk(previewOk(MigrationWorkbooks.create().member("Zero Paid", u, "0").file("zp-open.xlsx")).path("importId").asText());
         JsonNode preview = previewOk(MigrationWorkbooks.create()
-                .member("Zero Paid", u, "0")
                 .loan(u, "MONTHLY", "300000", "2", "2026-09-15", "5", "0", "300000", "")
                 .file("zp.xlsx"));
         assertThat(preview.path("status").asText()).isEqualTo("READY");
@@ -631,6 +666,7 @@ class OpeningBalanceMigrationIntegrationTest {
     void oldFormatWorkbook_isRejectedWithTheDownloadLatestTemplateMessage() throws Exception {
         mockMvc.perform(preview(MigrationWorkbooks.file("old.xlsx", MigrationWorkbooks.legacyWorkbook()), CUTOVER, superAdminToken))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("OLD_TEMPLATE_NOT_SUPPORTED"))
                 .andExpect(jsonPath("$.message").value(
                         "This historical import format is no longer supported. Download the latest migration template."));
     }
@@ -649,7 +685,6 @@ class OpeningBalanceMigrationIntegrationTest {
         assertThat(preview.path("status").asText()).isEqualTo("INVALID");
         assertThat(preview.path("confirmAllowed").asBoolean()).isFalse();
         assertError(preview.path("errors"), "Share Capital Registration", null, "Sheet", "MISSING_SHEET");
-        assertError(preview.path("errors"), "Loan Registration", null, "Sheet", "MISSING_SHEET");
         assertError(preview.path("errors"), "Member Registration", 1, "Header", "BAD_HEADER");
         mockMvc.perform(post(base(cooperativeId) + "/" + preview.path("importId").asText() + "/confirm")
                         .header("Authorization", "Bearer " + superAdminToken))
@@ -710,6 +745,65 @@ class OpeningBalanceMigrationIntegrationTest {
                 .andExpect(status().is4xxClientError());
     }
 
+    // ------------------------------------------------------------------ loans are a separate import
+
+    @Test
+    void aLoanSheetInsideTheOpeningWorkbookIsRefusedAndNothingCanBeConfirmed() throws Exception {
+        String u = "mix_" + id8();
+        JsonNode preview = previewOk(MigrationWorkbooks.create()
+                .member("Mixed Up", u, "10000")
+                .shares(u, "1", "1000")
+                .loan(u, "END_OF_TERM", "100000", "2", "2026-05-01", "6", "", "", "")
+                .file("mixed.xlsx"));
+        assertThat(preview.path("status").asText()).isEqualTo("INVALID");
+        assertThat(preview.path("confirmAllowed").asBoolean()).isFalse();
+        assertError(preview.path("errors"), "Loan Registration", null, "Sheet", "LOAN_SHEET_NOT_ACCEPTED");
+        mockMvc.perform(post(base(cooperativeId) + "/" + preview.path("importId").asText() + "/confirm")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().is4xxClientError());
+        assertThat(openingBalanceRepository.findByCooperativeId(cooperativeId)).isEmpty();
+        assertThat(loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent()).isEmpty();
+    }
+
+    @Test
+    void loansAreAddedOnTopOfConfirmedOpeningBalances_neverBeforeThem() throws Exception {
+        String u = "first_" + id8();
+        registerMember(cooperativeId, u, "MEMBER");
+        JsonNode loanPreview = previewOk(MigrationWorkbooks.create()
+                .loan(u, "END_OF_TERM", "100000", "2", "2026-05-01", "6", "", "", "")
+                .file("loans-first.xlsx"));
+        assertThat(loanPreview.path("status").asText()).isEqualTo("READY");
+        MvcResult early = mockMvc.perform(post(base(cooperativeId) + "/" + loanPreview.path("importId").asText() + "/confirm")
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andReturn();
+        assertThat(early.getResponse().getStatus()).isEqualTo(422);
+        assertThat(early.getResponse().getContentAsString()).contains("OPENING_BALANCES_FIRST");
+        assertThat(loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent()).isEmpty();
+        assertThat(historicalImportRepository.findById(UUID.fromString(loanPreview.path("importId").asText())).orElseThrow().getStatus())
+                .as("a refused import stays as it was").isEqualTo(HistoricalImportStatus.READY);
+    }
+
+    @Test
+    void theLoanWorkbookCarriesNoCashPositionAndNeedsNoneToPreview() throws Exception {
+        String u = "nocash_" + id8();
+        registerMember(cooperativeId, u, "MEMBER");
+        MvcResult result = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(base(cooperativeId) + "/preview")
+                        .file(MigrationWorkbooks.create().loan(u, "END_OF_TERM", "100000", "2", "2026-05-01", "6", "", "", "").file("nc.xlsx"))
+                        .param("cutoverDate", CUTOVER)
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+        assertThat(data.path("kind").asText()).isEqualTo("OPENING_LOANS");
+        assertThat(data.path("migration").path("openingAvailableFunds").isNull()).isTrue();
+        // the opening workbook still needs the cash position
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(base(cooperativeId) + "/preview")
+                        .file(MigrationWorkbooks.create().member("Needs Cash", "nc_" + id8(), "1").file("nc2.xlsx"))
+                        .param("cutoverDate", CUTOVER)
+                        .header("Authorization", "Bearer " + superAdminToken))
+                .andExpect(status().isBadRequest());
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private MigrationWorkbooks fullWorkbook(String alice, String bob, String bobNationalId) {
@@ -717,7 +811,12 @@ class OpeningBalanceMigrationIntegrationTest {
                 .member("Alice  Mukamana   Uwase", alice, alice + "@test.local", "0781234567", "", "850000")
                 .member("Bob", bob, bob + "@test.local", "0788888888", bobNationalId, "0")
                 .shares(alice, "8", "240000")
-                .shares(bob, "0", "0")
+                .shares(bob, "0", "0");
+    }
+
+    /** The separate loan workbook for the members of {@link #fullWorkbook}. */
+    private MigrationWorkbooks loanWorkbook(String alice, String bob) {
+        return MigrationWorkbooks.create()
                 .loan(alice, "MONTHLY", "1200000", "2", "2026-01-05", "12", "600000", "650000", "2026-09-05")
                 .loan(bob, "END_OF_TERM", "100000", "3", "2026-06-30", "6", "", "", "");
     }

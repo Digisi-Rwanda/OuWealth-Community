@@ -16,7 +16,7 @@ import rw.terimbere.csams.modules.historicalimport.entity.HistoricalMigrationShe
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalMigrationSheet.Fields;
 
 /**
- * Builds the header-only opening-balance migration workbook: exactly three sheets, bold frozen header,
+ * Builds the header-only migration workbooks (the two-sheet opening balances and the one-sheet loans), bold frozen header,
  * column widths and column formats (dates, numbers, text). It contains no sample rows, so nothing in the
  * template can be imported by accident.
  */
@@ -37,7 +37,18 @@ final class MigrationTemplateWriter {
 
     private MigrationTemplateWriter() {}
 
+    /** The two-sheet opening-balance template: members and share capital. */
     static byte[] write() {
+        return write(List.of(
+                HistoricalMigrationSheet.MEMBER_REGISTRATION, HistoricalMigrationSheet.SHARE_CAPITAL_REGISTRATION));
+    }
+
+    /** The separate one-sheet template for loans still outstanding at the cutover. */
+    static byte[] writeLoans() {
+        return write(List.of(HistoricalMigrationSheet.LOAN_REGISTRATION));
+    }
+
+    private static byte[] write(List<HistoricalMigrationSheet> sheets) {
         try (Workbook workbook = new XSSFWorkbook();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Font bold = workbook.createFont();
@@ -51,7 +62,7 @@ final class MigrationTemplateWriter {
             CellStyle rate = style(workbook, format.getFormat("0.00##"));
             CellStyle text = style(workbook, format.getFormat("@"));
 
-            for (HistoricalMigrationSheet type : HistoricalMigrationSheet.values()) {
+            for (HistoricalMigrationSheet type : sheets) {
                 Sheet sheet = workbook.createSheet(type.getSheetName());
                 List<String> headers = type.getHeaders();
                 Row headerRow = sheet.createRow(0);

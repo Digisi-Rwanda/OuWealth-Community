@@ -84,6 +84,11 @@ function schemeNameField() {
 }
 
 function fillStep1() {
+  fillStep1Fields()
+  fireEvent.click(screen.getByRole('radio', { name: /Hybrid Savings/ }))
+}
+
+function fillStep1Fields() {
   fireEvent.change(schemeNameField(), { target: { value: 'Public Scheme' } })
   fireEvent.change(screen.getByLabelText(/Contact email/i), {
     target: { value: 'scheme@example.com' },
@@ -126,6 +131,22 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     await goNext()
     expect(await screen.findByText('Name is required')).toBeInTheDocument()
     expect(schemeNameField()).toBeInTheDocument()
+    expect(screen.queryByLabelText(/^First name/i)).not.toBeInTheDocument()
+  })
+
+  it('offers the three operating models and selects none by default', () => {
+    renderSignup()
+    expect(screen.getByText('Saving Scheme Operating Model')).toBeInTheDocument()
+    for (const name of [/Accumulating Savings/, /Rotating Savings/, /Hybrid Savings/]) {
+      expect(screen.getByRole('radio', { name })).not.toBeChecked()
+    }
+  })
+
+  it('requires an operating model before leaving step 1', async () => {
+    renderSignup()
+    fillStep1Fields()
+    await goNext()
+    expect((await screen.findAllByText('Select a Saving Scheme operating model')).length).toBeGreaterThan(0)
     expect(screen.queryByLabelText(/^First name/i)).not.toBeInTheDocument()
   })
 
@@ -186,6 +207,7 @@ describe('SignupPage onboarding wizard', { timeout: 15_000 }, () => {
     const payload = onboardMock.mock.calls[0][0]
     expect(payload.cooperative.name).toBe('Public Scheme')
     expect(payload.cooperative.currency).toBe('RWF')
+    expect(payload.cooperative.operatingModel).toBe('HYBRID')
     // no registration number is sent, and none is invented from the scheme name
     expect(payload.cooperative).not.toHaveProperty('registrationNumber')
     expect(JSON.stringify(payload)).not.toMatch(/registrationNumber/i)

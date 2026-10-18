@@ -98,6 +98,45 @@ app:
     trusted-proxies: ${TRUSTED_PROXIES:}
   fines:
     auto-generate-enabled: ${APP_FINES_AUTO_GENERATE_ENABLED:true}
+  payments:
+    verification:
+      # Secure default: a payment is verified and posted only on authoritative confirmation (an officer's cash
+      # confirmation, an imported statement line, or a signed provider callback). Payments that were already verified
+      # before this rule existed are flagged as legacy exceptions in the database (V39). Turning this off is an explicit,
+      # visible decision, never an accident of a missing setting.
+      require-trusted-confirmation: ${APP_PAYMENTS_REQUIRE_TRUSTED_CONFIRMATION:true}
+    # Receipt wording specific to this deployment, ADDED to the built-in English and Kinyarwanda vocabulary (never replacing
+    # it): comma-separated phrases meaning success, failure, pending, a neutral heading, or a list of past transactions. A
+    # receipt reading is advisory only: success never verifies or posts a payment. Blank (the default) adds nothing.
+    receipt-vocabulary:
+      extra-success: ${APP_PAYMENTS_RECEIPTVOCABULARY_EXTRASUCCESS:}
+      extra-failed: ${APP_PAYMENTS_RECEIPTVOCABULARY_EXTRAFAILED:}
+      extra-pending: ${APP_PAYMENTS_RECEIPTVOCABULARY_EXTRAPENDING:}
+      extra-neutral: ${APP_PAYMENTS_RECEIPTVOCABULARY_EXTRANEUTRAL:}
+      extra-history-markers: ${APP_PAYMENTS_RECEIPTVOCABULARY_EXTRAHISTORYMARKERS:}
+    # Signed provider callbacks. A blank secret disables the channel (the endpoint answers 503). No provider integration
+    # ships with the application: this is a generic signed contract for a sender the operator configures.
+    # Each request carries X-Timestamp (epoch seconds) and X-Signature = HMAC-SHA256(secret, timestamp + "." + raw body).
+    # Requests older than the replay window, or further in the future than the skew allowance, are refused.
+    provider-callback:
+      replay-window-seconds: ${PAYMENT_CALLBACK_REPLAY_WINDOW_SECONDS:300}
+      max-future-skew-seconds: ${PAYMENT_CALLBACK_MAX_FUTURE_SKEW_SECONDS:60}
+      # In-process abuse limits (0 disables). The reverse proxy / gateway must still rate-limit this public endpoint.
+      rate-per-address-per-minute: ${PAYMENT_CALLBACK_RATE_PER_ADDRESS_PER_MINUTE:60}
+      rate-per-channel-per-minute: ${PAYMENT_CALLBACK_RATE_PER_CHANNEL_PER_MINUTE:600}
+      secrets:
+        MTN_MOMO: ${PAYMENT_CALLBACK_SECRET_MTN_MOMO:}
+        AIRTEL_MONEY: ${PAYMENT_CALLBACK_SECRET_AIRTEL_MONEY:}
+        BANK_TRANSFER: ${PAYMENT_CALLBACK_SECRET_BANK_TRANSFER:}
+        OTHER: ${PAYMENT_CALLBACK_SECRET_OTHER:}
+  # Receipt reading. Needs the Tesseract binary on the server (apt install tesseract-ocr); where it is missing the
+  # application reports receipts as unreadable instead of pretending. PNG and JPEG images are read with Tesseract; PDFs are read by their own text layer (a scanned PDF falls back to its embedded JPEG), bounded in pages, text and time.
+  ocr:
+    max-bytes: ${APP_OCR_MAX_BYTES:8388608}
+    timeout-seconds: ${APP_OCR_TIMEOUT_SECONDS:30}
+    tesseract:
+      path: ${APP_OCR_TESSERACT_PATH:tesseract}
+      language: ${APP_OCR_TESSERACT_LANGUAGE:eng}
     auto-generate-cron: ${APP_FINES_AUTO_GENERATE_CRON:0 30 1 * * *}
   whatsapp:
     enabled: ${WHATSAPP_ENABLED:false}

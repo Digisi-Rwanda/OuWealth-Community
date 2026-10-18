@@ -17,6 +17,8 @@ import rw.terimbere.csams.modules.ledger.service.LedgerService;
 import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.payout.repository.PayoutLineRepository;
 import rw.terimbere.csams.modules.payout.repository.PayoutRunRepository;
+import rw.terimbere.csams.modules.cooperative.service.SchemeOperatingModelGuard;
+import rw.terimbere.csams.modules.fundlock.SchemeFundLockService;
 import rw.terimbere.csams.modules.payout.service.PayoutService;
 import rw.terimbere.csams.modules.specialcontribution.repository.SpecialContributionRepository;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
@@ -39,7 +41,9 @@ class PayoutAllocationTest {
                 mock(LedgerFinancialCalculationService.class),
                 mock(CooperativeAuthorizationService.class),
                 mock(AuditService.class),
-                mock(NotificationFacade.class));
+                mock(NotificationFacade.class),
+                mock(SchemeFundLockService.class),
+                mock(SchemeOperatingModelGuard.class));
     }
 
     @Test

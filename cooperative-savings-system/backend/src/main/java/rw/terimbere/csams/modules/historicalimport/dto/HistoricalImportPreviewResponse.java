@@ -23,6 +23,9 @@ public class HistoricalImportPreviewResponse {
     private UUID importId;
     private HistoricalImportStatus status;
     private String format;
+
+    /** OPENING_BALANCE (members and share capital) or OPENING_LOANS (the separate loan workbook). */
+    private String kind;
     private String originalFilename;
     private String fileHash;
     private LocalDate cutoverDate;

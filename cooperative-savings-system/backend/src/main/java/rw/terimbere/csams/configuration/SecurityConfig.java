@@ -86,7 +86,9 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/v1/public/billing/mtn/callback",
                                 "/api/v1/public/billing/mtn/callback/**",
-                                "/api/v1/public/billing/flutterwave/webhook")
+                                "/api/v1/public/billing/flutterwave/webhook",
+                                // signed by a configured per-channel secret; refuses everything when none is set
+                                "/api/v1/public/payment-callbacks/*")
                         .permitAll()
                         .requestMatchers("/api/**")
                         .authenticated()

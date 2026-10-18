@@ -81,7 +81,8 @@ class MigrationValidator {
             UUID cooperativeId, MigrationWorkbook workbook, LocalDate cutoverDate, BigDecimal openingAvailableFunds) {
         ValidatedMigration out = new ValidatedMigration(cutoverDate, openingAvailableFunds);
         out.errors.addAll(workbook.workbookErrors());
-        validateSchemeState(cooperativeId, out, cutoverDate);
+        boolean loansOnly = workbook.kind() == rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_LOANS;
+        validateSchemeState(cooperativeId, out, cutoverDate, loansOnly);
         Map<String, UUID> workbookExisting = new HashMap<>();
         Set<String> workbookUsernames = new HashSet<>();
         validateMembers(cooperativeId, workbook, out, workbookUsernames, workbookExisting, cutoverDate);
@@ -92,13 +93,19 @@ class MigrationValidator {
         return out;
     }
 
-    private void validateSchemeState(UUID cooperativeId, ValidatedMigration out, LocalDate cutoverDate) {
-        if (historicalImportRepository.existsByCooperativeIdAndStatusAndCutoverDateIsNotNull(
-                cooperativeId, HistoricalImportStatus.CONFIRMED)) {
+    private void validateSchemeState(UUID cooperativeId, ValidatedMigration out, LocalDate cutoverDate, boolean loansOnly) {
+        var kind = loansOnly
+                ? rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_LOANS
+                : rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_BALANCE;
+        if (historicalImportRepository.existsByCooperativeIdAndImportKindAndStatus(
+                cooperativeId, kind, HistoricalImportStatus.CONFIRMED)) {
             out.errors.add(workbookError(
-                    "ALREADY_MIGRATED",
-                    "This Saving Scheme already has a confirmed opening-balance migration. The cutover cash position"
-                            + " is a single scheme-level value, so a second migration is not accepted."));
+                    loansOnly ? "LOANS_ALREADY_MIGRATED" : "ALREADY_MIGRATED",
+                    loansOnly
+                            ? "This Saving Scheme already has a confirmed opening-loans import. The loans outstanding at the"
+                                    + " cutover are imported once, so a second import is not accepted."
+                            : "This Saving Scheme already has a confirmed opening-balance migration. The cutover cash position"
+                                    + " is a single scheme-level value, so a second migration is not accepted."));
         }
         if (ledgerEntryRepository.countActivityOnOrBefore(cooperativeId, cutoverDate, NOT_FUND_ACTIVITY) > 0) {
             out.errors.add(workbookError(

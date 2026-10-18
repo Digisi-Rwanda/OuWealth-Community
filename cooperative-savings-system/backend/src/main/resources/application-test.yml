@@ -28,6 +28,16 @@ app:
     auth-rate-limit-enabled: false
   fines:
     auto-generate-enabled: false
+  payments:
+    verification:
+      # Older integration tests post payments with recorded evidence only. The strict behaviour (the production default)
+      # is exercised explicitly by the verification tests, which switch it on per test.
+      require-trusted-confirmation: false
+    provider-callback:
+      # All tests share one client address and one application context: the limiter is exercised explicitly by the
+      # callback security tests, which switch it on per test.
+      rate-per-address-per-minute: 0
+      rate-per-channel-per-minute: 0
   whatsapp:
     enabled: false
     access-token: ""

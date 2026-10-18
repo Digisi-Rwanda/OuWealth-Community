@@ -15,10 +15,9 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { clearAuth, selectIsSuperAdmin } from '@/app/store/authSlice'
-import { useAppDispatch, useAppSelector } from '@/app/store/hooks'
-import { logout as logoutRequest } from '@/shared/api/auth'
-import { ROUTES } from '@/shared/constants/routes'
+import { selectIsSuperAdmin } from '@/app/store/authSlice'
+import { useAppSelector } from '@/app/store/hooks'
+import { useLogout } from '@/shared/hooks/useLogout'
 import { usePortalRoutes } from '@/shared/constants/portal'
 import { primaryRole } from '@/shared/types/auth'
 
@@ -26,7 +25,6 @@ export function UserMenu() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const routes = usePortalRoutes()
-  const dispatch = useAppDispatch()
   const user = useAppSelector((s) => s.auth.user)
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
   const role = primaryRole(user?.roles ?? [])
@@ -34,23 +32,14 @@ export function UserMenu() {
     ? t('roles.superAdminBadge')
     : t(`roles.${role}`, { defaultValue: t('roles.memberBadge') })
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
-  const [loggingOut, setLoggingOut] = useState(false)
+  const { logout, loggingOut } = useLogout()
 
   const label = user?.username || user?.firstName || t('nav.profile')
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (loggingOut) return
-    setLoggingOut(true)
     setAnchor(null)
-    try {
-      await logoutRequest()
-    } catch {
-      // clear anyway
-    } finally {
-      dispatch(clearAuth())
-      navigate(ROUTES.login, { replace: true })
-      setLoggingOut(false)
-    }
+    void logout()
   }
 
   return (
@@ -135,7 +124,7 @@ export function UserMenu() {
           <ListItemText>{t('nav.profile')}</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => void handleLogout()} disabled={loggingOut}>
+        <MenuItem onClick={handleLogout} disabled={loggingOut}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>

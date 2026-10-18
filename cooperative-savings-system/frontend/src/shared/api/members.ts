@@ -5,6 +5,7 @@ import type {
   Member,
   MemberCreateRequest,
   MemberFinancialSummary,
+  MemberRemovalEligibility,
   MemberStatusUpdateRequest,
   MemberUpdateRequest,
 } from '@/shared/types/member'
@@ -116,4 +117,36 @@ export async function fetchMemberFinancialSummaries(
     { params },
   )
   return unwrapApiData(response.data)
+}
+
+/** What may be done to remove a member (delete, deactivate or reactivate), and why not. The backend decides. */
+export async function fetchMemberRemovalEligibility(
+  cooperativeId: string,
+  userId: string,
+): Promise<MemberRemovalEligibility> {
+  const response = await apiClient.get<ApiResponse<MemberRemovalEligibility>>(
+    `/cooperatives/${cooperativeId}/members/${userId}/removal-eligibility`,
+  )
+  return unwrapApiData(response.data)
+}
+
+/** Takes the member out of active membership; every record, loan and obligation stays. */
+export async function deactivateMember(cooperativeId: string, userId: string, reason: string): Promise<Member> {
+  const response = await apiClient.post<ApiResponse<Member>>(
+    `/cooperatives/${cooperativeId}/members/${userId}/deactivate`,
+    { reason },
+  )
+  return mapMember(unwrapApiData(response.data))
+}
+
+export async function reactivateMember(cooperativeId: string, userId: string): Promise<Member> {
+  const response = await apiClient.post<ApiResponse<Member>>(
+    `/cooperatives/${cooperativeId}/members/${userId}/reactivate`,
+  )
+  return mapMember(unwrapApiData(response.data))
+}
+
+/** Permanently deletes a member who has no history at all; the backend refuses anyone else. */
+export async function deleteMember(cooperativeId: string, userId: string): Promise<void> {
+  await apiClient.delete(`/cooperatives/${cooperativeId}/members/${userId}`)
 }

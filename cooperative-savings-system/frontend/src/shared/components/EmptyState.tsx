@@ -39,9 +39,11 @@ export function EmptyState({
       <Typography variant="h6" gutterBottom>
         {title ?? t('common.emptyTitle')}
       </Typography>
-      <Typography color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 2 }}>
-        {description ?? t('common.emptyDescription')}
-      </Typography>
+      {description === '' ? null : (
+        <Typography color="text.secondary" sx={{ maxWidth: 420, mx: 'auto', mb: 2 }}>
+          {description ?? t('common.emptyDescription')}
+        </Typography>
+      )}
       {phase != null ? (
         <Typography variant="body2" color="primary" sx={{ mb: onAction ? 2 : 0, fontWeight: 600 }}>
           {t('common.comingPhase', { phase })}

@@ -14,6 +14,7 @@ import { lightTheme } from '@/theme/theme'
 import { CooperativeDetailPage } from './CooperativeDetailPage'
 import {
   assignCooperativePresident,
+  classifyCooperativeOperatingModel,
   fetchCooperative,
   fetchCooperativeSubscription,
 } from '@/shared/api/cooperatives'
@@ -22,6 +23,7 @@ vi.mock('@/shared/api/cooperatives', () => ({
   fetchCooperative: vi.fn(),
   fetchCooperativeSubscription: vi.fn(),
   assignCooperativePresident: vi.fn(),
+  classifyCooperativeOperatingModel: vi.fn(),
   updateCooperative: vi.fn(),
   updateCooperativeStatus: vi.fn(),
   uploadCooperativeLogo: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock('@/shared/api/cooperatives', () => ({
 const fetchCooperativeMock = vi.mocked(fetchCooperative)
 const fetchSubscriptionMock = vi.mocked(fetchCooperativeSubscription)
 const assignPresidentMock = vi.mocked(assignCooperativePresident)
+const classifyMock = vi.mocked(classifyCooperativeOperatingModel)
 
 const incomplete = {
   id: 'coop-1',
@@ -43,7 +46,10 @@ const incomplete = {
   registrationNumber: 'RCA/2024/0123',
 }
 
-function renderPage(base = '/cooperatives') {
+function renderPage(
+  base = '/cooperatives',
+  user: { roles: string[]; permissions: string[] } = { roles: [ROLE_SUPER_ADMIN], permissions: ['COOPERATIVE_WRITE'] },
+) {
   const store = configureStore({
     reducer: { auth: authReducer, ui: uiReducer },
     preloadedState: {
@@ -55,8 +61,8 @@ function renderPage(base = '/cooperatives') {
           firstName: 'Super',
           lastName: 'Admin',
           fullName: 'Super Admin',
-          roles: [ROLE_SUPER_ADMIN],
-          permissions: ['COOPERATIVE_WRITE'],
+          roles: user.roles,
+          permissions: user.permissions,
           cooperativeIds: [],
         },
         accessToken: 'token',
@@ -169,4 +175,56 @@ describe('CooperativeDetailPage onboarding', () => {
       ).not.toBeInTheDocument()
     })
   }, 15000)
+})
+
+describe('CooperativeDetailPage operating model', () => {
+  const legacy = { ...incomplete, onboardingState: 'COMPLETE' as const, operatingModel: null }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchSubscriptionMock.mockResolvedValue({
+      id: 'sub-1',
+      cooperativeId: 'coop-1',
+      status: 'NONE',
+    })
+  })
+
+  it('shows the saved operating model', async () => {
+    fetchCooperativeMock.mockResolvedValue({ ...legacy, operatingModel: 'ROTATING' })
+    renderPage()
+    expect(await screen.findByText('Rotating Savings')).toBeInTheDocument()
+    expect(screen.queryByTestId('operating-model-not-configured')).not.toBeInTheDocument()
+  })
+
+  it('shows the not-configured state for a legacy scheme and lets an authorized admin classify it', async () => {
+    const user = userEvent.setup()
+    fetchCooperativeMock.mockResolvedValue(legacy)
+    classifyMock.mockResolvedValue({ ...legacy, operatingModel: 'HYBRID' })
+    renderPage()
+
+    const alert = await screen.findByTestId('operating-model-not-configured')
+    expect(alert).toHaveTextContent('Operating model not configured')
+    await user.click(screen.getByRole('button', { name: 'Choose operating model' }))
+
+    // needs a model and an explicit confirmation before anything is sent
+    await user.click(screen.getByRole('button', { name: 'Save operating model' }))
+    expect(classifyMock).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('radio', { name: /Hybrid Savings/ }))
+    await user.click(screen.getByRole('button', { name: 'Save operating model' }))
+    expect(classifyMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Confirm that you understand before saving')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: /cannot be changed here/ }))
+    await user.click(screen.getByRole('button', { name: 'Save operating model' }))
+    await waitFor(() =>
+      expect(classifyMock).toHaveBeenCalledWith('coop-1', { operatingModel: 'HYBRID', confirmed: true }),
+    )
+  }, 20000)
+
+  it('hides the classification control from users without COOPERATIVE_WRITE', async () => {
+    fetchCooperativeMock.mockResolvedValue(legacy)
+    renderPage('/cooperatives', { roles: ['MEMBER'], permissions: [] })
+    expect(await screen.findByTestId('operating-model-not-configured')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose operating model' })).not.toBeInTheDocument()
+  })
 })

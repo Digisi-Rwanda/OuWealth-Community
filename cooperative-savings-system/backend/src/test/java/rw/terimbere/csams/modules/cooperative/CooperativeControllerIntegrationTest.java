@@ -234,6 +234,7 @@ class CooperativeControllerIntegrationTest {
                                   "registrationNumber":"RCA/TEST/%s",
                                   "contactEmail":"badphone@test.local",
                                   "contactPhone":"12345",
+                                  "operatingModel":"ACCUMULATING",
                                   "registrationDate":"2024-01-15"
                                 }
                                 """
@@ -254,6 +255,7 @@ class CooperativeControllerIntegrationTest {
                                   "registrationNumber":"RCA/TEST/%s",
                                   "contactEmail":"rwf@test.local",
                                   "contactPhone":"0789998877",
+                                  "operatingModel":"ACCUMULATING",
                                   "registrationDate":"2024-01-15"
                                 }
                                 """

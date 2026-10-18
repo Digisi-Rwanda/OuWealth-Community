@@ -92,9 +92,6 @@ public class SubscriptionWriteInterceptor implements HandlerInterceptor {
         if (path.matches("^/api/v1/cooperatives/" + uuid() + "/billing(?:/.*)?$")) {
             return true;
         }
-        if (path.matches("^/api/v1/cooperatives/" + uuid() + "/payments(?:/.*)?$")) {
-            return true;
-        }
         if ("POST".equals(method) && path.matches("^/api/v1/cooperatives/" + uuid() + "/reports/export$")) {
             return true;
         }

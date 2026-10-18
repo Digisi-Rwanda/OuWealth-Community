@@ -77,6 +77,15 @@ public class Cooperative extends SoftDeletableEntity {
     @Column(name = "registration_date")
     private LocalDate registrationDate;
 
+    /**
+     * How the scheme operates. Insert-only ({@code updatable = false}): no ordinary save can ever change it, so
+     * generic updates cannot overwrite it. Legacy schemes have no value until an authorized administrator
+     * classifies them once through {@code CooperativeRepository#classifyOperatingModelIfUnset}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "operating_model", length = 32, updatable = false)
+    private SchemeOperatingModel operatingModel;
+
     @Column(name = "created_by")
     private UUID createdBy;
 }

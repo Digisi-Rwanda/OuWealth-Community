@@ -153,3 +153,24 @@ export function mapMember(raw: Member): Member {
     fullName: memberDisplayName(base),
   }
 }
+
+/** What may be done to remove a member, decided by the backend from the member's actual records. */
+export interface MemberRemovalEligibility {
+  memberUserId: string
+  membershipStatus: string
+  /** True only for a member with no history at all: then, and only then, they may be permanently deleted. */
+  canDelete: boolean
+  deletionBlockedReason?: string | null
+  historyBlockers: { source: string; count: number }[]
+  canDeactivate: boolean
+  deactivationBlockedReason?: string | null
+  canReactivate: boolean
+  impact: {
+    outstandingLoanPrincipal: string | number
+    openLoans: number
+    unpaidContributions: string | number
+    heldCredit: string | number
+    upcomingRecipientPeriods: number
+    openPayouts: number
+  }
+}

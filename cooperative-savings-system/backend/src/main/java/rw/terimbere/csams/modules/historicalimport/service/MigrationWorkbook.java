@@ -12,6 +12,15 @@ final class MigrationWorkbook {
 
     private final Map<HistoricalMigrationSheet, List<Row>> sheets = new EnumMap<>(HistoricalMigrationSheet.class);
     private final List<HistoricalImportError> workbookErrors = new ArrayList<>();
+    private rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind kind = rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_BALANCE;
+
+    rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind kind() {
+        return kind;
+    }
+
+    void kind(rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind kind) {
+        this.kind = kind;
+    }
 
     Map<HistoricalMigrationSheet, List<Row>> sheets() {
         return sheets;

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeCreateRequest;
+import rw.terimbere.csams.modules.cooperative.dto.OperatingModelClassificationRequest;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeResponse;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeStatusUpdateRequest;
 import rw.terimbere.csams.modules.cooperative.dto.CooperativeSummaryResponse;
@@ -99,6 +100,16 @@ public class CooperativeController {
             @Valid @RequestBody CooperativeUpdateRequest request,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.ok(cooperativeService.update(id, request, httpRequest)));
+    }
+
+    @PostMapping("/{id}/operating-model")
+    @PreAuthorize("hasAuthority('COOPERATIVE_WRITE')")
+    @Operation(summary = "Classify a legacy scheme's operating model once (409 if it is already set)")
+    public ResponseEntity<ApiResponse<CooperativeResponse>> classifyOperatingModel(
+            @PathVariable UUID id,
+            @Valid @RequestBody OperatingModelClassificationRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.ok(cooperativeService.classifyOperatingModel(id, request, httpRequest)));
     }
 
     @PatchMapping("/{id}/status")

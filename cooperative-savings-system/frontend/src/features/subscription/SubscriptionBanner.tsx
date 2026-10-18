@@ -1,8 +1,14 @@
-import { Alert, Typography } from '@mui/material'
+import { useState } from 'react'
+import CloseIcon from '@mui/icons-material/Close'
+import { Alert, Button, IconButton, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
+import { Link as RouterLink } from 'react-router-dom'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectIsLeadership } from '@/app/store/authSlice'
+import { canManageBilling } from '@/features/billing/billingAccess'
+import { ROUTES } from '@/shared/constants/routes'
 import { useCooperativeSubscription } from './useCooperativeSubscription'
+import { dismissTrialNoticeForToday, isTrialNoticeDismissedToday } from './trialNoticeDismissal'
 import {
   TRIAL_WARNING_DAYS,
   accessUntilIso,
@@ -12,6 +18,8 @@ import {
 export function SubscriptionBanner() {
   const { t } = useTranslation()
   const isLeadership = useAppSelector(selectIsLeadership)
+  const roles = useAppSelector((s) => s.auth.user?.roles)
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
   const { cooperativeId, subscription, effectiveStatus, readOnly, isSuperAdmin, daysRemaining, isSuccess } =
     useCooperativeSubscription()
 
@@ -28,20 +36,54 @@ export function SubscriptionBanner() {
   }
 
   if (effectiveStatus === 'TRIAL') {
+    // Quiet until the trial is about to end; then one dismissible notice per day (see trialNoticeDismissal).
+    if (!trialEndingSoon || !subscription) return null
+    const noticeKey = `${cooperativeId}|${subscription.trialEndsAt ?? ''}`
+    if (dismissedKey === noticeKey || isTrialNoticeDismissedToday(cooperativeId, subscription.trialEndsAt)) {
+      return null
+    }
+    const canRenew = canManageBilling(roles)
     return (
       <Alert
-        severity={trialEndingSoon ? 'warning' : 'info'}
+        severity="warning"
         sx={{ mx: { xs: 2, sm: 3 }, mt: 2 }}
         data-testid="subscription-banner"
+        action={
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            {canRenew ? (
+              <Button
+                component={RouterLink}
+                to={ROUTES.billing}
+                color="inherit"
+                size="small"
+                data-testid="trial-notice-billing-cta"
+              >
+                {t('subscription.trial.viewPlans')}
+              </Button>
+            ) : null}
+            <IconButton
+              aria-label={t('subscription.trial.dismiss')}
+              color="inherit"
+              size="small"
+              onClick={() => {
+                dismissTrialNoticeForToday(cooperativeId, subscription.trialEndsAt)
+                setDismissedKey(noticeKey)
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        }
       >
-        <Typography variant="subtitle2">{t('subscription.trial.title')}</Typography>
+        <Typography variant="subtitle2">{t('subscription.trial.endingTitle')}</Typography>
         <Typography variant="body2">
-          {t('subscription.trial.body', { date: until || t('subscription.unknownDate') })}
+          {t('subscription.trial.endingBody', {
+            count: daysRemaining ?? 0,
+            date: until || t('subscription.unknownDate'),
+          })}
         </Typography>
-        {daysRemaining != null ? (
-          <Typography variant="body2">
-            {t('subscription.trial.remaining', { count: daysRemaining })}
-          </Typography>
+        {!canRenew ? (
+          <Typography variant="body2">{t('subscription.dashboard.contactLeadership')}</Typography>
         ) : null}
       </Alert>
     )

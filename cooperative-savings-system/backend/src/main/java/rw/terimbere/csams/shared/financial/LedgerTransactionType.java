@@ -18,5 +18,11 @@ public enum LedgerTransactionType {
     MEMBER_PAYOUT,
     SHARE_PURCHASE,
     ADJUSTMENT,
-    REVERSAL
+    REVERSAL,
+    /** Excess money a member paid, held for them: never income and never part of the group's available funds. */
+    MEMBER_CREDIT_RECEIVED,
+    /** Held credit applied to a contribution or a loan: the credit leaves the member's balance. */
+    MEMBER_CREDIT_APPLIED,
+    /** Held credit taken back because the payment that created it was reversed. */
+    MEMBER_CREDIT_REVERSED
 }

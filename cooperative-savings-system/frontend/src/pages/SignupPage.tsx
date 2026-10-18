@@ -35,6 +35,7 @@ import {
   toOnboardingPayload,
   type OnboardingFormValues,
 } from '@/features/onboarding/onboardingSchema'
+import { OperatingModelSelect } from '@/features/cooperatives/OperatingModelSelect'
 import { onboardCooperative } from '@/shared/api/onboarding'
 import { getErrorMessage } from '@/shared/api/client'
 import { AuthSplitShell } from '@/layouts/AuthSplitShell'
@@ -264,6 +265,17 @@ export function SignupPage() {
                   )}
                 />
               </Stack>
+              <Controller
+                name="operatingModel"
+                control={control}
+                render={({ field }) => (
+                  <OperatingModelSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.operatingModel?.message}
+                  />
+                )}
+              />
             </>
           ) : null}
 
@@ -369,6 +381,10 @@ export function SignupPage() {
                 <ReviewRow
                   label={t('cooperatives.fields.registrationDate')}
                   value={values.registrationDate}
+                />
+                <ReviewRow
+                  label={t('operatingModel.label')}
+                  value={values.operatingModel ? t(`operatingModel.options.${values.operatingModel}.title`) : ''}
                 />
               </ReviewSection>
               <ReviewSection title={t('signup.reviewAccount')}>

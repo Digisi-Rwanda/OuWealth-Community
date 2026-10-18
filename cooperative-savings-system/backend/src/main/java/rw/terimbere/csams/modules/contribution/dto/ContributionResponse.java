@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import rw.terimbere.csams.modules.audit.dto.ApprovalEventResponse;
 import rw.terimbere.csams.modules.contribution.entity.ContributionReviewStatus;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
+import rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel;
 
 @Data
 @Builder
@@ -47,6 +48,17 @@ public class ContributionResponse {
     private String rejectionReason;
     private List<ApprovalEventResponse> approvalHistory;
     private boolean persisted;
+    /** Obligation view. Expectations only: none of these amounts is collected or received money. */
+    private LocalDate dueDate;
+    private boolean overdue;
+    private BigDecimal overdueAmount;
+    private boolean obligationSnapshotted;
+    private SchemeOperatingModel operatingModel;
+    private Integer rotatingBps;
+    private Integer retainedBps;
+    private BigDecimal expectedRotatingAmount;
+    private BigDecimal expectedRetainedAmount;
+    private UUID rotationPeriodId;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -1,5 +1,6 @@
 import * as yup from 'yup'
-import type { CooperativeCreateRequest } from '@/shared/types/cooperative'
+import type { CooperativeCreateRequest, SchemeOperatingModel } from '@/shared/types/cooperative'
+import { isOperatingModel, OPERATING_MODEL_REQUIRED_MESSAGE } from './operatingModel'
 import { checkMoney } from '@/shared/utils/formValidation'
 import { findPresidentProblem } from './presidentValidation'
 import {
@@ -16,6 +17,8 @@ import {
   todayInKigaliIso,
 } from '@/shared/utils/rwandaCooperative'
 
+const OPERATING_MODELS_WITH_EMPTY: (SchemeOperatingModel | '')[] = ['', 'ACCUMULATING', 'ROTATING', 'HYBRID']
+
 export type PresidentAssignmentMode = 'new' | 'existing'
 
 export type CooperativeFormValues = {
@@ -30,6 +33,8 @@ export type CooperativeFormValues = {
   monthlyContributionAmount: string
   contributionDueDay: number
   registrationDate: string
+  /** '' = nothing selected yet; there is no default model. Only used when creating. */
+  operatingModel: SchemeOperatingModel | ''
   startTrial: boolean
   assignPresidentNow: boolean
   presidentMode: PresidentAssignmentMode
@@ -54,6 +59,7 @@ export const cooperativeFormDefaults: CooperativeFormValues = {
   monthlyContributionAmount: '0',
   contributionDueDay: 1,
   registrationDate: '',
+  operatingModel: '',
   startTrial: true,
   assignPresidentNow: false,
   presidentMode: 'new',
@@ -125,6 +131,10 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
       `Date must be between ${MIN_REGISTRATION_DATE} and today`,
       (v) => Boolean(v && isValidRegistrationDate(v)),
     ),
+  operatingModel: yup
+    .mixed<SchemeOperatingModel | ''>()
+    .oneOf([...OPERATING_MODELS_WITH_EMPTY], OPERATING_MODEL_REQUIRED_MESSAGE)
+    .default(''),
   startTrial: yup.boolean().required(),
   assignPresidentNow: yup.boolean().required(),
   presidentMode: yup.mixed<PresidentAssignmentMode>().oneOf(['new', 'existing']).required(),
@@ -160,6 +170,14 @@ export const cooperativeFormSchema: yup.ObjectSchema<CooperativeFormValues> = yu
   return this.createError({ path, message: problem.message })
 })
 
+/** The create form additionally requires a chosen operating model; editing never touches it. */
+export const cooperativeCreateSchema: yup.ObjectSchema<CooperativeFormValues> = cooperativeFormSchema.shape({
+  operatingModel: yup
+    .mixed<SchemeOperatingModel | ''>()
+    .test('operating-model-required', OPERATING_MODEL_REQUIRED_MESSAGE, (v) => isOperatingModel(v))
+    .default(''),
+}) as unknown as yup.ObjectSchema<CooperativeFormValues>
+
 export function toCooperativePayload(
   values: CooperativeFormValues,
   mode: 'create' | 'edit' = 'create',
@@ -176,10 +194,11 @@ export function toCooperativePayload(
     monthlyContributionAmount: values.monthlyContributionAmount.trim(),
     contributionDueDay: Number(values.contributionDueDay),
     registrationDate: values.registrationDate.trim(),
-  }
+  } as CooperativeCreateRequest
   if (mode !== 'create') {
     return payload
   }
+  payload.operatingModel = values.operatingModel as SchemeOperatingModel
   payload.subscriptionInitialization = values.startTrial ? 'START_TRIAL' : 'NONE'
   if (values.assignPresidentNow) {
     payload.president =

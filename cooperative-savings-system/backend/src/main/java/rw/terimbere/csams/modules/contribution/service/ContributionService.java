@@ -21,6 +21,8 @@ import org.springframework.util.StringUtils;
 import rw.terimbere.csams.modules.audit.entity.ApprovalAction;
 import rw.terimbere.csams.modules.audit.service.ApprovalTrailService;
 import rw.terimbere.csams.modules.audit.service.AuditService;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionObligationService;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionObligationService.ObligationView;
 import rw.terimbere.csams.modules.contribution.ShareAmountCalculator;
 import rw.terimbere.csams.modules.contribution.dto.ContributionBatchRequest;
 import rw.terimbere.csams.modules.contribution.dto.ContributionLineRequest;
@@ -32,6 +34,7 @@ import rw.terimbere.csams.modules.contribution.dto.ContributionSubmitRequest;
 import rw.terimbere.csams.modules.contribution.dto.ContributionUpdateRequest;
 import rw.terimbere.csams.modules.contribution.dto.MonthlyContributionChartPoint;
 import rw.terimbere.csams.modules.contribution.entity.Contribution;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionAllocationCalculator;
 import rw.terimbere.csams.modules.contribution.entity.ContributionReviewStatus;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
 import rw.terimbere.csams.modules.contribution.repository.ContributionRepository;
@@ -65,6 +68,9 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
 public class ContributionService {
 
     private final ContributionRepository contributionRepository;
+    private final ContributionObligationService obligationService;
+    private final rw.terimbere.csams.modules.fundlock.SchemeFundLockService fundLockService;
+    private final rw.terimbere.csams.modules.rotation.payout.RotationEntitlementService rotationEntitlementService;
     private final CooperativeRepository cooperativeRepository;
     private final CooperativeMembershipRepository membershipRepository;
     private final UserRepository userRepository;
@@ -97,6 +103,8 @@ public class ContributionService {
             if (saved != null) {
                 rows.add(toResponse(saved, names.get(membership.getUserId()), true, false));
             } else {
+                ObligationView projection =
+                        obligationService.projectedView(cooperativeId, year, month, expected, BigDecimal.ZERO);
                 rows.add(ContributionResponse.builder()
                         .cooperativeId(cooperativeId)
                         .memberUserId(membership.getUserId())
@@ -110,6 +118,16 @@ public class ContributionService {
                         .remainingAmount(MoneyUtils.scale(expected))
                         .status(ContributionStatus.PENDING)
                         .persisted(false)
+                        .dueDate(projection.dueDate())
+                        .overdue(projection.overdue())
+                        .overdueAmount(projection.overdueAmount())
+                        .obligationSnapshotted(false)
+                        .operatingModel(projection.operatingModel())
+                        .rotatingBps(projection.rotatingBps())
+                        .retainedBps(projection.retainedBps())
+                        .expectedRotatingAmount(projection.expectedRotatingAmount())
+                        .expectedRetainedAmount(projection.expectedRetainedAmount())
+                        .rotationPeriodId(projection.rotationPeriodId())
                         .build());
             }
         }
@@ -166,8 +184,16 @@ public class ContributionService {
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
 
-        Contribution contribution = contributionRepository
+        // An obligation bound to a rotation period feeds a recipient's entitlement: take the scheme fund lock first (the
+        // order payments, reversals and payouts use), then the row lock.
+        Contribution probe = contributionRepository
                 .findByIdAndCooperativeId(contributionId, cooperativeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contribution", contributionId));
+        if (probe.getRotationPeriodId() != null) {
+            fundLockService.lockSchemeFund(cooperativeId);
+        }
+        Contribution contribution = contributionRepository
+                .findByIdAndCooperativeIdForUpdate(contributionId, cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contribution", contributionId));
         if (contribution.getReviewStatus() == ContributionReviewStatus.PENDING) {
             throw new BusinessException(
@@ -175,6 +201,7 @@ public class ContributionService {
         }
 
         String previous = toAuditJson(contribution);
+        BigDecimal paidBeforeEdit = contribution.getPaidAmount() == null ? BigDecimal.ZERO : contribution.getPaidAmount();
 
         ContributionLineRequest line = ContributionLineRequest.builder()
                 .memberUserId(contribution.getMemberUserId())
@@ -194,6 +221,7 @@ public class ContributionService {
                 .build();
 
         applyLine(contribution, requireCooperative(cooperativeId), line, principal.getId());
+        requireDistributionsCovered(contribution, paidBeforeEdit);
         contribution = contributionRepository.save(contribution);
         syncLedger(contribution, principal.getId(), requireCooperative(cooperativeId).getCurrency());
 
@@ -315,7 +343,7 @@ public class ContributionService {
         Contribution contribution = contributionRepository
                 .findByCooperativeIdAndMemberUserIdAndYearAndMonth(
                         cooperativeId, principal.getId(), year, month)
-                .orElseGet(() -> Contribution.builder()
+                .orElseGet(() -> withSnapshot(Contribution.builder()
                         .cooperativeId(cooperativeId)
                         .memberUserId(principal.getId())
                         .year(year)
@@ -326,7 +354,7 @@ public class ContributionService {
                         .outstandingAmount(expected)
                         .status(ContributionStatus.PENDING)
                         .ledgerRevision(0)
-                        .build());
+                        .build(), cooperative, membership));
 
         if (contribution.getShareCount() == null) {
             contribution.setShareCount(shareCount);
@@ -448,9 +476,13 @@ public class ContributionService {
                                 && existing.getStatus() != ContributionStatus.CANCELLED
                                 && existing.getStatus() != ContributionStatus.PAID));
 
-        int dueDay = cooperative.getContributionDueDay() <= 0 ? 10 : cooperative.getContributionDueDay();
-        int maxDay = LocalDate.of(resolvedYear, resolvedMonth, 1).lengthOfMonth();
-        LocalDate dueDate = LocalDate.of(resolvedYear, resolvedMonth, Math.min(dueDay, maxDay));
+        // The due date comes from the effective-dated due-day setting. A scheme that never configured one has none
+        // (null): the legacy column defaults to 1 and would invent an overdue date.
+        BigDecimal previewExpected = existing != null ? existing.getExpectedAmount() : expected;
+        ObligationView obligation = existing != null
+                ? obligationService.viewOf(existing)
+                : obligationService.projectedView(cooperativeId, resolvedYear, resolvedMonth, previewExpected, paid);
+        LocalDate dueDate = obligation.dueDate();
 
         return ContributionPeriodPreviewResponse.builder()
                 .contributionId(existing == null ? null : existing.getId())
@@ -470,6 +502,13 @@ public class ContributionService {
                 .reviewStatus(existing == null ? null : existing.getReviewStatus())
                 .awaitingReview(awaitingReview)
                 .canSubmit(canSubmit)
+                .overdue(obligation.overdue())
+                .overdueAmount(obligation.overdueAmount())
+                .operatingModel(obligation.operatingModel())
+                .rotatingBps(obligation.rotatingBps())
+                .retainedBps(obligation.retainedBps())
+                .expectedRotatingAmount(obligation.expectedRotatingAmount())
+                .expectedRetainedAmount(obligation.expectedRetainedAmount())
                 .build();
     }
 
@@ -493,7 +532,7 @@ public class ContributionService {
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
         Contribution contribution = contributionRepository
-                .findByIdAndCooperativeId(contributionId, cooperativeId)
+                .findByIdAndCooperativeIdForUpdate(contributionId, cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contribution", contributionId));
         if (contribution.getReviewStatus() != ContributionReviewStatus.PENDING) {
             throw new BusinessException("Only PENDING contribution submissions can be approved");
@@ -721,6 +760,22 @@ public class ContributionService {
         return points;
     }
 
+    /**
+     * The rotating funds collected through an obligation may already be disbursed or approved for payout. Lowering its
+     * paid amount would then make that distribution inconsistent, so the correction is refused, never forced. Raising it
+     * is always allowed (and never creates payout eligibility: only verified postings do).
+     */
+    private void requireDistributionsCovered(Contribution contribution, BigDecimal paidBeforeEdit) {
+        if (contribution.getRotationPeriodId() != null
+                && contribution.getPaidAmount().compareTo(paidBeforeEdit) < 0
+                && rotationEntitlementService.wouldUndercutDistributions(
+                        contribution, contribution.getPaidAmount(), BigDecimal.ZERO)) {
+            throw new BusinessException(
+                    "ROTATION_DISTRIBUTION_CONSISTENCY",
+                    "This contribution cannot be lowered: its rotating funds were already disbursed or approved for payout");
+        }
+    }
+
     private ContributionResponse upsertLine(
             Cooperative cooperative,
             int year,
@@ -736,10 +791,18 @@ public class ContributionService {
                         "Member is not part of this cooperative: " + line.getMemberUserId()));
         BigDecimal expectedDefault = expectedAmountFor(cooperative, membership);
 
+        // An obligation bound to a rotation period feeds a recipient's entitlement, so changing it takes the scheme fund
+        // lock first (the same order payments, reversals and payouts use), then the row lock.
+        Contribution probe = contributionRepository
+                .findByCooperativeIdAndMemberUserIdAndYearAndMonth(cooperative.getId(), line.getMemberUserId(), year, month)
+                .orElse(null);
+        if (probe != null && probe.getRotationPeriodId() != null) {
+            fundLockService.lockSchemeFund(cooperative.getId());
+        }
         Contribution contribution = contributionRepository
-                .findByCooperativeIdAndMemberUserIdAndYearAndMonth(
+                .findForUpdate(
                         cooperative.getId(), line.getMemberUserId(), year, month)
-                .orElseGet(() -> Contribution.builder()
+                .orElseGet(() -> withSnapshot(Contribution.builder()
                         .cooperativeId(cooperative.getId())
                         .memberUserId(line.getMemberUserId())
                         .year(year)
@@ -750,7 +813,7 @@ public class ContributionService {
                         .outstandingAmount(expectedDefault)
                         .status(ContributionStatus.PENDING)
                         .ledgerRevision(0)
-                        .build());
+                        .build(), cooperative, membership));
         if (contribution.getReviewStatus() == ContributionReviewStatus.PENDING) {
             throw new BusinessException(
                     "This member has a contribution awaiting Accountant review and cannot be edited from the period grid");
@@ -767,7 +830,11 @@ public class ContributionService {
                     + " and cannot be changed from the period grid");
         }
 
+        BigDecimal paidBeforeEdit = contribution.getPaidAmount() == null ? BigDecimal.ZERO : contribution.getPaidAmount();
         applyLine(contribution, cooperative, line, recordedBy);
+        if (existing) {
+            requireDistributionsCovered(contribution, paidBeforeEdit);
+        }
         contribution = contributionRepository.save(contribution);
         syncLedger(contribution, recordedBy, cooperative.getCurrency());
         return toResponse(contribution, null, true);
@@ -809,6 +876,94 @@ public class ContributionService {
         }
     }
 
+    /** What applying a verified payment to one contribution did, for the immutable posting record. */
+    public record AppliedPayment(Contribution contribution, BigDecimal paidBefore, BigDecimal paidAfter, UUID ledgerEntryId) {}
+
+    /**
+     * Applies a verified payment's contribution allocation to a row the caller has already locked. This is the same
+     * accounting path as every other paid-amount change: the paid amount rises and {@link #syncLedger} keeps the ledger
+     * equal to that paid amount (it reverses the previous total credit and appends the new total), so the payment never
+     * creates a second, independent cash credit, and a later officer correction of the same row cannot double-count it.
+     * Obligation snapshots and the expected amount are left untouched. Runs inside the caller's posting transaction.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public AppliedPayment applyVerifiedPayment(
+            Contribution locked,
+            BigDecimal amount,
+            LocalDate paymentDate,
+            String paymentReference,
+            UUID actorId,
+            String currency) {
+        MoneyUtils.assertPositive(amount);
+        if (locked.getStatus() == ContributionStatus.WAIVED || locked.getStatus() == ContributionStatus.CANCELLED) {
+            throw new BusinessException(
+                    "CONTRIBUTION_PERIOD_CLOSED",
+                    "The " + locked.getYear() + "-" + String.format(Locale.ROOT, "%02d", locked.getMonth())
+                            + " contribution was waived or cancelled and cannot receive a payment");
+        }
+        BigDecimal expected = MoneyUtils.scaleForStorage(
+                locked.getExpectedAmount() == null ? BigDecimal.ZERO : locked.getExpectedAmount());
+        BigDecimal before = MoneyUtils.scaleForStorage(
+                locked.getPaidAmount() == null ? BigDecimal.ZERO : locked.getPaidAmount());
+        BigDecimal remaining = expected.subtract(before).max(BigDecimal.ZERO);
+        BigDecimal applied = MoneyUtils.scaleForStorage(amount);
+        if (applied.compareTo(remaining) > 0) {
+            throw new BusinessException(
+                    "ALLOCATION_EXCEEDS_OUTSTANDING",
+                    "The " + locked.getYear() + "-" + String.format(Locale.ROOT, "%02d", locked.getMonth())
+                            + " contribution only needs " + remaining.toPlainString() + " more");
+        }
+        BigDecimal after = MoneyUtils.scaleForStorage(before.add(applied));
+        locked.setPaidAmount(after);
+        locked.setOutstandingAmount(MoneyUtils.scaleForStorage(expected.subtract(after).max(BigDecimal.ZERO)));
+        locked.setStatus(deriveStatus(expected, after));
+        locked.setPaymentDate(paymentDate);
+        locked.setPaymentReference(trimToNull(paymentReference));
+        locked.setRecordedBy(actorId);
+        Contribution saved = contributionRepository.saveAndFlush(locked);
+        syncLedger(saved, actorId, currency);
+        UUID ledgerEntryId = ledgerService
+                .findLatestApproved(
+                        LedgerService.SOURCE_CONTRIBUTION, saved.getId(), LedgerTransactionType.REGULAR_CONTRIBUTION)
+                .map(rw.terimbere.csams.modules.ledger.entity.LedgerEntry::getId)
+                .orElseThrow(() -> new BusinessException(
+                        "LEDGER_REFERENCE_MISSING", "The contribution ledger credit could not be confirmed"));
+        return new AppliedPayment(saved, before, after, ledgerEntryId);
+    }
+
+    /**
+     * Takes back a posted payment's contribution amount from a row the caller has locked: the paid amount falls by the
+     * amount, and {@link #syncLedger} keeps the ledger equal to it (the old total credit is reversed with the existing
+     * REVERSAL entry and, if anything remains, the new total is appended). Nothing is deleted. The caller proves that
+     * the row still holds exactly what the payment left (no later payment or correction) before calling this.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public AppliedPayment reversePostedPayment(Contribution locked, BigDecimal amount, UUID actorId, String currency) {
+        MoneyUtils.assertPositive(amount);
+        if (locked.getStatus() == ContributionStatus.WAIVED || locked.getStatus() == ContributionStatus.CANCELLED) {
+            throw new BusinessException(
+                    "CONTRIBUTION_PERIOD_CLOSED", "That contribution period was waived or cancelled; reverse it through its own correction");
+        }
+        BigDecimal before = MoneyUtils.scaleForStorage(locked.getPaidAmount() == null ? BigDecimal.ZERO : locked.getPaidAmount());
+        BigDecimal taken = MoneyUtils.scaleForStorage(amount);
+        if (taken.compareTo(before) > 0) {
+            throw new BusinessException("REVERSAL_BLOCKED_LATER_CHANGES", "The period now holds less than this payment contributed");
+        }
+        BigDecimal expected = MoneyUtils.scaleForStorage(locked.getExpectedAmount() == null ? BigDecimal.ZERO : locked.getExpectedAmount());
+        BigDecimal after = MoneyUtils.scaleForStorage(before.subtract(taken));
+        locked.setPaidAmount(after);
+        locked.setOutstandingAmount(MoneyUtils.scaleForStorage(expected.subtract(after).max(BigDecimal.ZERO)));
+        locked.setStatus(deriveStatus(expected, after));
+        locked.setRecordedBy(actorId);
+        Contribution saved = contributionRepository.saveAndFlush(locked);
+        syncLedger(saved, actorId, currency);
+        UUID ledgerEntryId = ledgerService
+                .findLatestApproved(LedgerService.SOURCE_CONTRIBUTION, saved.getId(), LedgerTransactionType.REGULAR_CONTRIBUTION)
+                .map(rw.terimbere.csams.modules.ledger.entity.LedgerEntry::getId)
+                .orElse(null);
+        return new AppliedPayment(saved, before, after, ledgerEntryId);
+    }
+
     private void syncLedger(Contribution contribution, UUID recordedBy, String currency) {
         boolean shouldPost = (contribution.getStatus() == ContributionStatus.PAID
                         || contribution.getStatus() == ContributionStatus.PARTIALLY_PAID)
@@ -843,12 +998,15 @@ public class ContributionService {
         contribution.setLedgerRevision(revision);
         contributionRepository.save(contribution);
 
+        var split = ledgerSplit(contribution);
         ledgerService.appendApproved(LedgerService.AppendRequest.builder()
                 .cooperativeId(contribution.getCooperativeId())
                 .memberUserId(contribution.getMemberUserId())
                 .transactionType(LedgerTransactionType.REGULAR_CONTRIBUTION)
                 .debitAmount(BigDecimal.ZERO)
                 .creditAmount(contribution.getPaidAmount())
+                .rotatingAmount(split == null ? null : split.rotating())
+                .retainedAmount(split == null ? null : split.retained())
                 .currency(currency)
                 .transactionDate(
                         contribution.getPaymentDate() == null ? LocalDate.now() : contribution.getPaymentDate())
@@ -864,6 +1022,27 @@ public class ContributionService {
                 .idempotencyKey(LedgerService.contributionKey(
                         contribution.getId(), LedgerTransactionType.REGULAR_CONTRIBUTION, revision))
                 .build());
+    }
+
+    /**
+     * How the cash of this contribution divides between the period's recipient and member capital, for the ledger. A
+     * rotating or hybrid obligation splits by the basis points frozen on it; any other obligation is entirely retained.
+     * Null when the model says rotating or hybrid but no split was ever recorded (nothing is guessed: the ledger entry
+     * stays unclassified and the reconciliation reports it).
+     */
+    public static ContributionAllocationCalculator.Split ledgerSplit(Contribution contribution) {
+        BigDecimal paid = MoneyUtils.scaleForStorage(contribution.getPaidAmount());
+        String model = contribution.getOperatingModelSnapshot();
+        boolean rotatingModel = "ROTATING".equals(model) || "HYBRID".equals(model);
+        if (!rotatingModel) {
+            return new ContributionAllocationCalculator.Split(MoneyUtils.scaleForStorage(BigDecimal.ZERO), paid);
+        }
+        if (contribution.getRotatingBpsSnapshot() == null || contribution.getRotationPeriodId() == null) {
+            return null;
+        }
+        var split = ContributionAllocationCalculator.split(paid, contribution.getRotatingBpsSnapshot());
+        return new ContributionAllocationCalculator.Split(
+                MoneyUtils.scaleForStorage(split.rotating()), MoneyUtils.scaleForStorage(split.retained()));
     }
 
     public static ContributionStatus deriveStatus(BigDecimal expected, BigDecimal paid) {
@@ -901,6 +1080,7 @@ public class ContributionService {
 
     private ContributionResponse toResponse(
             Contribution c, String memberName, boolean persisted, boolean includeHistory) {
+        ObligationView view = obligationService.viewOf(c);
         return ContributionResponse.builder()
                 .id(c.getId())
                 .cooperativeId(c.getCooperativeId())
@@ -938,6 +1118,16 @@ public class ContributionService {
                 .persisted(persisted)
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
+                .dueDate(view.dueDate())
+                .overdue(view.overdue())
+                .overdueAmount(view.overdueAmount())
+                .obligationSnapshotted(view.snapshotted())
+                .operatingModel(view.operatingModel())
+                .rotatingBps(view.rotatingBps())
+                .retainedBps(view.retainedBps())
+                .expectedRotatingAmount(view.expectedRotatingAmount())
+                .expectedRetainedAmount(view.expectedRetainedAmount())
+                .rotationPeriodId(view.rotationPeriodId())
                 .build();
     }
 
@@ -949,6 +1139,12 @@ public class ContributionService {
             throw new BusinessException("Only ACTIVE members can submit contributions");
         }
         return membership;
+    }
+
+    /** A row being created now: gets its obligation snapshot when its month is the current or a future one. */
+    private Contribution withSnapshot(Contribution row, Cooperative cooperative, CooperativeMembership membership) {
+        obligationService.applyToNewRow(row, cooperative, membership);
+        return row;
     }
 
     private static BigDecimal expectedAmountFor(Cooperative cooperative, CooperativeMembership membership) {

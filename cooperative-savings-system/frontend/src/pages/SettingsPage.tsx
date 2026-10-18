@@ -12,7 +12,9 @@ import { useSnackbar } from 'notistack'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { selectIsLeadership, selectIsSuperAdmin } from '@/app/store/authSlice'
 import { useAppSelector } from '@/app/store/hooks'
+import { ContributionDueDayCard } from '@/features/contributions'
 import {
   cooperativeSettingsDefaults,
   toSettingsFormValues,
@@ -30,6 +32,7 @@ import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { SubscriptionAwareButton } from '@/shared/components/SubscriptionAwareButton'
+import { hasPermission } from '@/shared/types/auth'
 import {
   COMMON_TIMEZONES,
   SUPPORTED_LOCALES,
@@ -39,6 +42,10 @@ export function SettingsPage() {
   const { t } = useTranslation()
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
   const queryClient = useQueryClient()
+  const user = useAppSelector((s) => s.auth.user)
+  const isLeadership = useAppSelector(selectIsLeadership)
+  const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
+  const canManageDueDay = (isSuperAdmin || isLeadership) && hasPermission(user, 'COOPERATIVE_WRITE')
   const { enqueueSnackbar } = useSnackbar()
 
   const query = useQuery({
@@ -243,6 +250,7 @@ export function SettingsPage() {
           </Stack>
         </Box>
       ) : null}
+      {cooperativeId ? <ContributionDueDayCard cooperativeId={cooperativeId} canManage={canManageDueDay} /> : null}
     </Box>
   )
 }

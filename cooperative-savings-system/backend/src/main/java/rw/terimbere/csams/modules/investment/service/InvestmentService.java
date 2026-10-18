@@ -25,6 +25,8 @@ import rw.terimbere.csams.modules.investment.entity.InvestmentReturn;
 import rw.terimbere.csams.modules.investment.entity.InvestmentStatus;
 import rw.terimbere.csams.modules.investment.repository.InvestmentRepository;
 import rw.terimbere.csams.modules.investment.repository.InvestmentReturnRepository;
+import rw.terimbere.csams.modules.cooperative.service.SchemeOperatingModelGuard;
+import rw.terimbere.csams.modules.fundlock.SchemeFundLockService;
 import rw.terimbere.csams.modules.ledger.service.LedgerService;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
 import rw.terimbere.csams.security.CooperativeOfficerRoles;
@@ -47,6 +49,8 @@ public class InvestmentService {
     private final InvestmentReturnRepository investmentReturnRepository;
     private final CooperativeRepository cooperativeRepository;
     private final LedgerService ledgerService;
+    private final SchemeFundLockService schemeFundLockService;
+    private final SchemeOperatingModelGuard operatingModelGuard;
     private final LedgerFinancialCalculationService financialCalculationService;
     private final CooperativeAuthorizationService authorizationService;
     private final AuditService auditService;
@@ -117,6 +121,10 @@ public class InvestmentService {
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
         CooperativeOfficerRoles.requireFundAuthorize(principal);
+        // Serialize with every other operation that spends this scheme's funds, before the investment is read for
+        // its final decision and before available funds are checked.
+        schemeFundLockService.lockSchemeFund(cooperativeId);
+        operatingModelGuard.requireAccumulatingWorkflows(cooperativeId, "Investment activation");
         Investment investment = requireInvestment(cooperativeId, investmentId);
 
         if (investment.getStatus() != InvestmentStatus.PLANNED) {

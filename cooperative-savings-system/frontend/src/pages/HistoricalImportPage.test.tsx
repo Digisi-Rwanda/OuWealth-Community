@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
+import i18n from '@/i18n'
 import en from '@/i18n/locales/en.json'
 import rw from '@/i18n/locales/rw.json'
 import {
@@ -21,6 +22,7 @@ import type {
   HistoricalImportPreview,
   HistoricalImportSummary,
 } from '@/shared/types/historicalImport'
+import { backendError } from '@/test/paymentTestHarness'
 import { lightTheme } from '@/theme/theme'
 import { HistoricalImportPage } from './HistoricalImportPage'
 
@@ -28,6 +30,7 @@ vi.mock('@/shared/api/historicalImport', () => ({
   cancelHistoricalImport: vi.fn(),
   confirmHistoricalImport: vi.fn(),
   downloadHistoricalImportTemplate: vi.fn(),
+  downloadHistoricalImportLoanTemplate: vi.fn(),
   fetchHistoricalImport: vi.fn(),
   fetchHistoricalImportHistory: vi.fn(),
   previewHistoricalImport: vi.fn(),
@@ -174,6 +177,24 @@ describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }
     await waitFor(() => expect(previewMock).toHaveBeenCalledWith('coop-1', file, '2026-09-30', '800000'))
   })
 
+  it('previews the separate loans workbook without a cash position', async () => {
+    previewMock.mockResolvedValue(migrationPreview({ kind: 'OPENING_LOANS' }))
+    renderPage()
+    const previewButton = await screen.findByRole('button', { name: 'Preview Import' })
+    const file = chooseFile('loans.xlsx')
+    setCutover('2026-09-30')
+    expect(previewButton).toBeDisabled() // opening balances still need the cash position
+
+    fireEvent.click(screen.getByLabelText('This file is the loans workbook'))
+    expect(screen.queryByLabelText(/Available Group Funds at Cutover/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download Loans Template' })).toBeInTheDocument()
+    expect(previewButton).toBeEnabled()
+    await act(async () => {
+      fireEvent.click(previewButton)
+    })
+    await waitFor(() => expect(previewMock).toHaveBeenCalledWith('coop-1', file, '2026-09-30', ''))
+  })
+
   it('shows the cutover date and the three migration sections instead of the old sheet grid', async () => {
     previewMock.mockResolvedValue(migrationPreview())
     renderPage()
@@ -235,13 +256,51 @@ describe('HistoricalImportPage (opening-balance migration)', { timeout: 15_000 }
       fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
     })
 
-    expect(await screen.findByText('Username is duplicated in this workbook.')).toBeInTheDocument()
+    expect(await screen.findByText('This username appears more than once, or belongs to another person.')).toBeInTheDocument()
+    expect(screen.getByText('This value is required.')).toBeInTheDocument()
+    expect(screen.queryByText('Username is duplicated in this workbook.')).not.toBeInTheDocument()
     expect(screen.getAllByText('Member Registration').length).toBeGreaterThan(0)
     expect(screen.getByText('Loan Registration')).toBeInTheDocument()
     expect(screen.getByText('Last Payment Date')).toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByText(/Fix the errors in the workbook/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm Import' })).toBeDisabled()
+  })
+
+  it('shows a Kinyarwanda user the translated reason for a refused import, never the backend English', async () => {
+    previewMock.mockRejectedValue(
+      backendError(409, 'MIGRATION_STRATEGY_CONFLICT', 'This scheme migrates by detailed transaction history. (English diagnostic)'),
+    )
+    await i18n.changeLanguage('rw')
+    try {
+      renderPage()
+      chooseFile()
+      fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2026-09-30' } })
+      const funds = document.querySelectorAll('input[inputmode="decimal"]')[0] as HTMLInputElement
+      fireEvent.change(funds, { target: { value: '800000' } })
+      const button = await screen.findByRole('button', { name: rw.historicalImport.preview })
+      await act(async () => {
+        fireEvent.click(button)
+      })
+      await waitFor(() => expect(previewMock).toHaveBeenCalled())
+      expect((await screen.findAllByText(/Iki kimina cyinjiza amateka muundi buryo/)).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/English diagnostic/)).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('en')
+    }
+  })
+
+  it('shows a stable-code fallback, not the backend text, for a code it has no translation for', async () => {
+    previewMock.mockRejectedValue(backendError(422, 'SOMETHING_NEW', 'Raw backend sentence'))
+    renderPage()
+    chooseFile()
+    setCutover('2026-09-30')
+    setFunds('800000')
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Preview Import' }))
+    })
+    expect((await screen.findAllByText(/Something went wrong\. Please try again\. \(SOMETHING_NEW\)/)).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Raw backend sentence/)).not.toBeInTheDocument()
   })
 
   it('confirms and reports the migration result', async () => {

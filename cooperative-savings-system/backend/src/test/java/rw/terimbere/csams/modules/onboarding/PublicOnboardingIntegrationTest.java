@@ -153,6 +153,7 @@ class PublicOnboardingIntegrationTest {
                     "financialYearStartMonth":1,
                     "monthlyContributionAmount":1000,
                     "contributionDueDay":1,
+                    "operatingModel":"ACCUMULATING",
                     "registrationDate":"2024-01-15",
                     "status":"ARCHIVED",
                     "onboardingState":"AWAITING_PRESIDENT",
@@ -292,6 +293,7 @@ class PublicOnboardingIntegrationTest {
                     "financialYearStartMonth":1,
                     "monthlyContributionAmount":5000,
                     "contributionDueDay":5,
+                    "operatingModel":"ACCUMULATING",
                     "registrationDate":"2024-01-15"
                   },
                   "creator": {

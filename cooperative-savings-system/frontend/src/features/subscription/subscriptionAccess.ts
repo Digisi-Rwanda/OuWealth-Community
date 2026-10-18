@@ -1,6 +1,6 @@
 import type { CooperativeSubscription, SubscriptionStatus } from '@/shared/types/cooperative'
 
-export const TRIAL_WARNING_DAYS = 14
+export const TRIAL_WARNING_DAYS = 7
 export const SUBSCRIPTION_TIME_ZONE = 'Africa/Kigali'
 
 export function effectiveSubscriptionStatus(

@@ -28,6 +28,8 @@ import { InvestmentDetailPage } from '@/pages/InvestmentDetailPage'
 import { TransactionsPage } from '@/pages/TransactionsPage'
 import { LedgerPage } from '@/pages/LedgerPage'
 import { PayoutsPage } from '@/pages/PayoutsPage'
+import { PaymentsPage } from '@/pages/PaymentsPage'
+import { RotationPage } from '@/pages/RotationPage'
 import { PayoutDetailPage } from '@/pages/PayoutDetailPage'
 import { ReportsPage } from '@/pages/ReportsPage'
 import { HistoricalImportPage } from '@/pages/HistoricalImportPage'
@@ -107,6 +109,8 @@ export function AppRouter() {
               </Route>
               <Route path={ROUTES.payouts} element={<PayoutsPage />} />
               <Route path="/payouts/:runId" element={<PayoutDetailPage />} />
+              <Route path={ROUTES.payments} element={<PaymentsPage />} />
+              <Route path={ROUTES.rotation} element={<RotationPage />} />
               <Route path={ROUTES.reports} element={<ReportsPage />} />
               <Route path={ROUTES.billing} element={<BillingPage />} />
               <Route path={ROUTES.billingPaymentReturn} element={<PaymentReturnPage />} />
@@ -154,6 +158,8 @@ export function AppRouter() {
                   <Route path="/superadmin/cooperatives/:cooperativeId/ledger" element={<LedgerPage />} />
                   <Route path="/superadmin/cooperatives/:cooperativeId/payouts" element={<PayoutsPage />} />
                   <Route path="/superadmin/cooperatives/:cooperativeId/payouts/:runId" element={<PayoutDetailPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/payments" element={<PaymentsPage />} />
+                  <Route path="/superadmin/cooperatives/:cooperativeId/rotation" element={<RotationPage />} />
                   <Route path="/superadmin/cooperatives/:cooperativeId/reports" element={<ReportsPage />} />
                   <Route path="/superadmin/cooperatives/:cooperativeId/billing" element={<BillingPage />} />
                   <Route path="/superadmin/cooperatives/:cooperativeId/billing/payment-return" element={<PaymentReturnPage />} />

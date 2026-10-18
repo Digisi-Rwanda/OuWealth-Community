@@ -24,6 +24,8 @@ interface AppTopBarProps {
   homePath?: string
   /** Hide the in-app notification bell (the system portal has no notification centre). */
   hideNotifications?: boolean
+  /** Hide the account menu (the Saving Scheme layout shows it at the bottom of the sidebar instead). */
+  hideUserMenu?: boolean
 }
 
 export function AppTopBar({
@@ -34,6 +36,7 @@ export function AppTopBar({
   showBackToDashboard,
   homePath = ROUTES.dashboard,
   hideNotifications = false,
+  hideUserMenu = false,
 }: AppTopBarProps) {
   const { t } = useTranslation()
 
@@ -123,7 +126,7 @@ export function AppTopBar({
           )}
 
           {hideNotifications ? null : <NotificationBell />}
-          <UserMenu />
+          {hideUserMenu ? null : <UserMenu />}
         </Box>
       </Toolbar>
     </AppBar>

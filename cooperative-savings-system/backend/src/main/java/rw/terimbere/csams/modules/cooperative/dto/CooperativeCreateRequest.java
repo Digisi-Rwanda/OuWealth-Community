@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,6 +16,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel;
 import rw.terimbere.csams.modules.member.dto.AssignAdministratorRequest;
 import rw.terimbere.csams.modules.subscription.entity.SubscriptionInitialization;
 import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
@@ -72,6 +74,13 @@ public class CooperativeCreateRequest {
     @NotNull(message = "Registration date is required")
     private LocalDate registrationDate;
 
+    /** Required for every new scheme; there is no default. Validated as text so a bad value is a 400 with a field error. */
+    @NotBlank(message = "Operating model is required")
+    @Pattern(
+            regexp = "ACCUMULATING|ROTATING|HYBRID",
+            message = "Operating model must be ACCUMULATING, ROTATING or HYBRID")
+    private String operatingModel;
+
     /**
      * Optional Super Admin onboarding fields. Omitted by older clients.
      * Null {@code subscriptionInitialization} defaults to {@code START_TRIAL}.
@@ -90,6 +99,10 @@ public class CooperativeCreateRequest {
     @AssertTrue(message = "Registration date must be between 1950-01-01 and today (Africa/Kigali)")
     public boolean isRegistrationDateReasonable() {
         return CooperativeFieldRules.isValidRegistrationDate(registrationDate);
+    }
+
+    public SchemeOperatingModel resolvedOperatingModel() {
+        return SchemeOperatingModel.valueOf(operatingModel);
     }
 
     public SubscriptionInitialization resolvedSubscriptionInitialization() {

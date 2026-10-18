@@ -10,6 +10,8 @@ import HistoryIcon from '@mui/icons-material/History'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import PaymentsIcon from '@mui/icons-material/Payments'
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote'
+import AutorenewIcon from '@mui/icons-material/Autorenew'
 import PersonIcon from '@mui/icons-material/Person'
 import PriceCheckIcon from '@mui/icons-material/PriceCheck'
 import ReceiptIcon from '@mui/icons-material/Receipt'
@@ -116,6 +118,8 @@ export const memberNavItems: NavItem[] = [
     icon: FavoriteIcon,
     sidebarGroup: 'operations',
   },
+  { labelKey: 'nav.rotation', path: ROUTES.rotation, icon: AutorenewIcon, sidebarGroup: 'operations' },
+  { labelKey: 'nav.payments', path: ROUTES.payments, icon: RequestQuoteIcon, sidebarGroup: 'finance' },
   { labelKey: 'nav.shareOut', path: ROUTES.payouts, icon: PaymentsIcon, sidebarGroup: 'finance' },
   { labelKey: 'nav.reports', path: ROUTES.reports, icon: AssessmentIcon, sidebarGroup: 'finance' },
   {
@@ -202,6 +206,15 @@ export const adminModuleNavItems: NavItem[] = [
     roles: FINANCE_ACCESS_ROLES,
     group: 'main',
     sidebarGroup: 'operations',
+  },
+  {
+    // Combined payments: officers review, verify and post; payers follow their own payments on the same page.
+    labelKey: 'nav.payments',
+    path: ROUTES.payments,
+    icon: RequestQuoteIcon,
+    roles: [...new Set([...FINANCE_ACCESS_ROLES, ...LOAN_OPS_ROLES])],
+    group: 'main',
+    sidebarGroup: 'finance',
   },
   {
     labelKey: 'nav.investments',
@@ -381,4 +394,67 @@ export function isNavItemActive(pathname: string, search: string, itemPath: stri
   }
 
   return false
+}
+
+/** The four expandable sections of the Saving Scheme sidebar (Dashboard stays a plain top-level link). */
+export type AppSectionId = 'operations' | 'finance' | 'administration' | 'profile'
+
+export interface AppSidebarSection {
+  id: AppSectionId
+  labelKey: string
+  icon: SvgIconComponent
+  items: NavItem[]
+}
+
+export const APP_SECTION_META: Record<AppSectionId, { labelKey: string; icon: SvgIconComponent }> = {
+  operations: { labelKey: 'nav.group.operations', icon: GroupsIcon },
+  finance: { labelKey: 'nav.group.finance', icon: AccountBalanceWalletIcon },
+  administration: { labelKey: 'nav.group.governance', icon: SettingsIcon },
+  profile: { labelKey: 'nav.profile', icon: PersonIcon },
+}
+
+export const APP_SECTION_ORDER: AppSectionId[] = ['operations', 'finance', 'administration', 'profile']
+
+/**
+ * Section overrides by item path (including the ?tab= variants). Everything else follows the item's
+ * existing `sidebarGroup`: operations -> operations, finance -> finance, governance -> administration,
+ * account -> profile. The items themselves (and the Super Admin support navigation) are unchanged.
+ */
+const APP_SECTION_BY_PATH: Record<string, AppSectionId> = {
+  [ROUTES.loans]: 'finance',
+  [ROUTES.socialFund]: 'finance',
+  [`${ROUTES.socialFund}?tab=approvals`]: 'finance',
+  [`${ROUTES.contributions}?tab=share-approvals`]: 'finance',
+}
+
+export function appSectionOf(item: NavItem): AppSectionId | null {
+  const override = APP_SECTION_BY_PATH[item.path]
+  if (override) return override
+  switch (item.sidebarGroup) {
+    case 'operations':
+      return 'operations'
+    case 'finance':
+      return 'finance'
+    case 'governance':
+    case 'platform':
+      return 'administration'
+    case 'account':
+      return 'profile'
+    default:
+      return null
+  }
+}
+
+/** Role-filtered Dashboard link plus the four sections (empty sections are omitted). */
+export function getAppSidebarSections(userRoles: string[]): {
+  dashboard: NavItem
+  sections: AppSidebarSection[]
+} {
+  const items = getMobileNavItems(userRoles)
+  const sections = APP_SECTION_ORDER.map((id) => ({
+    id,
+    ...APP_SECTION_META[id],
+    items: items.filter((item) => appSectionOf(item) === id),
+  })).filter((section) => section.items.length > 0)
+  return { dashboard: dashboardNavItem, sections }
 }

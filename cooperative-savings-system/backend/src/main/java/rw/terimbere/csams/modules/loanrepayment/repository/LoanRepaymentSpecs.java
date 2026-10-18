@@ -20,6 +20,7 @@ public final class LoanRepaymentSpecs {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("cooperativeId"), cooperativeId));
+            predicates.add(cb.isNull(root.get("reversedAt"))); // a reversed repayment is no longer a repayment
             if (memberUserId != null) {
                 predicates.add(cb.equal(root.get("memberUserId"), memberUserId));
             }

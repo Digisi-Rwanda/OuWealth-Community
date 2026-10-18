@@ -21,6 +21,7 @@ import {
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { OperatingModelSelect } from './OperatingModelSelect'
 import type { Cooperative } from '@/shared/types/cooperative'
 import {
   MAX_CONTRIBUTION_DUE_DAY,
@@ -29,6 +30,7 @@ import {
   RWANDA_CURRENCY,
 } from '@/shared/utils/rwandaCooperative'
 import {
+  cooperativeCreateSchema,
   cooperativeFormDefaults,
   cooperativeFormSchema,
   toCooperativePayload,
@@ -64,6 +66,7 @@ function fromCooperative(coop: Cooperative): CooperativeFormValues {
     monthlyContributionAmount: String(coop.monthlyContributionAmount ?? '0'),
     contributionDueDay: coop.contributionDueDay ?? 1,
     registrationDate: coop.registrationDate ?? '',
+    operatingModel: coop.operatingModel ?? '',
     startTrial: true,
     assignPresidentNow: false,
     presidentMode: 'new',
@@ -95,7 +98,7 @@ export function CooperativeFormDialog({
     watch,
     formState: { errors },
   } = useForm<CooperativeFormValues>({
-    resolver: yupResolver(cooperativeFormSchema),
+    resolver: yupResolver(mode === 'create' ? cooperativeCreateSchema : cooperativeFormSchema),
     defaultValues: cooperativeFormDefaults,
   })
   const startTrial = watch('startTrial')
@@ -274,6 +277,19 @@ export function CooperativeFormDialog({
               helperText={errors.monthlyContributionAmount?.message}
               {...register('monthlyContributionAmount')}
             />
+            {mode === 'create' ? (
+              <Controller
+                name="operatingModel"
+                control={control}
+                render={({ field }) => (
+                  <OperatingModelSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.operatingModel?.message}
+                  />
+                )}
+              />
+            ) : null}
             {mode === 'create' ? (
               <>
                 <Divider />

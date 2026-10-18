@@ -19,6 +19,7 @@ import { ResponsiveTable, type TableColumn } from '@/shared/components/Responsiv
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue'
 import type { Contribution } from '@/shared/types/contribution'
 import { CONTRIBUTION_STATUSES } from '@/shared/types/contribution'
+import { ObligationDetails } from './ObligationDetails'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { validateOptionalDateRange } from '@/shared/utils/filterValidation'
 import { contributionStatusColor } from './contributionHelpers'
@@ -107,6 +108,11 @@ export function HistoryPanel({ cooperativeId, isAdmin }: HistoryPanelProps) {
         label: t('contributions.fields.remaining'),
         render: (row) => formatMoney(row.remainingAmount ?? row.outstandingAmount),
         hideOnMobile: true,
+      },
+      {
+        id: 'obligation',
+        label: t('contributions.obligation.column'),
+        render: (row) => <ObligationDetails fields={row} />,
       },
       {
         id: 'status',

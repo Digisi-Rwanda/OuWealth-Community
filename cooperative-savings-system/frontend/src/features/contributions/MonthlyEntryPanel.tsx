@@ -34,6 +34,7 @@ import { FinancialActionButton } from '@/shared/components/FinancialActionButton
 import { LoadingState } from '@/shared/components/LoadingState'
 import type { ContributionPeriodLine } from '@/shared/types/contribution'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { ObligationDetails } from './ObligationDetails'
 import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 import {
   computeOutstandingAmount,
@@ -293,6 +294,7 @@ export function MonthlyEntryPanel({ cooperativeId, canWrite }: MonthlyEntryPanel
         <Typography variant="body2" color="text.secondary">
           {t('contributions.fields.outstanding')}: {formatMoney(outstanding)}
         </Typography>
+        <ObligationDetails fields={line} />
         {canWrite && !isLocked(line) ? (
           <>
             <TextField
@@ -482,6 +484,7 @@ export function MonthlyEntryPanel({ cooperativeId, canWrite }: MonthlyEntryPanel
                           {line.username}
                         </Typography>
                       ) : null}
+                      <ObligationDetails fields={line} />
                     </TableCell>
                     <TableCell>{formatMoney(line.expectedAmount)}</TableCell>
                     <TableCell sx={{ minWidth: 110 }}>

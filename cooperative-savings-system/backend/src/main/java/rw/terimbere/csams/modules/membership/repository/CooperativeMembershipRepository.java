@@ -17,6 +17,9 @@ public interface CooperativeMembershipRepository extends JpaRepository<Cooperati
 
     Optional<CooperativeMembership> findByCooperativeIdAndUserId(UUID cooperativeId, UUID userId);
 
+    /** Every membership of the scheme, whatever its status (a member who left still has history). */
+    List<CooperativeMembership> findByCooperativeId(UUID cooperativeId);
+
     boolean existsByCooperativeIdAndUserId(UUID cooperativeId, UUID userId);
 
     long countByCooperativeIdAndMembershipStatus(UUID cooperativeId, String membershipStatus);

@@ -16,24 +16,29 @@ import rw.terimbere.csams.modules.user.entity.User;
 class MigrationTemplateAndNameTest {
 
     private static byte[] template() throws Exception {
+        return template("write");
+    }
+
+    private static byte[] template(String method) throws Exception {
         Class<?> writer = Class.forName("rw.terimbere.csams.modules.historicalimport.service.MigrationTemplateWriter");
-        Method write = writer.getDeclaredMethod("write");
+        Method write = writer.getDeclaredMethod(method);
         write.setAccessible(true);
         return (byte[]) write.invoke(null);
     }
 
     @Test
-    void template_hasExactlyThreeSheetsWithExactNamesAndHeadersAndNoDataRows() throws Exception {
+    void template_hasExactlyTwoSheetsWithExactNamesAndHeadersAndNoDataRows() throws Exception {
         byte[] bytes = template();
         assertThat(bytes[0]).isEqualTo((byte) 0x50);
         assertThat(bytes[1]).isEqualTo((byte) 0x4B);
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
-            assertThat(workbook.getNumberOfSheets()).isEqualTo(3);
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(2);
             List<String> names = new ArrayList<>();
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 2; i++) {
                 names.add(workbook.getSheetName(i));
             }
-            assertThat(names).containsExactly("Member Registration", "Share Capital Registration", "Loan Registration");
+            assertThat(names).containsExactly("Member Registration", "Share Capital Registration");
+            assertThat(workbook.getSheet("Loan Registration")).as("loans are imported separately").isNull();
             assertThat(workbook.getSheet("Instructions")).isNull();
             assertThat(workbook.getSheet("Contributions")).isNull();
 
@@ -47,7 +52,22 @@ class MigrationTemplateAndNameTest {
                             "Total Contributions to Date (RWF)");
             assertThat(headers(workbook.getSheet("Share Capital Registration")))
                     .containsExactly("Username", "Share Count", "Share Capital Contributed to Date (RWF)");
-            assertThat(headers(workbook.getSheet("Loan Registration")))
+            for (int i = 0; i < 2; i++) {
+                Sheet sheet = workbook.getSheetAt(i);
+                // header only: nothing that could be imported by accident
+                assertThat(sheet.getLastRowNum()).isZero();
+                assertThat(sheet.getPaneInformation()).isNotNull();
+                assertThat(((org.apache.poi.xssf.usermodel.XSSFCellStyle) sheet.getRow(0).getCell(0).getCellStyle()).getFont().getBold()).isTrue();
+            }
+        }
+    }
+
+    @Test
+    void loanTemplate_isASeparateOneSheetWorkbookWithTheLoanHeadersAndNoDataRows() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(template("writeLoans")))) {
+            assertThat(workbook.getNumberOfSheets()).isEqualTo(1);
+            assertThat(workbook.getSheetName(0)).isEqualTo("Loan Registration");
+            assertThat(headers(workbook.getSheetAt(0)))
                     .containsExactly(
                             "Username",
                             "Repayment Type",
@@ -58,13 +78,7 @@ class MigrationTemplateAndNameTest {
                             "Amount Paid to Date (RWF)",
                             "Outstanding Principal (RWF)",
                             "Last Payment Date");
-            for (int i = 0; i < 3; i++) {
-                Sheet sheet = workbook.getSheetAt(i);
-                // header only: nothing that could be imported by accident
-                assertThat(sheet.getLastRowNum()).isZero();
-                assertThat(sheet.getPaneInformation()).isNotNull();
-                assertThat(((org.apache.poi.xssf.usermodel.XSSFCellStyle) sheet.getRow(0).getCell(0).getCellStyle()).getFont().getBold()).isTrue();
-            }
+            assertThat(workbook.getSheetAt(0).getLastRowNum()).isZero();
         }
     }
 

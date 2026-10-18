@@ -5,10 +5,15 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
+import { setSelectedCooperativeId } from '@/app/store/authSlice'
+import { CooperativeSelector } from '@/shared/components/CooperativeSelector'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
 import en from '@/i18n/locales/en.json'
+import rw from '@/i18n/locales/rw.json'
+import { fetchCooperative, fetchMyCooperatives } from '@/shared/api/cooperatives'
 import { AdminDashboard } from '@/features/dashboard/AdminDashboard'
 import { MemberDashboard } from '@/features/dashboard/MemberDashboard'
 import type {
@@ -23,6 +28,7 @@ import {
   ROLE_MEMBER,
   ROLE_PRESIDENT,
   ROLE_SECRETARY,
+  ROLE_SUPER_ADMIN,
 } from '@/shared/types/auth'
 import { lightTheme } from '@/theme/theme'
 
@@ -156,6 +162,7 @@ vi.mock('@/shared/api/dashboard', () => ({
 
 vi.mock('@/shared/api/cooperatives', () => ({
   fetchMyCooperatives: vi.fn().mockResolvedValue([{ id: 'coop-1', name: 'Alpha', code: 'A1' }]),
+  fetchCooperative: vi.fn().mockResolvedValue({ id: 'coop-1', name: 'Support Scheme' }),
 }))
 
 vi.mock('@/shared/api/subscription', () => ({
@@ -198,7 +205,11 @@ interface Overrides {
   advanced?: DashboardAdvancedInsights
 }
 
-function makeStore(roles: string[], permissions: string[] = ['MEMBERSHIP_MANAGE']) {
+function makeStore(
+  roles: string[],
+  permissions: string[] = ['MEMBERSHIP_MANAGE'],
+  cooperativeIds: string[] = ['coop-1'],
+) {
   return configureStore({
     reducer: { auth: authReducer, ui: uiReducer },
     preloadedState: {
@@ -212,7 +223,7 @@ function makeStore(roles: string[], permissions: string[] = ['MEMBERSHIP_MANAGE'
           fullName: 'Off Icer',
           roles,
           permissions,
-          cooperativeIds: ['coop-1'],
+          cooperativeIds,
         },
         accessToken: 'tok',
         selectedCooperativeId: 'coop-1',
@@ -577,9 +588,178 @@ describe('role-based visibility is unchanged', () => {
     expect(await screen.findByTestId('fine-activity-card')).toBeInTheDocument()
   })
 
-  it('the officer header Quick Actions menu is still available', async () => {
+  it('the header Actions dropdown is gone (the in-page quick actions section remains)', async () => {
     renderAdmin([ROLE_PRESIDENT])
     await screen.findByTestId('scheme-at-a-glance')
-    expect(screen.getByRole('button', { name: en.common.actions })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en.common.actions })).not.toBeInTheDocument()
+    expect(screen.getByTestId('member-quick-actions')).toBeInTheDocument()
+  })
+})
+
+describe('dashboard header: current Saving Scheme name replaces the dropdowns', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(fetchMyCooperatives).mockResolvedValue([{ id: 'coop-1', name: 'Alpha', code: 'A1' }] as never)
+    vi.mocked(fetchCooperative).mockResolvedValue({ id: 'coop-1', name: 'Support Scheme' } as never)
+  })
+
+  it('has no Actions or Reports dropdown and no scheme selector', async () => {
+    renderAdmin([ROLE_PRESIDENT])
+    await screen.findByTestId('scheme-at-a-glance')
+    expect(screen.queryByRole('button', { name: en.common.actions })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Reports$/ })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(en.common.selectCooperative)).not.toBeInTheDocument()
+  })
+
+  it('shows the current scheme name as read-only text', async () => {
+    renderAdmin([ROLE_PRESIDENT])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText('Alpha')).toBeInTheDocument()
+    expect(within(name).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('takes the name from the current cooperative id, not from the first scheme in the list', async () => {
+    vi.mocked(fetchMyCooperatives).mockResolvedValue([
+      { id: 'coop-9', name: 'First In List', code: 'F1' },
+      { id: 'coop-1', name: 'Name From The API', code: 'A1' },
+    ] as never)
+    renderAdmin([ROLE_PRESIDENT])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText('Name From The API')).toBeInTheDocument()
+    expect(within(name).queryByText('First In List')).not.toBeInTheDocument()
+  })
+
+  it('shows a loading placeholder while the name loads, not the fallback', async () => {
+    vi.mocked(fetchMyCooperatives).mockReturnValue(new Promise(() => {}))
+    renderAdmin([ROLE_PRESIDENT])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(within(name).getByLabelText(en.common.loading)).toBeInTheDocument()
+    expect(within(name).queryByText(en.dashboard.schemeNameUnavailable)).not.toBeInTheDocument()
+  })
+
+  it('shows a localized fallback, never another scheme, when the name is unavailable', async () => {
+    vi.mocked(fetchMyCooperatives).mockResolvedValue([{ id: 'coop-9', name: 'Someone Else', code: 'X' }] as never)
+    renderAdmin([ROLE_PRESIDENT])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText(en.dashboard.schemeNameUnavailable)).toBeInTheDocument()
+    expect(within(name).queryByText('Someone Else')).not.toBeInTheDocument()
+  })
+
+  it('has the fallback and label translated in Kinyarwanda', () => {
+    expect(rw.dashboard.schemeNameUnavailable).toBeTruthy()
+    expect(rw.dashboard.schemeNameUnavailable).not.toBe(en.dashboard.schemeNameUnavailable)
+    expect(rw.dashboard.currentSchemeLabel).toBeTruthy()
+  })
+
+  it('uses the verified scheme record for a Super Admin in the support workspace', async () => {
+    renderAdmin([ROLE_SUPER_ADMIN])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText('Support Scheme')).toBeInTheDocument()
+    expect(fetchCooperative).toHaveBeenCalledWith('coop-1')
+    expect(fetchMyCooperatives).not.toHaveBeenCalled()
+  })
+
+  it('still renders the existing widgets and summary data', async () => {
+    renderAdmin([ROLE_PRESIDENT])
+    expect(await screen.findByTestId('scheme-at-a-glance')).toBeInTheDocument()
+    expect(await screen.findByTestId('member-quick-actions')).toBeInTheDocument()
+    expect(await screen.findByTestId('my-member-status')).toBeInTheDocument()
+  })
+})
+
+describe('current scheme name on both dashboards, driven by the global selector', () => {
+  const twoSchemes = [
+    { id: 'coop-1', name: 'Alpha', code: 'A1' },
+    { id: 'coop-2', name: 'Beta', code: 'B2' },
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(fetchMyCooperatives).mockResolvedValue(twoSchemes as never)
+    vi.mocked(fetchDashboardSummary).mockResolvedValue(summary)
+    vi.mocked(fetchDashboardInsights).mockResolvedValue(insights)
+    vi.mocked(fetchDashboardMemberInsights).mockResolvedValue(memberInsights)
+    vi.mocked(fetchDashboardAdvancedInsights).mockResolvedValue(advancedInsights)
+    vi.mocked(fetchLoansDisbursedByMonthChart).mockResolvedValue(emptyMonthly)
+    vi.mocked(fetchInvestmentsByMonthChart).mockResolvedValue(emptyInvestments)
+  })
+
+  function renderWithSelector(roles: string[]) {
+    const store = makeStore(roles, [], ['coop-1', 'coop-2'])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <Provider store={store}>
+        <QueryClientProvider client={client}>
+          <ThemeProvider theme={lightTheme}>
+            <MemoryRouter>
+              <CooperativeSelector />
+              <DashboardPage />
+            </MemoryRouter>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </Provider>,
+    )
+    return store
+  }
+
+  it('member dashboard shows the current scheme name from the selected cooperative', async () => {
+    wrap(<MemberDashboard cooperativeId="coop-1" />, [ROLE_MEMBER], [])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText('Alpha')).toBeInTheDocument()
+    expect(within(name).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('member dashboard shows loading, then the localized fallback when the name is unavailable', async () => {
+    vi.mocked(fetchMyCooperatives).mockReturnValue(new Promise(() => {}))
+    const view = wrap(<MemberDashboard cooperativeId="coop-1" />, [ROLE_MEMBER], [])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(within(name).getByLabelText(en.common.loading)).toBeInTheDocument()
+    view.unmount()
+
+    vi.mocked(fetchMyCooperatives).mockResolvedValue([])
+    wrap(<MemberDashboard cooperativeId="coop-1" />, [ROLE_MEMBER], [])
+    expect(
+      await within(await screen.findByTestId('dashboard-scheme-name')).findByText(
+        en.dashboard.schemeNameUnavailable,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('never shows a scheme the user is not a member of, even if a stale cached list contains it', async () => {
+    vi.mocked(fetchMyCooperatives).mockResolvedValue([
+      ...twoSchemes,
+      { id: 'coop-9', name: 'Other Tenant', code: 'O9' },
+    ] as never)
+    // The user's own cooperatives are only coop-1; coop-9 arrives as a manipulated/stale id.
+    wrap(<MemberDashboard cooperativeId="coop-9" />, [ROLE_MEMBER], [])
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText(en.dashboard.schemeNameUnavailable)).toBeInTheDocument()
+    expect(screen.queryByText('Other Tenant')).not.toBeInTheDocument()
+    expect(fetchDashboardSummary).not.toHaveBeenCalledWith('coop-9')
+  })
+
+  it.each([
+    ['member dashboard', [ROLE_MEMBER]],
+    ['officer dashboard', [ROLE_PRESIDENT]],
+  ])('%s follows the global selector without a reload', async (_label, roles) => {
+    const user = userEvent.setup()
+    const store = renderWithSelector(roles)
+    const name = await screen.findByTestId('dashboard-scheme-name')
+    expect(await within(name).findByText('Alpha')).toBeInTheDocument()
+
+    // The global selector is still present and interactive.
+    await user.click(screen.getByRole('combobox', { name: new RegExp(en.common.selectCooperative) }))
+    await user.click(await screen.findByRole('option', { name: 'Beta' }))
+
+    expect(store.getState().auth.selectedCooperativeId).toBe('coop-2')
+    expect(await within(await screen.findByTestId('dashboard-scheme-name')).findByText('Beta')).toBeInTheDocument()
+    expect(screen.queryByText('Alpha', { selector: 'p' })).not.toBeInTheDocument()
+  })
+
+  it('updates the name when the selected cooperative changes in the store', async () => {
+    const store = renderWithSelector([ROLE_MEMBER])
+    expect(await within(await screen.findByTestId('dashboard-scheme-name')).findByText('Alpha')).toBeInTheDocument()
+    store.dispatch(setSelectedCooperativeId('coop-2'))
+    expect(await within(await screen.findByTestId('dashboard-scheme-name')).findByText('Beta')).toBeInTheDocument()
   })
 })

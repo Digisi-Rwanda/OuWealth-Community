@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,6 +30,10 @@ import rw.terimbere.csams.shared.utilities.RequestIdFilter;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    public static final String CONCURRENT_UPDATE_CODE = "CONCURRENT_UPDATE";
+    static final String CONCURRENT_UPDATE_MESSAGE =
+            "The record was modified by another request. Refresh the data and try again.";
+
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -39,7 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex, HttpServletRequest request) {
         log.warn("Business exception [{}] requestId={}: {}", ex.getErrorCode(), requestId(), ex.getMessage());
-        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), request, null);
+        return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex.getErrorCode(), request, null);
     }
 
     @ExceptionHandler(UnauthorizedException.class)
@@ -131,12 +136,31 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex, HttpServletRequest request) {
-        return build(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+        return build(HttpStatus.CONFLICT, ex.getMessage(), ex.getCode(), request, null);
+    }
+
+    /**
+     * Spring translates Hibernate's stale-version failure and JPA's {@code OptimisticLockException} (on repository
+     * calls and on commit) into subclasses of {@link OptimisticLockingFailureException}, so that one type covers
+     * every {@code @Version} conflict. Pessimistic-lock and other data-access failures are different types and are
+     * deliberately not matched. The failed transaction has already rolled back and nothing is retried: the client
+     * must reload the record before trying again. The exception message names the entity and its id, so it is
+     * neither logged nor returned.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            OptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn(
+                "Optimistic lock conflict [{}] requestId={} path={}",
+                CONCURRENT_UPDATE_CODE,
+                requestId(),
+                request.getRequestURI());
+        return build(HttpStatus.CONFLICT, CONCURRENT_UPDATE_MESSAGE, CONCURRENT_UPDATE_CODE, request, null);
     }
 
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidation(ValidationException ex, HttpServletRequest request) {
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, ex.getFieldErrors());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), ex.getCode(), request, ex.getFieldErrors());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -193,11 +217,21 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(
             HttpStatus status, String message, HttpServletRequest request, List<FieldErrorDetail> fieldErrors) {
+        return build(status, message, null, request, fieldErrors);
+    }
+
+    private ResponseEntity<ErrorResponse> build(
+            HttpStatus status,
+            String message,
+            String code,
+            HttpServletRequest request,
+            List<FieldErrorDetail> fieldErrors) {
         String requestId = requestId();
         ErrorResponse body = ErrorResponse.builder()
                 .timestamp(Instant.now())
                 .status(status.value())
                 .error(status.getReasonPhrase())
+                .code(code)
                 .message(message)
                 .path(request.getRequestURI())
                 .requestId(requestId)

@@ -31,7 +31,9 @@ public class LedgerService {
     public static final String SOURCE_INVESTMENT_RETURN = "INVESTMENT_RETURN";
     public static final String SOURCE_INCOME_EXPENSE = "INCOME_EXPENSE";
     public static final String SOURCE_MEMBER_PAYOUT = "MEMBER_PAYOUT";
+    public static final String SOURCE_ROTATION_PAYOUT = "ROTATION_PAYOUT";
     public static final String SOURCE_SHARE_PURCHASE = "SHARE_PURCHASE";
+    public static final String SOURCE_MEMBER_CREDIT = "MEMBER_CREDIT";
 
     private final LedgerEntryRepository ledgerEntryRepository;
 
@@ -52,6 +54,22 @@ public class LedgerService {
         if (MoneyUtils.isZero(debit) && MoneyUtils.isZero(credit)) {
             throw new IllegalArgumentException("Ledger entry must have a non-zero debit or credit");
         }
+        // The rotating/retained split is all-or-nothing and always totals the entry's own amount: it classifies the
+        // cash of the entry, it never adds to it.
+        BigDecimal rotating = null;
+        BigDecimal retained = null;
+        if (request.getRotatingAmount() != null || request.getRetainedAmount() != null) {
+            if (request.getRotatingAmount() == null || request.getRetainedAmount() == null) {
+                throw new IllegalArgumentException("A ledger split needs both the rotating and the retained part");
+            }
+            rotating = MoneyUtils.scaleForStorage(request.getRotatingAmount());
+            retained = MoneyUtils.scaleForStorage(request.getRetainedAmount());
+            MoneyUtils.assertNonNegative(rotating);
+            MoneyUtils.assertNonNegative(retained);
+            if (rotating.add(retained).compareTo(debit.add(credit)) != 0) {
+                throw new IllegalArgumentException("The rotating and retained parts must add up to the entry amount");
+            }
+        }
 
         LedgerEntry entry = LedgerEntry.builder()
                 .cooperativeId(request.getCooperativeId())
@@ -71,6 +89,8 @@ public class LedgerService {
                 .approvedBy(request.getApprovedBy() == null ? request.getRecordedBy() : request.getApprovedBy())
                 .reversesEntryId(request.getReversesEntryId())
                 .idempotencyKey(request.getIdempotencyKey())
+                .rotatingAmount(rotating)
+                .retainedAmount(retained)
                 .build();
         return ledgerEntryRepository.save(entry);
     }
@@ -113,6 +133,8 @@ public class LedgerService {
                 .transactionType(LedgerTransactionType.REVERSAL)
                 .debitAmount(prior.getCreditAmount())
                 .creditAmount(BigDecimal.ZERO)
+                .rotatingAmount(prior.getRotatingAmount())
+                .retainedAmount(prior.getRetainedAmount())
                 .currency(prior.getCurrency())
                 .transactionDate(LocalDate.now())
                 .reference(prior.getReference())
@@ -183,6 +205,29 @@ public class LedgerService {
         return SOURCE_MEMBER_PAYOUT + ":" + payoutLineId + ":MEMBER_PAYOUT:v1";
     }
 
+    /** A confirmed rotation payout: a MEMBER_PAYOUT debit sourced from the payout, never from a share-out line. */
+    public static String rotationPayoutKey(UUID rotationPayoutId) {
+        return SOURCE_ROTATION_PAYOUT + ":" + rotationPayoutId + ":MEMBER_PAYOUT:v1";
+    }
+
+    /** Credit held for a member from one payment allocation (one receipt per allocation, ever). */
+    public static String memberCreditReceivedKey(UUID allocationId) {
+        return SOURCE_MEMBER_CREDIT + ":" + allocationId + ":MEMBER_CREDIT_RECEIVED:v1";
+    }
+
+    /** Credit applied by one officer request; the client key makes a repeated request a no-op. */
+    public static String memberCreditAppliedKey(UUID cooperativeId, String idempotencyKey) {
+        return SOURCE_MEMBER_CREDIT + ":" + cooperativeId + ":APPLIED:" + idempotencyKey;
+    }
+
+    public static String loanRepaymentReversalKey(UUID repaymentId, String component) {
+        return SOURCE_LOAN_REPAYMENT + ":" + repaymentId + ":" + component + ":REVERSAL:v1";
+    }
+
+    public static String memberCreditReversedKey(UUID receiptEntryId) {
+        return SOURCE_MEMBER_CREDIT + ":" + receiptEntryId + ":MEMBER_CREDIT_REVERSED:v1";
+    }
+
     public static String sharePurchaseKey(UUID sharePurchaseId) {
         return SOURCE_SHARE_PURCHASE + ":" + sharePurchaseId + ":SHARE_PURCHASE:v1";
     }
@@ -205,5 +250,8 @@ public class LedgerService {
         UUID approvedBy;
         UUID reversesEntryId;
         String idempotencyKey;
+        /** Of a contribution entry: the rotating and the retained part of its amount (both, or neither). */
+        BigDecimal rotatingAmount;
+        BigDecimal retainedAmount;
     }
 }

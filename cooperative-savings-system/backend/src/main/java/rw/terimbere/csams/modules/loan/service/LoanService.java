@@ -9,6 +9,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +34,8 @@ import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.notification.service.NotificationWhatsAppService;
 import rw.terimbere.csams.modules.notification.whatsapp.NotificationWhatsAppCopy;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
+import rw.terimbere.csams.modules.cooperative.service.SchemeOperatingModelGuard;
+import rw.terimbere.csams.modules.fundlock.SchemeFundLockService;
 import rw.terimbere.csams.modules.ledger.service.LedgerService;
 import rw.terimbere.csams.modules.loan.dto.LoanApplicationFormResponse;
 import rw.terimbere.csams.modules.loan.dto.LoanApproveRequest;
@@ -109,6 +112,8 @@ public class LoanService {
     private final CooperativeAuthorizationService authorizationService;
     private final FinancialCalculationService financialCalculationService;
     private final LedgerService ledgerService;
+    private final SchemeFundLockService schemeFundLockService;
+    private final SchemeOperatingModelGuard operatingModelGuard;
     private final AuditService auditService;
     private final ApprovalTrailService approvalTrailService;
     private final NotificationFacade notificationFacade;
@@ -505,6 +510,10 @@ public class LoanService {
         Cooperative cooperative = requireCooperative(cooperativeId);
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
+        // Serialize with every other operation that spends this scheme's funds. The lock comes before the loan is
+        // read and before available funds are calculated, so both reflect what earlier transactions committed.
+        schemeFundLockService.lockSchemeFund(cooperativeId);
+        operatingModelGuard.requireAccumulatingWorkflows(cooperativeId, "Loan disbursement");
         Loan loan = requireLoan(cooperativeId, loanId);
         if (loan.getStatus() != LoanStatus.APPROVED) {
             throw new BusinessException("Only APPROVED loans can be disbursed");
@@ -620,17 +629,59 @@ public class LoanService {
         authorizationService.requireMembership(cooperativeId);
         loanRepository.markOverdue(cooperativeId, today());
 
-        Loan loan = requireLoan(cooperativeId, loanId);
+        // Row lock: a repayment, a combined-payment posting or any other change to this loan cannot interleave.
+        Loan loan = loanRepository
+                .findByIdAndCooperativeIdForUpdate(loanId, cooperativeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Loan", loanId));
+        BigDecimal amount = MoneyUtils.scaleForStorage(request.getAmount());
+        MoneyUtils.assertPositive(amount);
+        LoanRepayment repayment = applyRepayment(
+                cooperative,
+                loan,
+                amount,
+                request.getPaymentDate(),
+                trimToNull(request.getPaymentReference()),
+                trimToNull(request.getNotes()),
+                request.getAllocateInterestFirst(),
+                principal.getId());
+
+        auditService.record(
+                principal.getId(),
+                cooperativeId,
+                AuditableAction.REPAY,
+                "LoanRepayment",
+                repayment.getId(),
+                null,
+                "{\"loanId\":\"" + loanId + "\",\"amount\":\"" + repayment.getAmountTotal() + "\"}",
+                clientIp(httpRequest),
+                userAgent(httpRequest));
+        return toRepaymentResponse(repayment);
+    }
+
+    /**
+     * The one place a repayment is applied to a loan: validates the loan's status and outstanding amount, lets the loan
+     * engine compute the principal/interest/penalty split, updates the loan and its installments, and appends the ledger
+     * entries. Used unchanged by the direct repayment route and by verified combined-payment posting, so there is a
+     * single loan repayment calculator. The caller must hold the loan row lock and an open transaction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public LoanRepayment applyRepayment(
+            Cooperative cooperative,
+            Loan loan,
+            BigDecimal amount,
+            java.time.LocalDate paymentDate,
+            String reference,
+            String notes,
+            Boolean allocateInterestFirst,
+            UUID actorId) {
         if (loan.getStatus() != LoanStatus.ACTIVE && loan.getStatus() != LoanStatus.OVERDUE) {
             throw new BusinessException("Repayments are only allowed on ACTIVE or OVERDUE loans");
         }
-
-        BigDecimal amount = MoneyUtils.scaleForStorage(request.getAmount());
         MoneyUtils.assertPositive(amount);
 
         if (isScheduleBased(loan)) {
-            loanPenaltyService.evaluate(loan, today(), principal.getId());
-            loan = requireLoan(cooperativeId, loanId);
+            loanPenaltyService.evaluate(loan, today(), actorId);
+            loan = requireLoan(cooperative.getId(), loan.getId());
         }
 
         BigDecimal outstandingPrincipal = loan.getOutstandingPrincipal() == null
@@ -652,7 +703,7 @@ public class LoanService {
                     "Repayment amount exceeds outstanding principal + interest + penalty (" + totalOutstanding + ")");
         }
 
-        boolean interestFirst = request.getAllocateInterestFirst() == null || request.getAllocateInterestFirst();
+        boolean interestFirst = allocateInterestFirst == null || allocateInterestFirst;
         BigDecimal interestPortion;
         BigDecimal principalPortion;
         BigDecimal penaltyPortion = BigDecimal.ZERO.setScale(MoneyUtils.STORAGE_SCALE);
@@ -688,16 +739,16 @@ public class LoanService {
 
         LoanRepayment repayment = LoanRepayment.builder()
                 .loanId(loan.getId())
-                .cooperativeId(cooperativeId)
+                .cooperativeId(cooperative.getId())
                 .memberUserId(loan.getMemberUserId())
-                .paymentDate(request.getPaymentDate())
+                .paymentDate(paymentDate)
                 .amountTotal(amountTotal)
                 .principalPortion(principalPortion)
                 .interestPortion(interestPortion)
                 .penaltyPortion(penaltyPortion)
-                .paymentReference(trimToNull(request.getPaymentReference()))
-                .notes(trimToNull(request.getNotes()))
-                .recordedBy(principal.getId())
+                .paymentReference(reference)
+                .notes(notes)
+                .recordedBy(actorId)
                 .build();
         repayment = loanRepaymentRepository.save(repayment);
         persistAllocations(repayment, split);
@@ -728,56 +779,46 @@ public class LoanService {
             loan.setStatus(LoanStatus.ACTIVE);
         }
         loanRepository.save(loan);
-        applyPenaltyPaymentsToFines(installments, split, repayment, principal.getId(), cooperative.getCurrency());
+        applyPenaltyPaymentsToFines(installments, split, repayment, actorId, cooperative.getCurrency());
 
         if (principalPortion.compareTo(BigDecimal.ZERO) > 0) {
             ledgerService.appendApproved(LedgerService.AppendRequest.builder()
-                    .cooperativeId(cooperativeId)
+                    .cooperativeId(cooperative.getId())
                     .memberUserId(loan.getMemberUserId())
                     .transactionType(LedgerTransactionType.LOAN_PRINCIPAL_REPAYMENT)
                     .debitAmount(BigDecimal.ZERO)
                     .creditAmount(principalPortion)
                     .currency(cooperative.getCurrency())
-                    .transactionDate(request.getPaymentDate())
+                    .transactionDate(paymentDate)
                     .reference(repayment.getPaymentReference())
                     .sourceEntityType(LedgerService.SOURCE_LOAN_REPAYMENT)
                     .sourceEntityId(repayment.getId())
                     .description("Loan principal repayment")
-                    .recordedBy(principal.getId())
-                    .approvedBy(principal.getId())
+                    .recordedBy(actorId)
+                    .approvedBy(actorId)
                     .idempotencyKey(LedgerService.loanPrincipalRepaymentKey(repayment.getId()))
                     .build());
         }
         if (interestPortion.compareTo(BigDecimal.ZERO) > 0) {
             ledgerService.appendApproved(LedgerService.AppendRequest.builder()
-                    .cooperativeId(cooperativeId)
+                    .cooperativeId(cooperative.getId())
                     .memberUserId(loan.getMemberUserId())
                     .transactionType(LedgerTransactionType.LOAN_INTEREST_PAYMENT)
                     .debitAmount(BigDecimal.ZERO)
                     .creditAmount(interestPortion)
                     .currency(cooperative.getCurrency())
-                    .transactionDate(request.getPaymentDate())
+                    .transactionDate(paymentDate)
                     .reference(repayment.getPaymentReference())
                     .sourceEntityType(LedgerService.SOURCE_LOAN_REPAYMENT)
                     .sourceEntityId(repayment.getId())
                     .description("Loan interest payment")
-                    .recordedBy(principal.getId())
-                    .approvedBy(principal.getId())
+                    .recordedBy(actorId)
+                    .approvedBy(actorId)
                     .idempotencyKey(LedgerService.loanInterestRepaymentKey(repayment.getId()))
                     .build());
         }
 
-        auditService.record(
-                principal.getId(),
-                cooperativeId,
-                AuditableAction.REPAY,
-                "LoanRepayment",
-                repayment.getId(),
-                null,
-                "{\"loanId\":\"" + loanId + "\",\"amount\":\"" + amountTotal + "\"}",
-                clientIp(httpRequest),
-                userAgent(httpRequest));
-        return toRepaymentResponse(repayment);
+        return repayment;
     }
 
     @Transactional(readOnly = true)
@@ -790,6 +831,155 @@ public class LoanService {
                 .stream()
                 .map(this::toRepaymentResponse)
                 .toList();
+    }
+
+    /** What giving one repayment back to a loan restored, and where the loan stood before and after. */
+    public record RepaymentReversal(
+            BigDecimal principal,
+            BigDecimal interest,
+            BigDecimal penalty,
+            BigDecimal principalBefore,
+            BigDecimal principalAfter,
+            BigDecimal interestBefore,
+            BigDecimal interestAfter,
+            BigDecimal penaltyBefore,
+            BigDecimal penaltyAfter,
+            LoanStatus statusBefore,
+            LoanStatus statusAfter,
+            UUID principalLedgerEntryId,
+            UUID interestLedgerEntryId) {}
+
+    /**
+     * Gives a repayment back to its loan: the loan owes again exactly what the repayment had taken (principal, interest and
+     * penalty), the instalments it paid are reopened, a loan it closed is reopened, its ledger credits are taken back with
+     * REVERSAL entries, and the repayment is flagged reversed. The repayment itself is never edited or deleted. The caller
+     * holds the scheme fund lock and the loan row lock, in an open transaction.
+     *
+     * <p>It is refused, never forced, when it could not leave the loan consistent: when a later repayment of the same
+     * loan is still in force (reverse that first), when the loan was written off or is not yet running, when the
+     * repayment paid a penalty (those are settled through fines and need their own reversal), or when the loan no longer
+     * holds what the repayment put into it.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public RepaymentReversal reverseRepayment(Loan loan, LoanRepayment repayment, UUID actorId) {
+        if (repayment.isReversed()) {
+            throw new BusinessException("REPAYMENT_ALREADY_REVERSED", "This repayment was already reversed");
+        }
+        if (!repayment.getLoanId().equals(loan.getId()) || !repayment.getCooperativeId().equals(loan.getCooperativeId())) {
+            throw new BusinessException("REVERSAL_BLOCKED_LATER_CHANGES", "The repayment does not belong to this loan");
+        }
+        LoanStatus before = loan.getStatus();
+        if (before != LoanStatus.ACTIVE && before != LoanStatus.OVERDUE && before != LoanStatus.CLOSED) {
+            throw new BusinessException(
+                    "REVERSAL_BLOCKED_LOAN_STATE", "A repayment can only be reversed on an active, overdue or closed loan");
+        }
+        BigDecimal principal = MoneyUtils.scaleForStorage(repayment.getPrincipalPortion());
+        BigDecimal interest = MoneyUtils.scaleForStorage(repayment.getInterestPortion());
+        BigDecimal penalty = MoneyUtils.scaleForStorage(
+                repayment.getPenaltyPortion() == null ? BigDecimal.ZERO : repayment.getPenaltyPortion());
+        if (penalty.signum() > 0) {
+            throw new BusinessException(
+                    "REVERSAL_BLOCKED_PENALTY",
+                    "This repayment paid a penalty, which is settled through fines; it cannot be reversed automatically");
+        }
+        if (loanRepaymentRepository.existsLaterActiveRepayment(loan.getId(), repayment.getId(), repayment.getCreatedAt())) {
+            throw new BusinessException(
+                    "REVERSAL_BLOCKED_LATER_REPAYMENT",
+                    "A later repayment of this loan is still in force; reverse that one first");
+        }
+
+        BigDecimal principalBefore = MoneyUtils.scaleForStorage(nz(loan.getOutstandingPrincipal()));
+        BigDecimal interestBefore = MoneyUtils.scaleForStorage(nz(loan.getOutstandingInterest()));
+        BigDecimal penaltyBefore = MoneyUtils.scaleForStorage(nz(loan.getOutstandingPenalty()));
+        BigDecimal repaidPrincipal = MoneyUtils.scaleForStorage(nz(loan.getTotalRepaidPrincipal()));
+        BigDecimal repaidInterest = MoneyUtils.scaleForStorage(nz(loan.getTotalRepaidInterest()));
+        if (repaidPrincipal.compareTo(principal) < 0 || repaidInterest.compareTo(interest) < 0) {
+            throw new BusinessException(
+                    "REVERSAL_BLOCKED_LATER_CHANGES", "The loan no longer shows that much repaid, so this repayment cannot be given back");
+        }
+        BigDecimal principalAfter = MoneyUtils.scaleForStorage(principalBefore.add(principal));
+        BigDecimal ceiling = loan.getPrincipalAmount() != null ? loan.getPrincipalAmount() : loan.getApprovedAmount();
+        if (ceiling != null && principalAfter.compareTo(MoneyUtils.scaleForStorage(ceiling)) > 0) {
+            throw new BusinessException(
+                    "REVERSAL_BLOCKED_LATER_CHANGES", "Giving this repayment back would leave more principal than the loan was for");
+        }
+
+        // the instalments this repayment paid are reopened exactly as it paid them
+        List<LoanRepaymentAllocation> paid = loanRepaymentAllocationRepository.findByRepaymentIdOrderByCreatedAtAsc(repayment.getId());
+        if (!paid.isEmpty()) {
+            Map<UUID, LoanInstallment> installments = new HashMap<>();
+            for (LoanInstallment i : loanInstallmentRepository.findByLoanIdOrderByInstallmentNumberAsc(loan.getId())) {
+                installments.put(i.getId(), i);
+            }
+            for (LoanRepaymentAllocation a : paid) {
+                LoanInstallment installment = installments.get(a.getInstallmentId());
+                if (installment == null) {
+                    throw new BusinessException("REVERSAL_BLOCKED_LATER_CHANGES", "An instalment this repayment paid no longer exists");
+                }
+                BigDecimal amount = MoneyUtils.scaleForStorage(a.getAmount());
+                switch (a.getComponent()) {
+                    case PRINCIPAL -> installment.setPrincipalPaid(takeBack(installment.getPrincipalPaid(), amount));
+                    case INTEREST -> installment.setInterestPaid(takeBack(installment.getInterestPaid(), amount));
+                    case PENALTY -> throw new BusinessException(
+                            "REVERSAL_BLOCKED_PENALTY", "This repayment paid a penalty; it cannot be reversed automatically");
+                }
+            }
+            LocalDate asOf = today();
+            installments.values().forEach(i -> i.refreshStatus(asOf));
+            loanInstallmentRepository.saveAll(installments.values());
+        }
+
+        loan.setOutstandingPrincipal(principalAfter);
+        loan.setOutstandingInterest(MoneyUtils.scaleForStorage(interestBefore.add(interest)));
+        loan.setOutstandingPenalty(penaltyBefore);
+        loan.setTotalRepaidPrincipal(MoneyUtils.scaleForStorage(repaidPrincipal.subtract(principal)));
+        loan.setTotalRepaidInterest(MoneyUtils.scaleForStorage(repaidInterest.subtract(interest)));
+        if (before == LoanStatus.CLOSED) {
+            boolean late = loan.getDueDate() != null && loan.getDueDate().isBefore(today());
+            loan.setStatus(late ? LoanStatus.OVERDUE : LoanStatus.ACTIVE);
+        }
+        loanRepository.saveAndFlush(loan);
+
+        UUID principalLedger = null;
+        UUID interestLedger = null;
+        if (principal.signum() > 0) {
+            principalLedger = reverseLedger(repayment, LedgerTransactionType.LOAN_PRINCIPAL_REPAYMENT, "PRINCIPAL", actorId);
+        }
+        if (interest.signum() > 0) {
+            interestLedger = reverseLedger(repayment, LedgerTransactionType.LOAN_INTEREST_PAYMENT, "INTEREST", actorId);
+        }
+        repayment.setReversedAt(java.time.Instant.now());
+        repayment.setReversedBy(actorId);
+        loanRepaymentRepository.saveAndFlush(repayment);
+        return new RepaymentReversal(
+                principal, interest, penalty, principalBefore, principalAfter, interestBefore, loan.getOutstandingInterest(),
+                penaltyBefore, penaltyBefore, before, loan.getStatus(), principalLedger, interestLedger);
+    }
+
+    private UUID reverseLedger(LoanRepayment repayment, LedgerTransactionType type, String component, UUID actorId) {
+        return ledgerService
+                .reverseApprovedCredit(
+                        LedgerService.SOURCE_LOAN_REPAYMENT,
+                        repayment.getId(),
+                        type,
+                        LedgerService.loanRepaymentReversalKey(repayment.getId(), component),
+                        actorId,
+                        "Reversal of the loan " + component.toLowerCase(Locale.ROOT) + " repayment")
+                .map(rw.terimbere.csams.modules.ledger.entity.LedgerEntry::getId)
+                .orElseThrow(() -> new BusinessException(
+                        "LEDGER_REFERENCE_MISSING", "The ledger credit of this repayment could not be found to reverse"));
+    }
+
+    private static BigDecimal takeBack(BigDecimal paid, BigDecimal amount) {
+        BigDecimal now = MoneyUtils.scaleForStorage(nz(paid));
+        if (now.compareTo(amount) < 0) {
+            throw new BusinessException("REVERSAL_BLOCKED_LATER_CHANGES", "An instalment holds less than this repayment paid into it");
+        }
+        return MoneyUtils.scaleForStorage(now.subtract(amount));
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     @Transactional(readOnly = true)
@@ -1583,6 +1773,7 @@ public class LoanService {
                 .notes(repayment.getNotes())
                 .recordedBy(repayment.getRecordedBy())
                 .createdAt(repayment.getCreatedAt())
+                .reversed(repayment.isReversed())
                 .build();
     }
 

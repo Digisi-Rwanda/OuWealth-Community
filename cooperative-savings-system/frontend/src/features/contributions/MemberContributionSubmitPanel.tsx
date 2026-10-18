@@ -20,6 +20,7 @@ import {
   submitRegularContribution,
 } from '@/shared/api/contributions'
 import { uploadCooperativeFile } from '@/shared/api/files'
+import { ObligationDetails } from './ObligationDetails'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { checkMoney, isFutureIsoDate, isValidIsoDate } from '@/shared/utils/formValidation'
 import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
@@ -257,6 +258,12 @@ export function MemberContributionSubmitPanel({
                 {t('contributions.submit.paymentMonth')}: {preview?.year}-
                 {String(preview?.month).padStart(2, '0')}
               </Typography>
+              {preview?.dueDate ? (
+                <Typography variant="body2" data-testid="contribution-preview-due-date">
+                  {t('contributions.obligation.dueDate', { date: preview.dueDate })}
+                </Typography>
+              ) : null}
+              <ObligationDetails fields={preview ?? {}} />
               <Typography variant="body2">
                 {t('contributions.fields.status')}:{' '}
                 {preview?.reviewStatus

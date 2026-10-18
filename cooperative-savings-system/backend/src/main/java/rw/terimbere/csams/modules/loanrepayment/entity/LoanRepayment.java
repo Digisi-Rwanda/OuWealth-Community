@@ -76,6 +76,20 @@ public class LoanRepayment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /**
+     * Set once, when a payment reversal gave this repayment back to the loan. The repayment itself is never edited or
+     * deleted; a reversed repayment no longer counts in any total or report.
+     */
+    @Column(name = "reversed_at")
+    private Instant reversedAt;
+
+    @Column(name = "reversed_by")
+    private UUID reversedBy;
+
+    public boolean isReversed() {
+        return reversedAt != null;
+    }
+
     @Version
     @Column(nullable = false)
     private Long version;

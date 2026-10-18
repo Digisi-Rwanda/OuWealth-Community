@@ -35,9 +35,12 @@ import rw.terimbere.csams.modules.historicalimport.dto.HistoricalImportSummaryRe
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalMigrationSummary;
 import rw.terimbere.csams.modules.historicalimport.dto.HistoricalReconciliationSummary;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImport;
+import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportRow;
 import rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportStatus;
 import rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRepository;
+import rw.terimbere.csams.modules.historicalimport.strategy.HistoricalMigrationGuard;
+import rw.terimbere.csams.modules.historicalimport.strategy.MigrationStrategy;
 import rw.terimbere.csams.modules.historicalimport.repository.HistoricalImportRowRepository;
 import rw.terimbere.csams.modules.report.export.ExcelReportExporter;
 import rw.terimbere.csams.security.CooperativeAuthorizationService;
@@ -79,12 +82,21 @@ public class HistoricalImportService {
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
+    private final HistoricalMigrationGuard migrationGuard;
 
     @Transactional(readOnly = true)
     public byte[] downloadTemplate(UUID cooperativeId) {
         requireCooperative(cooperativeId);
         requireLeadership(cooperativeId);
         return MigrationTemplateWriter.write();
+    }
+
+    /** The separate template for loans still outstanding at the cutover (one sheet, Loan Registration). */
+    @Transactional(readOnly = true)
+    public byte[] downloadLoanTemplate(UUID cooperativeId) {
+        requireCooperative(cooperativeId);
+        requireLeadership(cooperativeId);
+        return MigrationTemplateWriter.writeLoans();
     }
 
     @Transactional
@@ -97,15 +109,17 @@ public class HistoricalImportService {
         Cooperative cooperative = requireCooperative(cooperativeId);
         UserPrincipal principal = requireLeadership(cooperativeId);
         requireValidCutover(cutoverDate);
-        BigDecimal funds = requireValidOpeningFunds(openingAvailableFunds);
         byte[] bytes = readXlsx(file);
         String hash = HistoricalFingerprint.sha256Hex(bytes);
         if (importRepository.existsByCooperativeIdAndFileHashAndStatus(
                 cooperativeId, hash, HistoricalImportStatus.CONFIRMED)) {
-            throw new BusinessException("This workbook has already been confirmed for this Saving Scheme");
+            throw new BusinessException("IMPORT_FILE_ALREADY_CONFIRMED", "This workbook has already been confirmed for this Saving Scheme");
         }
         // Parse first: an old-format workbook is rejected before anything is stored.
         MigrationWorkbook parsed = parser.parse(bytes);
+        // The loan workbook carries no cash position (that belongs to the opening balances), so it has none to validate.
+        boolean loansOnly = parsed.kind() == HistoricalImportKind.OPENING_LOANS;
+        BigDecimal funds = loansOnly ? null : requireValidOpeningFunds(openingAvailableFunds);
 
         String originalFilename = file.getOriginalFilename() == null ? "historical-import.xlsx" : file.getOriginalFilename();
         String storageKey = "historical-imports/" + cooperativeId + "/" + UUID.randomUUID() + ".xlsx";
@@ -120,6 +134,7 @@ public class HistoricalImportService {
                 .sizeBytes((long) bytes.length)
                 .fileHash(hash)
                 .status(HistoricalImportStatus.UPLOADED)
+                .importKind(parsed.kind())
                 .cutoverDate(cutoverDate)
                 .openingAvailableFunds(funds)
                 .uploadedBy(principal.getId())
@@ -147,7 +162,7 @@ public class HistoricalImportService {
                 "HistoricalImport",
                 importEntity.getId(),
                 null,
-                "{\"phase\":\"preview\",\"format\":\"OPENING_BALANCE\",\"filename\":\""
+                "{\"phase\":\"preview\",\"format\":\"" + parsed.kind() + "\",\"filename\":\""
                         + escape(originalFilename)
                         + "\",\"hash\":\""
                         + hash
@@ -164,6 +179,7 @@ public class HistoricalImportService {
                 .importId(importEntity.getId())
                 .status(importEntity.getStatus())
                 .format(HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE)
+                .kind(parsed.kind().name())
                 .originalFilename(importEntity.getOriginalFilename())
                 .fileHash(importEntity.getFileHash())
                 .cutoverDate(cutoverDate)
@@ -182,6 +198,20 @@ public class HistoricalImportService {
     public HistoricalImportConfirmResponse confirm(UUID cooperativeId, UUID importId, HttpServletRequest request) {
         Cooperative cooperative = requireCooperative(cooperativeId);
         UserPrincipal principal = requireLeadership(cooperativeId);
+        // Refused before anything is touched (and so before the import could be marked failed) when this scheme
+        // migrates the other way: bringing the same history in twice would count it twice.
+        HistoricalImport candidate = importRepository.findByIdAndCooperativeId(importId, cooperativeId).orElse(null);
+        if (candidate != null && candidate.getStatus() == HistoricalImportStatus.READY) {
+            migrationGuard.requireStrategy(
+                    cooperativeId, MigrationStrategy.OPENING_BALANCE, candidate.getCutoverDate(), principal.getId());
+            if (candidate.getImportKind() == HistoricalImportKind.OPENING_LOANS
+                    && !importRepository.existsByCooperativeIdAndImportKindAndStatus(
+                            cooperativeId, HistoricalImportKind.OPENING_BALANCE, HistoricalImportStatus.CONFIRMED)) {
+                throw new BusinessException(
+                        "OPENING_BALANCES_FIRST",
+                        "Import the opening balances (members and share capital) first. The loans are added on top of them.");
+            }
+        }
         TransactionTemplate business = new TransactionTemplate(transactionManager);
         try {
             return business.execute(status -> doConfirm(cooperative, importId, principal, request));
@@ -207,17 +237,19 @@ public class HistoricalImportService {
                 .findByIdAndCooperativeId(importId, cooperative.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("HistoricalImport", importId));
         if (importEntity.getStatus() == HistoricalImportStatus.CONFIRMED) {
-            throw new BusinessException("This historical import has already been confirmed");
+            throw new BusinessException("IMPORT_ALREADY_CONFIRMED", "This historical import has already been confirmed");
         }
-        if (importEntity.getCutoverDate() == null || importEntity.getOpeningAvailableFunds() == null) {
-            throw new ValidationException(MigrationWorkbookParser.UNSUPPORTED_FORMAT);
+        if (importEntity.getCutoverDate() == null
+                || (importEntity.getImportKind() != HistoricalImportKind.OPENING_LOANS
+                        && importEntity.getOpeningAvailableFunds() == null)) {
+            throw ValidationException.coded("OLD_TEMPLATE_NOT_SUPPORTED", MigrationWorkbookParser.UNSUPPORTED_FORMAT);
         }
         if (importEntity.getStatus() != HistoricalImportStatus.READY) {
-            throw new BusinessException("Import cannot be confirmed in status " + importEntity.getStatus());
+            throw new BusinessException("IMPORT_NOT_CONFIRMABLE", "Import cannot be confirmed in status " + importEntity.getStatus());
         }
         if (importRepository.existsByCooperativeIdAndFileHashAndStatus(
                 cooperative.getId(), importEntity.getFileHash(), HistoricalImportStatus.CONFIRMED)) {
-            throw new BusinessException("This workbook has already been confirmed for this Saving Scheme");
+            throw new BusinessException("IMPORT_FILE_ALREADY_CONFIRMED", "This workbook has already been confirmed for this Saving Scheme");
         }
 
         // Re-validate against the data as it is now: balances or identities may have changed since preview.
@@ -229,10 +261,10 @@ public class HistoricalImportService {
                         importEntity.getCutoverDate(),
                         importEntity.getOpeningAvailableFunds());
         if (validated.hasErrors() || validated.invalidRows() > 0) {
-            throw new ValidationException("Workbook is no longer valid. Fix the errors and upload again.");
+            throw ValidationException.coded("IMPORT_NO_LONGER_VALID", "Workbook is no longer valid. Fix the errors and upload again.");
         }
         if (validated.validRows() <= 0) {
-            throw new ValidationException("Workbook has no importable rows");
+            throw ValidationException.coded("IMPORT_NO_ROWS", "Workbook has no importable rows");
         }
 
         MigrationPersistenceService.PersistResult persisted =
@@ -278,7 +310,7 @@ public class HistoricalImportService {
                 .findByIdAndCooperativeId(importId, cooperativeId)
                 .orElseThrow(() -> new ResourceNotFoundException("HistoricalImport", importId));
         if (importEntity.getStatus() == HistoricalImportStatus.CONFIRMED) {
-            throw new BusinessException("Confirmed imports cannot be cancelled");
+            throw new BusinessException("IMPORT_CANNOT_CANCEL_CONFIRMED", "Confirmed imports cannot be cancelled");
         }
         if (importEntity.getStatus() == HistoricalImportStatus.CANCELLED) {
             return toSummary(importEntity);
@@ -344,7 +376,8 @@ public class HistoricalImportService {
                         .errors(errors)
                         .errorSummary(importEntity.getErrorSummary());
         if (openingBalance) {
-            builder.format(HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE)
+            builder.kind(importEntity.getImportKind().name())
+                    .format(HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE)
                     .migration(readJson(importEntity.getMigrationSummary(), new TypeReference<HistoricalMigrationSummary>() {}));
         } else {
             HistoricalReconciliationSummary reconciliation = readJson(
@@ -424,6 +457,7 @@ public class HistoricalImportService {
                 .format(isOpeningBalance(entity)
                         ? HistoricalImportPreviewResponse.FORMAT_OPENING_BALANCE
                         : HistoricalImportPreviewResponse.FORMAT_LEGACY)
+                .kind(entity.getImportKind().name())
                 .cutoverDate(entity.getCutoverDate())
                 .totalRows(entity.getTotalRows())
                 .validRows(entity.getValidRows())
@@ -442,45 +476,45 @@ public class HistoricalImportService {
 
     private static BigDecimal requireValidOpeningFunds(BigDecimal value) {
         if (value == null) {
-            throw new ValidationException("Available Group Funds at Cutover (RWF) is required");
+            throw ValidationException.coded("OPENING_FUNDS_REQUIRED", "Available Group Funds at Cutover (RWF) is required");
         }
         if (value.signum() < 0) {
-            throw new ValidationException("Available Group Funds at Cutover (RWF) cannot be negative");
+            throw ValidationException.coded("OPENING_FUNDS_NEGATIVE", "Available Group Funds at Cutover (RWF) cannot be negative");
         }
         BigDecimal scaled = MoneyUtils.scale(value);
         if (scaled.compareTo(new BigDecimal("999999999999.99")) > 0) {
-            throw new ValidationException("Available Group Funds at Cutover (RWF) is too large");
+            throw ValidationException.coded("OPENING_FUNDS_TOO_LARGE", "Available Group Funds at Cutover (RWF) is too large");
         }
         return scaled;
     }
 
     private static void requireValidCutover(LocalDate cutoverDate) {
         if (cutoverDate == null) {
-            throw new ValidationException("Historical data through (cutover date) is required");
+            throw ValidationException.coded("CUTOVER_REQUIRED", "Historical data through (cutover date) is required");
         }
         if (cutoverDate.isBefore(MIN_CUTOVER)) {
-            throw new ValidationException("Historical data through (cutover date) is not a realistic date");
+            throw ValidationException.coded("CUTOVER_UNREALISTIC", "Historical data through (cutover date) is not a realistic date");
         }
         if (cutoverDate.isAfter(LocalDate.now(CooperativeFieldRules.ZONE))) {
-            throw new ValidationException("Historical data through (cutover date) cannot be in the future");
+            throw ValidationException.coded("CUTOVER_IN_FUTURE", "Historical data through (cutover date) cannot be in the future");
         }
     }
 
     private byte[] readXlsx(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new ValidationException("Excel file is required");
+            throw ValidationException.coded("FILE_REQUIRED", "Excel file is required");
         }
         String name = file.getOriginalFilename() == null ? "import.xlsx" : file.getOriginalFilename();
         if (!name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
-            throw new ValidationException("Only .xlsx files are supported");
+            throw ValidationException.coded("FILE_NOT_XLSX", "Only .xlsx files are supported");
         }
         if (file.getSize() > MAX_FILE_BYTES) {
-            throw new ValidationException("Excel file must be 10MB or smaller");
+            throw ValidationException.coded("FILE_TOO_LARGE", "Excel file must be 10MB or smaller");
         }
         try {
             return file.getBytes();
         } catch (IOException ex) {
-            throw new ValidationException("Unable to read uploaded file");
+            throw ValidationException.coded("FILE_UNREADABLE", "Unable to read uploaded file");
         }
     }
 
@@ -488,7 +522,7 @@ public class HistoricalImportService {
         try {
             return Files.readAllBytes(fileStorageService.load(storageKey));
         } catch (IOException ex) {
-            throw new ValidationException("Unable to read stored workbook");
+            throw ValidationException.coded("FILE_UNREADABLE", "Unable to read stored workbook");
         }
     }
 

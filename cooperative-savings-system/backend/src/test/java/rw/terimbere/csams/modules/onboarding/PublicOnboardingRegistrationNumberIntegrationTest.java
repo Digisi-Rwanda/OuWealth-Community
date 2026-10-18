@@ -142,6 +142,7 @@ class PublicOnboardingRegistrationNumberIntegrationTest {
                                   "financialYearStartMonth":1,
                                   "contactEmail":"admin-%s@test.local",
                                   "contactPhone":"0781234567",
+                                  "operatingModel":"ACCUMULATING",
                                   "registrationDate":"2024-01-15"
                                 }
                                 """.formatted(suffix(), suffix())))
@@ -181,6 +182,7 @@ class PublicOnboardingRegistrationNumberIntegrationTest {
                     "financialYearStartMonth":1,
                     "monthlyContributionAmount":5000,
                     "contributionDueDay":5,
+                    "operatingModel":"ACCUMULATING",
                     "registrationDate":"2024-01-15"
                   },
                   "creator": {

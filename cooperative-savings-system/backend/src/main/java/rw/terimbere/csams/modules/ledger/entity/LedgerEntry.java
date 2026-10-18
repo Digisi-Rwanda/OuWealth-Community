@@ -95,6 +95,17 @@ public class LedgerEntry {
     @Column(name = "idempotency_key", nullable = false, length = 128, updatable = false)
     private String idempotencyKey;
 
+    /**
+     * Of a contribution entry's amount: the part owed to the period's recipient (rotating) and the part that is member
+     * capital (retained). Together they are exactly the entry's own amount, so they never add cash. Null on entries that
+     * are not contribution cash and on entries written before the split existed.
+     */
+    @Column(name = "rotating_amount", precision = 19, scale = 4, updatable = false)
+    private BigDecimal rotatingAmount;
+
+    @Column(name = "retained_amount", precision = 19, scale = 4, updatable = false)
+    private BigDecimal retainedAmount;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

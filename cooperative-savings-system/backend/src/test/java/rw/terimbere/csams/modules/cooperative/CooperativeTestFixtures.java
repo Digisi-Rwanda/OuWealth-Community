@@ -11,8 +11,15 @@ public final class CooperativeTestFixtures {
         return createBody(name, "1000.0000", 1);
     }
 
+    /** Existing tests create ACCUMULATING schemes, the behavior they were written against. */
     public static String createBody(String name, String monthlyAmount, int dueDay) {
+        return createBody(name, monthlyAmount, dueDay, "ACCUMULATING");
+    }
+
+    /** {@code operatingModel} is sent as given (even if invalid); pass {@code null} to omit the field entirely. */
+    public static String createBody(String name, String monthlyAmount, int dueDay, String operatingModel) {
         String suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String model = operatingModel == null ? "" : "\"operatingModel\":\"" + operatingModel + "\",";
         return """
                 {
                   "name":"%s",
@@ -23,10 +30,11 @@ public final class CooperativeTestFixtures {
                   "registrationNumber":"RCA/TEST/%s",
                   "contactEmail":"coop-%s@test.local",
                   "contactPhone":"0781234567",
+                  %s
                   "registrationDate":"2024-01-15"
                 }
                 """
-                .formatted(name, monthlyAmount, dueDay, suffix, suffix.toLowerCase());
+                .formatted(name, monthlyAmount, dueDay, suffix, suffix.toLowerCase(), model);
     }
 
     /** Appends extra JSON object fields (without a leading comma) before the closing brace. */

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link as RouterLink } from 'react-router-dom'
 import { SuperAdminDashboard } from '@/features/dashboard/SuperAdminDashboard'
+import { MigrationReviewsCard } from '@/features/superAdmin/MigrationReviewsCard'
 import { dashboardPageTitleSx } from '@/features/dashboard/dashboardTypography'
 import { SUPER_ADMINS_QUERY_KEY, fetchSuperAdmins } from '@/shared/api/superAdmins'
 import { SUPER_ADMIN_ROUTES } from '@/shared/constants/routes'
@@ -55,6 +56,8 @@ export function SuperAdminHomePage() {
           {t('superAdmin.home.systemHealth')}
         </Button>
       </Stack>
+
+      <MigrationReviewsCard />
 
       <SuperAdminDashboard showHeader={false} superAdminCount={adminsQuery.data?.length} />
     </Box>

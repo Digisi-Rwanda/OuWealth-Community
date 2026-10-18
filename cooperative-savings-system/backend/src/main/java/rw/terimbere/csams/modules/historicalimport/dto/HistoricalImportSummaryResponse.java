@@ -20,6 +20,9 @@ public class HistoricalImportSummaryResponse {
     private String fileHash;
     private HistoricalImportStatus status;
     private String format;
+
+    /** OPENING_BALANCE (members and share capital) or OPENING_LOANS (the separate loan workbook). */
+    private String kind;
     private java.time.LocalDate cutoverDate;
     private int totalRows;
     private int validRows;

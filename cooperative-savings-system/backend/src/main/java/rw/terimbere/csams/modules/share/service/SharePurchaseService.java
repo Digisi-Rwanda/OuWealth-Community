@@ -243,12 +243,6 @@ public class SharePurchaseService {
         membership.setShareCount(next);
         membershipRepository.save(membership);
 
-        shareValuationService.persist(
-                shareValuationService.calculate(cooperative),
-                ShareValuationSnapshotReason.SHARE_ISSUANCE,
-                ShareValuationService.SOURCE_SHARE_PURCHASE,
-                purchase.getId());
-
         ledgerService.appendApproved(LedgerService.AppendRequest.builder()
                 .cooperativeId(cooperativeId)
                 .memberUserId(purchase.getMemberUserId())
@@ -264,6 +258,15 @@ public class SharePurchaseService {
                 .approvedBy(principal.getId())
                 .idempotencyKey(LedgerService.sharePurchaseKey(purchase.getId()))
                 .build());
+
+        // The SHARE_ISSUANCE snapshot must describe the whole approved transaction: the new shares AND the matching
+        // cash credit. Both are written above in this same transaction; the valuation queries auto-flush them, so no
+        // explicit flush is needed. Taking the snapshot any earlier records the new share count without the cash.
+        shareValuationService.persist(
+                shareValuationService.calculate(cooperative),
+                ShareValuationSnapshotReason.SHARE_ISSUANCE,
+                ShareValuationService.SOURCE_SHARE_PURCHASE,
+                purchase.getId());
 
         auditService.record(
                 principal.getId(),

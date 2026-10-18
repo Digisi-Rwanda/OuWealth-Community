@@ -32,8 +32,30 @@ public class ShareValuationResponse {
     /** Remaining capital in ACTIVE/PARTIALLY_RETURNED investments. */
     private BigDecimal otherAssets;
 
-    /** Obligations owed by the Ikimina. Currently unsupported in the domain (always zero). */
+    /**
+     * Obligations owed by the Ikimina: recipient entitlements out of verified rotating money, plus rotating money not
+     * yet reconciled. Always {@code verifiedRotatingLiabilities + unreconciledRotatingFunds}.
+     */
     private BigDecimal liabilities;
+
+    /** What rotation recipients are still owed out of money whose receipt was verified. */
+    private BigDecimal verifiedRotatingLiabilities;
+
+    /** Rotating money recorded without verification: held for its recipient, not payable until reconciled. */
+    private BigDecimal unreconciledRotatingFunds;
+
+    /**
+     * Money known to be rotating whose original period cannot be established: held (a liability), never member capital,
+     * not payable until attributed. Included in {@code liabilities}.
+     */
+    private BigDecimal unresolvedRotatingFunds;
+
+    /**
+     * Money whose character is genuinely unknown. Not a liability and not assigned to anyone: it stays inside the
+     * valuation as cash, and is reported here so nobody mistakes it for classified member capital. Not part of
+     * {@code liabilities}.
+     */
+    private BigDecimal unclassifiedFunds;
 
     /**
      * availableFunds + outstandingLoans + unpaidInterest + unpaidPenalties + otherAssets − liabilities

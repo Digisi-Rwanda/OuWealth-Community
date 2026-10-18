@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,6 +41,7 @@ import rw.terimbere.csams.shared.common.dto.PageResponse;
 public class MemberController {
 
     private final MemberService memberService;
+    private final rw.terimbere.csams.modules.member.service.MemberRemovalService memberRemovalService;
 
     @PostMapping("/api/v1/cooperatives/{cooperativeId}/members")
     @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
@@ -120,6 +122,45 @@ public class MemberController {
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(
                 ApiResponse.ok(memberService.updateStatus(cooperativeId, memberUserId, request, httpRequest)));
+    }
+
+    public record DeactivateRequest(String reason) {}
+
+    @GetMapping("/api/v1/cooperatives/{cooperativeId}/members/{memberUserId}/removal-eligibility")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    @Operation(summary = "What may be done to remove this member: delete (no history), deactivate or reactivate, and why not")
+    public ResponseEntity<ApiResponse<rw.terimbere.csams.modules.member.service.MemberRemovalService.Eligibility>> removalEligibility(
+            @PathVariable UUID cooperativeId, @PathVariable UUID memberUserId) {
+        return ResponseEntity.ok(ApiResponse.ok(memberRemovalService.eligibility(cooperativeId, memberUserId)));
+    }
+
+    @PostMapping("/api/v1/cooperatives/{cooperativeId}/members/{memberUserId}/deactivate")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    @Operation(summary = "Remove a member from active membership; every record, loan and obligation stays")
+    public ResponseEntity<ApiResponse<MemberResponse>> deactivate(
+            @PathVariable UUID cooperativeId,
+            @PathVariable UUID memberUserId,
+            @RequestBody DeactivateRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                memberRemovalService.deactivate(cooperativeId, memberUserId, request == null ? null : request.reason(), httpRequest)));
+    }
+
+    @PostMapping("/api/v1/cooperatives/{cooperativeId}/members/{memberUserId}/reactivate")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    @Operation(summary = "Restore an inactive member to active membership")
+    public ResponseEntity<ApiResponse<MemberResponse>> reactivate(
+            @PathVariable UUID cooperativeId, @PathVariable UUID memberUserId, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.ok(memberRemovalService.reactivate(cooperativeId, memberUserId, httpRequest)));
+    }
+
+    @DeleteMapping("/api/v1/cooperatives/{cooperativeId}/members/{memberUserId}")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    @Operation(summary = "Permanently delete a member who has no history at all; refused otherwise")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID cooperativeId, @PathVariable UUID memberUserId, HttpServletRequest httpRequest) {
+        memberRemovalService.delete(cooperativeId, memberUserId, httpRequest);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PostMapping(

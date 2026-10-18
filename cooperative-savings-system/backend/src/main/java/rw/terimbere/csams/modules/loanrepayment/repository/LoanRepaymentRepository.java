@@ -36,6 +36,7 @@ public interface LoanRepaymentRepository
             WHERE r.cooperativeId = :cooperativeId
               AND r.paymentDate >= :fromDate
               AND r.paymentDate <= :toDate
+              AND r.reversedAt IS NULL
             """)
     BigDecimal sumAmountTotalInDateRange(
             @Param("cooperativeId") UUID cooperativeId,
@@ -50,6 +51,20 @@ public interface LoanRepaymentRepository
             WHERE r.loanId = l.id
               AND l.cooperativeId = :cooperativeId
               AND l.openingImportId IS NOT NULL
+              AND r.reversedAt IS NULL
             """)
     BigDecimal sumPrincipalRepaidOnImportedLoans(@Param("cooperativeId") UUID cooperativeId);
+
+    /** A repayment of the same loan recorded after this one and still in force. */
+    @Query(
+            """
+            SELECT COUNT(r) > 0
+            FROM LoanRepayment r
+            WHERE r.loanId = :loanId
+              AND r.reversedAt IS NULL
+              AND r.id <> :repaymentId
+              AND r.createdAt > :after
+            """)
+    boolean existsLaterActiveRepayment(
+            @Param("loanId") UUID loanId, @Param("repaymentId") UUID repaymentId, @Param("after") java.time.Instant after);
 }

@@ -68,32 +68,45 @@ class OpeningBalanceMigrationRollbackIntegrationTest {
     }
 
     @Test
-    void confirmFailure_rollsBackMembersMembershipsBalancesAndLoans() throws Exception {
+    void aFailingLoanImportRollsBackItsLoansAndLeavesTheConfirmedOpeningBalancesIntact() throws Exception {
         String username = "rb_" + UUID.randomUUID().toString().substring(0, 8);
-        MigrationWorkbooks workbook = MigrationWorkbooks.create()
+        String root = "/api/v1/cooperatives/" + cooperativeId + "/historical-imports";
+        // the opening balances (members and share capital) import fine: they write no instalments
+        UUID openingId = preview(MigrationWorkbooks.create()
                 .member("Roll Back", username, "50000")
                 .shares(username, "3", "30000")
-                .loan(username, "END_OF_TERM", "100000", "2", "2026-08-01", "6", "", "", "");
-        MvcResult preview = mockMvc.perform(multipart("/api/v1/cooperatives/" + cooperativeId + "/historical-imports/preview")
-                        .file(workbook.file("rb.xlsx"))
-                        .param("cutoverDate", "2026-09-30")
-                        .param("openingAvailableFunds", "800000")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andReturn();
-        UUID importId = UUID.fromString(
-                objectMapper.readTree(preview.getResponse().getContentAsString()).path("data").path("importId").asText());
+                .file("rb-open.xlsx"), "800000");
+        mockMvc.perform(post(root + "/" + openingId + "/confirm").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/v1/cooperatives/" + cooperativeId + "/historical-imports/" + importId + "/confirm")
-                        .header("Authorization", "Bearer " + token))
+        // the loan import fails late (instalment generation) and must leave no loan behind
+        UUID loanImportId = preview(MigrationWorkbooks.create()
+                .loan(username, "END_OF_TERM", "100000", "2", "2026-08-01", "6", "", "", "")
+                .file("rb-loans.xlsx"), null);
+        mockMvc.perform(post(root + "/" + loanImportId + "/confirm").header("Authorization", "Bearer " + token))
                 .andExpect(status().is5xxServerError());
 
-        assertThat(userRepository.findByUsernameIgnoreCaseAndDeletedFalse(username)).isEmpty();
-        assertThat(openingBalanceRepository.findByCooperativeId(cooperativeId)).isEmpty();
         assertThat(loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent()).isEmpty();
-        assertThat(membershipRepository.findAll().stream().filter(m -> cooperativeId.equals(m.getCooperativeId())))
-                .noneMatch(m -> m.getRoleInCooperative() != null && m.getRoleInCooperative().equals("MEMBER") && m.getShareCount() == 3);
-        assertThat(historicalImportRepository.findById(importId).orElseThrow().getStatus())
+        assertThat(historicalImportRepository.findById(loanImportId).orElseThrow().getStatus())
                 .isEqualTo(HistoricalImportStatus.FAILED);
+        assertThat(historicalImportRepository.findById(openingId).orElseThrow().getStatus())
+                .isEqualTo(HistoricalImportStatus.CONFIRMED);
+        assertThat(userRepository.findByUsernameIgnoreCaseAndDeletedFalse(username)).isPresent();
+        assertThat(openingBalanceRepository.findByCooperativeId(cooperativeId)).hasSize(1);
+        assertThat(membershipRepository.findAll().stream().filter(m -> cooperativeId.equals(m.getCooperativeId())))
+                .anyMatch(m -> "MEMBER".equals(m.getRoleInCooperative()) && m.getShareCount() == 3);
+    }
+
+    private UUID preview(org.springframework.mock.web.MockMultipartFile file, String funds) throws Exception {
+        var request = multipart("/api/v1/cooperatives/" + cooperativeId + "/historical-imports/preview")
+                .file(file)
+                .param("cutoverDate", "2026-09-30")
+                .header("Authorization", "Bearer " + token);
+        if (funds != null) {
+            request.param("openingAvailableFunds", funds);
+        }
+        MvcResult preview = mockMvc.perform(request).andExpect(status().isOk()).andReturn();
+        return UUID.fromString(
+                objectMapper.readTree(preview.getResponse().getContentAsString()).path("data").path("importId").asText());
     }
 }

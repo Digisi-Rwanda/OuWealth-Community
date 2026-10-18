@@ -16,7 +16,7 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
  * Safe cell reading for import workbooks. Formula cells use cached results only —
  * no formula evaluator is created.
  */
-final class WorkbookCellReader {
+public final class WorkbookCellReader {
 
     private static final DateTimeFormatter[] DATE_FORMATS = new DateTimeFormatter[] {
         DateTimeFormatter.ISO_LOCAL_DATE,
@@ -28,7 +28,7 @@ final class WorkbookCellReader {
 
     private final DataFormatter formatter = new DataFormatter(Locale.ROOT);
 
-    String stringValue(Cell cell) {
+    public String stringValue(Cell cell) {
         if (cell == null) {
             return "";
         }
@@ -41,7 +41,7 @@ final class WorkbookCellReader {
         return formatter.formatCellValue(cell).trim();
     }
 
-    String dateString(Cell cell) {
+    public String dateString(Cell cell) {
         if (cell == null) {
             return "";
         }
@@ -60,7 +60,7 @@ final class WorkbookCellReader {
         return stringValue(cell);
     }
 
-    static LocalDate parseDate(String raw) {
+    public static LocalDate parseDate(String raw) {
         if (!StringUtils.hasText(raw)) {
             return null;
         }
@@ -75,7 +75,7 @@ final class WorkbookCellReader {
         return null;
     }
 
-    static BigDecimal parseAmount(String raw) {
+    public static BigDecimal parseAmount(String raw) {
         if (!StringUtils.hasText(raw)) {
             return null;
         }

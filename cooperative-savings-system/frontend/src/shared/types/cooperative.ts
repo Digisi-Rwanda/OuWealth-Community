@@ -1,5 +1,7 @@
 export type CooperativeStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'ARCHIVED'
 export type CooperativeOnboardingState = 'COMPLETE' | 'AWAITING_PRESIDENT'
+/** How a Saving Scheme operates. A legacy scheme that has not been classified yet has no value (null). */
+export type SchemeOperatingModel = 'ACCUMULATING' | 'ROTATING' | 'HYBRID'
 export type SubscriptionInitialization = 'START_TRIAL' | 'NONE' | 'ACTIVE_MANUAL'
 export type SubscriptionStatus = 'NONE' | 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'EXPIRED' | 'CANCELED'
 
@@ -17,6 +19,7 @@ export interface CooperativeSummary {
   status: CooperativeStatus
   currency: string
   logoUrl?: string | null
+  operatingModel?: SchemeOperatingModel | null
 }
 
 export interface Cooperative {
@@ -34,6 +37,7 @@ export interface Cooperative {
   registrationDate?: string | null
   status: CooperativeStatus
   onboardingState?: CooperativeOnboardingState
+  operatingModel?: SchemeOperatingModel | null
   logoUrl?: string | null
   logoFileKey?: string | null
   createdAt?: string
@@ -62,14 +66,22 @@ export interface CooperativeCreateRequest {
   monthlyContributionAmount: string | number
   contributionDueDay: number
   registrationDate?: string
+  /** Required for every new Saving Scheme; there is no default. */
+  operatingModel: SchemeOperatingModel
   subscriptionInitialization?: SubscriptionInitialization
   president?: AssignPresidentRequest
 }
 
 export type CooperativeUpdateRequest = Omit<
   CooperativeCreateRequest,
-  'subscriptionInitialization' | 'president'
+  'subscriptionInitialization' | 'president' | 'operatingModel'
 >
+
+/** One-time classification of a legacy scheme; `confirmed` must be true. */
+export interface OperatingModelClassificationRequest {
+  operatingModel: SchemeOperatingModel
+  confirmed: true
+}
 
 export interface CooperativeStatusUpdateRequest {
   status: CooperativeStatus
@@ -102,6 +114,7 @@ export function mapCooperativeSummary(raw: CooperativeSummary): CooperativeSumma
     status: raw.status,
     currency: raw.currency || 'RWF',
     logoUrl: raw.logoUrl ?? null,
+    operatingModel: raw.operatingModel ?? null,
   }
 }
 
@@ -109,4 +122,10 @@ export function isOnboardingIncomplete(
   cooperative: Pick<Cooperative, 'onboardingState'> | null | undefined,
 ): boolean {
   return cooperative?.onboardingState === 'AWAITING_PRESIDENT'
+}
+
+export function isOperatingModelConfigured(
+  cooperative: Pick<Cooperative, 'operatingModel'> | null | undefined,
+): boolean {
+  return Boolean(cooperative?.operatingModel)
 }

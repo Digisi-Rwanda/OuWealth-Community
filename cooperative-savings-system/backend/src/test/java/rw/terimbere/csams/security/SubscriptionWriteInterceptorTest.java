@@ -142,8 +142,19 @@ class SubscriptionWriteInterceptorTest {
                         "POST",
                         "/api/v1/public/billing/mtn/callback/22222222-2222-2222-2222-222222222222"))
                 .isTrue();
+        // Member payments (/payments) are ordinary financial writes: an expired scheme must be read-only for them.
+        String payments = "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/payments";
+        String paymentId = payments + "/22222222-2222-2222-2222-222222222222";
+        assertThat(SubscriptionWriteInterceptor.isExempt("POST", payments)).isFalse();
+        assertThat(SubscriptionWriteInterceptor.isExempt("POST", paymentId + "/start-review")).isFalse();
+        assertThat(SubscriptionWriteInterceptor.isExempt("POST", paymentId + "/verify")).isFalse();
+        assertThat(SubscriptionWriteInterceptor.isExempt("POST", paymentId + "/reject")).isFalse();
         assertThat(SubscriptionWriteInterceptor.isExempt(
-                        "POST", "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/payments"))
+                        "PUT", paymentId + "/allocations/33333333-3333-3333-3333-333333333333/loan-breakdown"))
+                .isFalse();
+        // Subscription billing payments keep their (intended) exemption.
+        assertThat(SubscriptionWriteInterceptor.isExempt(
+                        "POST", "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/billing/checkout"))
                 .isTrue();
         assertThat(SubscriptionWriteInterceptor.isExempt(
                         "POST", "/api/v1/cooperatives/11111111-1111-1111-1111-111111111111/reports/export"))

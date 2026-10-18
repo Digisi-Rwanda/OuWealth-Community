@@ -75,8 +75,10 @@ public class LedgerFinancialCalculationService implements FinancialCalculationSe
 
         // Loans issued inside OuWealth reduce cash. Loans imported by the migration do not: the explicit
         // cutover cash is already net of them. Principal repaid on them after the cutover is cash coming in.
+        // WRITTEN_OFF loans stay in this set: a write-off is an accounting status change, not a cash receipt, so the
+        // unrecovered principal that was lent out must keep reducing available cash.
         BigDecimal outstandingPrincipal = loanRepository.sumOutstandingPrincipalExcludingImported(
-                cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE));
+                cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE, LoanStatus.WRITTEN_OFF));
         BigDecimal outstanding =
                 MoneyUtils.scale(outstandingPrincipal == null ? BigDecimal.ZERO : outstandingPrincipal);
         BigDecimal opening = MoneyUtils.add(

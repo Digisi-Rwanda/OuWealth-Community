@@ -104,6 +104,29 @@ public interface FineRepository extends JpaRepository<Fine, UUID> {
     BigDecimal sumOutstandingByStatuses(
             @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<FineStatus> statuses);
 
+    /**
+     * Fine receivables for share valuation (NAV): same as {@link #sumOutstandingByStatuses} but a penalty linked to a
+     * {@code WRITTEN_OFF} loan of the same scheme is not a recoverable asset and is left out. Fines with no source loan
+     * (contribution and manual fines) always count. This changes valuation eligibility only: no fine is waived,
+     * cancelled or edited. The loan match is scheme-scoped, so a loan of another scheme can never exclude a fine.
+     */
+    @Query(
+            """
+            SELECT COALESCE(SUM(f.outstandingAmount), 0)
+            FROM Fine f
+            WHERE f.cooperativeId = :cooperativeId
+              AND f.status IN :statuses
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM Loan l
+                  WHERE l.id = f.sourceLoanId
+                    AND l.cooperativeId = f.cooperativeId
+                    AND l.status = rw.terimbere.csams.modules.loan.entity.LoanStatus.WRITTEN_OFF
+              )
+            """)
+    BigDecimal sumOutstandingForValuationExcludingWrittenOffLoans(
+            @Param("cooperativeId") UUID cooperativeId, @Param("statuses") Collection<FineStatus> statuses);
+
     @Query(
             """
             SELECT COUNT(f)

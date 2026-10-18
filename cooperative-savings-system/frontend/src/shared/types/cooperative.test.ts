@@ -17,7 +17,14 @@ describe('mapCooperativeSummary', () => {
       status: 'ACTIVE',
       currency: 'RWF',
       logoUrl: null,
+      operatingModel: null,
     })
+  })
+
+  it('keeps a recorded operating model and maps a missing one to null (legacy scheme)', () => {
+    const base = { id: 'a', name: 'A', status: 'ACTIVE', currency: 'RWF' } as unknown as CooperativeSummary
+    expect(mapCooperativeSummary({ ...base, operatingModel: 'ROTATING' }).operatingModel).toBe('ROTATING')
+    expect(mapCooperativeSummary(base).operatingModel).toBeNull()
   })
 })
 

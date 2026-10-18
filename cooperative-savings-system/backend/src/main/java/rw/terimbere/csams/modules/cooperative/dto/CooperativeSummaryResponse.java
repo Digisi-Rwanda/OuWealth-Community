@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
+import rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel;
 
 @Data
 @Builder
@@ -18,4 +19,5 @@ public class CooperativeSummaryResponse {
     private CooperativeStatus status;
     private String currency;
     private String logoUrl;
+    private SchemeOperatingModel operatingModel;
 }
