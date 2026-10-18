@@ -120,6 +120,8 @@ export interface HistoricalImportPreview {
   importId: string
   status: HistoricalImportStatus | string
   format?: HistoricalImportFormat | string | null
+  /** OPENING_BALANCE (members and share capital) or OPENING_LOANS (the separate loan workbook). */
+  kind?: 'OPENING_BALANCE' | 'OPENING_LOANS' | null
   originalFilename?: string | null
   fileHash?: string | null
   cutoverDate?: string | null
@@ -145,6 +147,8 @@ export interface HistoricalImportSummary {
   fileHash?: string | null
   status: HistoricalImportStatus | string
   format?: HistoricalImportFormat | string | null
+  /** OPENING_BALANCE (members and share capital) or OPENING_LOANS (the separate loan workbook). */
+  kind?: 'OPENING_BALANCE' | 'OPENING_LOANS' | null
   cutoverDate?: string | null
   totalRows: number
   validRows: number

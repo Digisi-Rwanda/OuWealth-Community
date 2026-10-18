@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionDueDayService;
+import rw.terimbere.csams.modules.fundlock.SchemeFundLockService;
 import rw.terimbere.csams.modules.audit.service.AuditService;
 import rw.terimbere.csams.modules.auth.dto.AuthResult;
 import rw.terimbere.csams.modules.auth.service.AuthService;
@@ -56,6 +58,8 @@ public class PublicOnboardingService {
     private final AuthService authService;
     private final AuditService auditService;
     private final NotificationFacade notificationFacade;
+    private final SchemeFundLockService schemeFundLockService;
+    private final ContributionDueDayService contributionDueDayService;
 
     @Transactional
     public AuthResult signup(PublicOnboardingRequest request, HttpServletRequest httpRequest) {
@@ -130,8 +134,14 @@ public class PublicOnboardingService {
                 .registrationDate(cooperativeReq.getRegistrationDate())
                 .status(CooperativeStatus.ACTIVE)
                 .onboardingState(CooperativeOnboardingState.COMPLETE)
+                .operatingModel(cooperativeReq.resolvedOperatingModel())
                 .createdBy(user.getId())
                 .build());
+        schemeFundLockService.initializeForNewScheme(cooperative.getId());
+        contributionDueDayService.seedForNewScheme(
+                cooperative.getId(),
+                cooperativeReq.getContributionDueDay() != null ? cooperativeReq.getContributionDueDay() : 1,
+                user.getId());
 
         auditService.record(
                 user.getId(),

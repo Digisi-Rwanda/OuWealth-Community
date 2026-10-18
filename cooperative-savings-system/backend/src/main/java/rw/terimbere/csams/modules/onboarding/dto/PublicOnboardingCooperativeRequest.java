@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel;
 import rw.terimbere.csams.shared.validation.CooperativeFieldRules;
 import rw.terimbere.csams.shared.validation.CooperativeRegistrationNumber;
 import rw.terimbere.csams.shared.validation.RwandanPhone;
@@ -69,6 +71,13 @@ public class PublicOnboardingCooperativeRequest {
     @Max(CooperativeFieldRules.MAX_DUE_DAY)
     private Integer contributionDueDay;
 
+    /** Required for every new scheme; there is no default. */
+    @NotBlank(message = "Operating model is required")
+    @Pattern(
+            regexp = "ACCUMULATING|ROTATING|HYBRID",
+            message = "Operating model must be ACCUMULATING, ROTATING or HYBRID")
+    private String operatingModel;
+
     @NotNull(message = "Registration date is required")
     private LocalDate registrationDate;
 
@@ -80,5 +89,9 @@ public class PublicOnboardingCooperativeRequest {
     @AssertTrue(message = "Registration date must be between 1950-01-01 and today (Africa/Kigali)")
     public boolean isRegistrationDateReasonable() {
         return CooperativeFieldRules.isValidRegistrationDate(registrationDate);
+    }
+
+    public SchemeOperatingModel resolvedOperatingModel() {
+        return SchemeOperatingModel.valueOf(operatingModel);
     }
 }

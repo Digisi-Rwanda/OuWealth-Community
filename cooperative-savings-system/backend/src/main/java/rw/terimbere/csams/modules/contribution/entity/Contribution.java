@@ -94,4 +94,31 @@ public class Contribution extends BaseEntity {
     @Builder.Default
     @Column(name = "ledger_revision", nullable = false)
     private int ledgerRevision = 0;
+
+    // ---- Obligation snapshot (Task 3B-2). All NULL for rows that predate it; written once when the row is created
+    // for the current or a future month and never rewritten, hence updatable = false.
+
+    @Column(name = "obligation_snapshot_at", updatable = false)
+    private Instant obligationSnapshotAt;
+
+    @Column(name = "unit_amount_snapshot", precision = 19, scale = 4, updatable = false)
+    private BigDecimal unitAmountSnapshot;
+
+    @Column(name = "due_date", updatable = false)
+    private LocalDate dueDate;
+
+    @Column(name = "operating_model_snapshot", length = 16, updatable = false)
+    private String operatingModelSnapshot;
+
+    @Column(name = "rotation_configuration_id", updatable = false)
+    private UUID rotationConfigurationId;
+
+    @Column(name = "rotation_period_id", updatable = false)
+    private UUID rotationPeriodId;
+
+    @Column(name = "rotating_bps_snapshot", updatable = false)
+    private Integer rotatingBpsSnapshot;
+
+    @Column(name = "retained_bps_snapshot", updatable = false)
+    private Integer retainedBpsSnapshot;
 }

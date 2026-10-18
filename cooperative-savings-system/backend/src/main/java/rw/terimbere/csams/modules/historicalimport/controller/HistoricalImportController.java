@@ -41,11 +41,26 @@ public class HistoricalImportController {
     @GetMapping("/template")
     @PreAuthorize(
             "hasRole('PRESIDENT') or hasRole('VICE_PRESIDENT') or hasRole('SUPER_ADMIN') or hasRole('COOPERATIVE_ADMIN')")
-    @Operation(summary = "Download the Ikimina opening-balance migration XLSX template (3 sheets)")
+    @Operation(summary = "Download the Ikimina opening-balance migration XLSX template (2 sheets: members and share capital)")
     public ResponseEntity<byte[]> template(@PathVariable UUID cooperativeId) {
         byte[] bytes = historicalImportService.downloadTemplate(cooperativeId);
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename("ikimina-migration-template.xlsx")
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.parseMediaType(ExcelReportExporter.CONTENT_TYPE))
+                .body(bytes);
+    }
+
+    @GetMapping("/loan-template")
+    @PreAuthorize(
+            "hasRole('PRESIDENT') or hasRole('VICE_PRESIDENT') or hasRole('SUPER_ADMIN') or hasRole('COOPERATIVE_ADMIN')")
+    @Operation(summary = "Download the separate opening-loans XLSX template (1 sheet: Loan Registration)")
+    public ResponseEntity<byte[]> loanTemplate(@PathVariable UUID cooperativeId) {
+        byte[] bytes = historicalImportService.downloadLoanTemplate(cooperativeId);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename("ikimina-opening-loans-template.xlsx")
                 .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())

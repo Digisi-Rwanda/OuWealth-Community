@@ -17,6 +17,11 @@ function renderCreate(onSubmit = vi.fn()) {
 }
 
 function fillRequiredFields() {
+  fillTextFields()
+  fireEvent.click(screen.getByRole('radio', { name: /Accumulating Savings/ }))
+}
+
+function fillTextFields() {
   fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Ubumwe Savings' } })
   fireEvent.change(screen.getByLabelText(/^Registration number/), {
     target: { value: 'RCA/2024/0123' },
@@ -73,5 +78,60 @@ describe('CooperativeFormDialog onboarding', () => {
     await user.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
     expect(onSubmit.mock.calls[0][0].subscriptionInitialization).toBe('NONE')
+  })
+
+  it('offers the three operating models and selects none by default', () => {
+    renderCreate()
+    const radios = screen.getAllByRole('radio', { name: /Savings/ })
+    expect(radios).toHaveLength(3)
+    expect(screen.getByRole('radio', { name: /Accumulating Savings/ })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: /Rotating Savings/ })).not.toBeChecked()
+    expect(screen.getByRole('radio', { name: /Hybrid Savings/ })).not.toBeChecked()
+    expect(screen.getByText('Saving Scheme Operating Model')).toBeInTheDocument()
+  })
+
+  it('requires a model: submitting without one shows the validation and sends nothing', async () => {
+    const user = userEvent.setup({ delay: null })
+    const { onSubmit } = renderCreate()
+    fillTextFields()
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() =>
+      expect(screen.getAllByText('Select a Saving Scheme operating model').length).toBeGreaterThan(0),
+    )
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('submits the selected model', async () => {
+    const user = userEvent.setup({ delay: null })
+    const { onSubmit } = renderCreate()
+    fillRequiredFields()
+    fireEvent.click(screen.getByRole('radio', { name: /Rotating Savings/ }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+    expect(onSubmit.mock.calls[0][0].operatingModel).toBe('ROTATING')
+  })
+
+  it('does not show the selector when editing an existing scheme', () => {
+    render(
+      <ThemeProvider theme={lightTheme}>
+        <CooperativeFormDialog
+          open
+          mode="edit"
+          initial={{
+            id: 'c1',
+            name: 'Legacy',
+            currency: 'RWF',
+            status: 'ACTIVE',
+            financialYearStartMonth: 1,
+            monthlyContributionAmount: '0',
+            contributionDueDay: 1,
+            operatingModel: null,
+          }}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      </ThemeProvider>,
+    )
+    expect(screen.queryByRole('radio', { name: /Savings/ })).not.toBeInTheDocument()
   })
 })

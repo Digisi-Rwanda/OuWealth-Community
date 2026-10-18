@@ -9,6 +9,7 @@ import type {
   CooperativeSubscription,
   CooperativeSummary,
   CooperativeUpdateRequest,
+  OperatingModelClassificationRequest,
 } from '@/shared/types/cooperative'
 import { mapCooperativeSummary } from '@/shared/types/cooperative'
 import type { Member } from '@/shared/types/member'
@@ -56,6 +57,18 @@ export async function updateCooperative(
   payload: CooperativeUpdateRequest,
 ): Promise<Cooperative> {
   const response = await apiClient.put<ApiResponse<Cooperative>>(`/cooperatives/${id}`, payload)
+  return unwrapApiData(response.data)
+}
+
+/** One-time classification of a legacy scheme. The server answers 409 if a model is already set. */
+export async function classifyCooperativeOperatingModel(
+  id: string,
+  payload: OperatingModelClassificationRequest,
+): Promise<Cooperative> {
+  const response = await apiClient.post<ApiResponse<Cooperative>>(
+    `/cooperatives/${id}/operating-model`,
+    payload,
+  )
   return unwrapApiData(response.data)
 }
 

@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import {
   assignCooperativePresident,
+  classifyCooperativeOperatingModel,
   fetchCooperative,
   fetchCooperativeSubscription,
   updateCooperative,
@@ -30,11 +31,22 @@ import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { usePortalRoutes } from '@/shared/constants/portal'
-import type { AssignPresidentRequest, CooperativeStatus } from '@/shared/types/cooperative'
-import { COOPERATIVE_STATUSES, isOnboardingIncomplete } from '@/shared/types/cooperative'
+import type {
+  AssignPresidentRequest,
+  CooperativeStatus,
+  SchemeOperatingModel,
+} from '@/shared/types/cooperative'
+import { hasPermission } from '@/shared/types/auth'
+import { useAppSelector } from '@/app/store/hooks'
+import {
+  COOPERATIVE_STATUSES,
+  isOnboardingIncomplete,
+  isOperatingModelConfigured,
+} from '@/shared/types/cooperative'
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { AssignPresidentDialog } from '@/features/cooperatives/AssignPresidentDialog'
 import { CooperativeFormDialog } from '@/features/cooperatives/CooperativeFormDialog'
+import { OperatingModelClassifyDialog } from '@/features/cooperatives/OperatingModelClassifyDialog'
 import type { CooperativeCreateRequest } from '@/shared/types/cooperative'
 
 function statusColor(
@@ -74,6 +86,8 @@ export function CooperativeDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState<CooperativeStatus | null>(null)
   const [assignOpen, setAssignOpen] = useState(false)
+  const [classifyOpen, setClassifyOpen] = useState(false)
+  const canClassify = useAppSelector((s) => hasPermission(s.auth.user, 'COOPERATIVE_WRITE'))
 
   const query = useQuery({
     queryKey: ['cooperatives', id],
@@ -115,6 +129,19 @@ export function CooperativeDetailPage() {
     mutationFn: (file: File) => uploadCooperativeLogo(id, file),
     onSuccess: () => {
       enqueueSnackbar(t('cooperatives.logoUpdated'), { variant: 'success' })
+      void queryClient.invalidateQueries({ queryKey: ['cooperatives'] })
+    },
+    onError: (error) => {
+      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+    },
+  })
+
+  const classifyMutation = useMutation({
+    mutationFn: (model: SchemeOperatingModel) =>
+      classifyCooperativeOperatingModel(id, { operatingModel: model, confirmed: true }),
+    onSuccess: () => {
+      enqueueSnackbar(t('operatingModel.classify.success'), { variant: 'success' })
+      setClassifyOpen(false)
       void queryClient.invalidateQueries({ queryKey: ['cooperatives'] })
     },
     onError: (error) => {
@@ -228,7 +255,28 @@ export function CooperativeDetailPage() {
               </Alert>
             ) : null}
 
+            {isOperatingModelConfigured(coop) ? null : (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                data-testid="operating-model-not-configured"
+                action={
+                  canClassify ? (
+                    <Button color="inherit" size="small" onClick={() => setClassifyOpen(true)}>
+                      {t('operatingModel.classify.action')}
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <strong>{t('operatingModel.notConfigured')}</strong> {t('operatingModel.notConfiguredHelp')}
+              </Alert>
+            )}
+
             <Stack spacing={2}>
+              <InfoRow
+                label={t('operatingModel.label')}
+                value={coop.operatingModel ? t(`operatingModel.options.${coop.operatingModel}.title`) : t('operatingModel.notConfigured')}
+              />
               <InfoRow label={t('cooperatives.fields.description')} value={coop.description ?? ''} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <InfoRow
@@ -299,7 +347,7 @@ export function CooperativeDetailPage() {
             subscriptionQuery.data.status !== 'NONE' ? (
               <InfoRow
                 label={t('cooperatives.onboarding.subscriptionStatus')}
-                value={subscriptionQuery.data.status}
+                value={t(`subscription.status.${subscriptionQuery.data.status}`, { defaultValue: subscriptionQuery.data.status })}
               />
             ) : null}
           </Paper>
@@ -370,6 +418,13 @@ export function CooperativeDetailPage() {
         loading={updateMutation.isPending}
         onClose={() => setEditOpen(false)}
         onSubmit={(payload) => updateMutation.mutate(payload)}
+      />
+
+      <OperatingModelClassifyDialog
+        open={classifyOpen}
+        loading={classifyMutation.isPending}
+        onClose={() => setClassifyOpen(false)}
+        onSubmit={(model) => classifyMutation.mutate(model)}
       />
 
       <ConfirmDialog

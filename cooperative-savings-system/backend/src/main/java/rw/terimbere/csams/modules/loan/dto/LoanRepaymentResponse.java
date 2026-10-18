@@ -28,4 +28,6 @@ public class LoanRepaymentResponse {
     private String notes;
     private UUID recordedBy;
     private Instant createdAt;
+    /** True when a payment reversal gave this repayment back to the loan. */
+    private boolean reversed;
 }

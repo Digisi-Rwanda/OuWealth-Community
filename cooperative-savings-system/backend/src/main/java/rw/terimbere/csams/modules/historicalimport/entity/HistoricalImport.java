@@ -78,6 +78,12 @@ public class HistoricalImport extends BaseEntity {
     @Column(name = "opening_available_funds", precision = 19, scale = 4)
     private java.math.BigDecimal openingAvailableFunds;
 
+    /** Whether this import carried members and share balances or the loans outstanding at the cutover. */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "import_kind", nullable = false, length = 20)
+    @lombok.Builder.Default
+    private HistoricalImportKind importKind = HistoricalImportKind.OPENING_BALANCE;
+
     /** JSON {@code HistoricalMigrationSummary} for opening-balance migrations; null for legacy imports. */
     @Column(name = "migration_summary", columnDefinition = "TEXT")
     private String migrationSummary;

@@ -534,8 +534,8 @@ class AuthControllerIntegrationTest {
         jdbcTemplate.update(
                 """
                 INSERT INTO cooperatives (id, name, currency, financial_year_start_month, monthly_contribution_amount,
-                    contribution_due_day, status, created_at, updated_at, deleted, version)
-                VALUES (?, 'Test Coop', 'RWF', 1, 0, 1, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE, 0)
+                    contribution_due_day, status, operating_model, created_at, updated_at, deleted, version)
+                VALUES (?, 'Test Coop', 'RWF', 1, 0, 1, 'ACTIVE', 'ACCUMULATING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, FALSE, 0)
                 """,
                 id);
     }

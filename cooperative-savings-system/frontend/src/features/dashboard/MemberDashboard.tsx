@@ -4,6 +4,7 @@ import { useAppSelector } from '@/app/store/hooks'
 import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
 import { isActionNeeded } from '@/features/subscription/subscriptionAccess'
 import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
+import { CurrentSchemeName } from './CurrentSchemeName'
 import { MemberQuickActionsSection } from './MemberQuickActionsSection'
 import { MonthlyContributionsChart } from './MonthlyContributionsChart'
 import { MyMemberStatusSection } from './MyMemberStatusSection'
@@ -26,6 +27,7 @@ export function MemberDashboard({ cooperativeId }: MemberDashboardProps) {
         <Typography variant="h4" component="h1" gutterBottom sx={dashboardWelcomeTitleSx}>
           {t('dashboard.member.welcome', { name: user?.firstName || user?.fullName || '' })}
         </Typography>
+        <CurrentSchemeName cooperativeId={cooperativeId} />
         <Typography variant="body1" color="text.secondary" sx={dashboardHintSx}>
           {t('dashboard.member.description')}
         </Typography>

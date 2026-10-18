@@ -26,11 +26,11 @@ final class MigrationWorkbookParser {
 
     MigrationWorkbook parse(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
-            throw new ValidationException("Excel file is required");
+            throw ValidationException.coded("FILE_REQUIRED", "Excel file is required");
         }
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             if (workbook.getNumberOfSheets() == 0) {
-                throw new ValidationException("Workbook has no sheets");
+                throw ValidationException.coded("WORKBOOK_NO_SHEETS", "Workbook has no sheets");
             }
             Set<HistoricalMigrationSheet> found = EnumSet.noneOf(HistoricalMigrationSheet.class);
             boolean legacy = false;
@@ -47,11 +47,30 @@ final class MigrationWorkbookParser {
                 }
             }
             if (legacy) {
-                throw new ValidationException(UNSUPPORTED_FORMAT);
+                throw ValidationException.coded("OLD_TEMPLATE_NOT_SUPPORTED", UNSUPPORTED_FORMAT);
             }
 
             MigrationWorkbook parsed = new MigrationWorkbook();
             WorkbookCellReader reader = new WorkbookCellReader();
+            // A workbook is either the two-sheet opening-balance workbook (members and share capital) or the separate
+            // one-sheet loan workbook. Loans never travel with the opening balances.
+            boolean loanOnly = found.contains(HistoricalMigrationSheet.LOAN_REGISTRATION)
+                    && !found.contains(HistoricalMigrationSheet.MEMBER_REGISTRATION)
+                    && !found.contains(HistoricalMigrationSheet.SHARE_CAPITAL_REGISTRATION);
+            Set<HistoricalMigrationSheet> required = loanOnly
+                    ? EnumSet.of(HistoricalMigrationSheet.LOAN_REGISTRATION)
+                    : EnumSet.of(HistoricalMigrationSheet.MEMBER_REGISTRATION, HistoricalMigrationSheet.SHARE_CAPITAL_REGISTRATION);
+            parsed.kind(loanOnly ? rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_LOANS : rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind.OPENING_BALANCE);
+            if (!loanOnly && found.contains(HistoricalMigrationSheet.LOAN_REGISTRATION)) {
+                parsed.workbookErrors()
+                        .add(error(
+                                HistoricalMigrationSheet.LOAN_REGISTRATION.getSheetName(),
+                                null,
+                                "Sheet",
+                                "LOAN_SHEET_NOT_ACCEPTED",
+                                "Loans are not imported with the opening balances. Remove this sheet and import the loans"
+                                        + " separately with the opening-loans template."));
+            }
             for (String name : unknown) {
                 parsed.workbookErrors()
                         .add(error(
@@ -60,9 +79,9 @@ final class MigrationWorkbookParser {
                                 "Sheet",
                                 "UNKNOWN_SHEET",
                                 "Unknown sheet \"" + name
-                                        + "\". The workbook must contain only the three template sheets."));
+                                        + "\". The workbook must contain only the template sheets."));
             }
-            for (HistoricalMigrationSheet type : HistoricalMigrationSheet.values()) {
+            for (HistoricalMigrationSheet type : required) {
                 if (!found.contains(type)) {
                     parsed.workbookErrors()
                             .add(error(
@@ -77,13 +96,14 @@ final class MigrationWorkbookParser {
             for (int s = 0; s < workbook.getNumberOfSheets(); s++) {
                 Sheet sheet = workbook.getSheetAt(s);
                 HistoricalMigrationSheet.fromSheetName(sheet.getSheetName())
+                        .filter(required::contains)
                         .ifPresent(type -> parseSheet(sheet, type, reader, parsed));
             }
             return parsed;
         } catch (ValidationException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new ValidationException("Invalid Excel file: " + ex.getMessage());
+            throw ValidationException.coded("INVALID_WORKBOOK", "Invalid Excel file: " + ex.getMessage());
         }
     }
 

@@ -2,6 +2,7 @@ package rw.terimbere.csams.modules.fine.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -10,14 +11,19 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import rw.terimbere.csams.modules.audit.service.AuditService;
 import rw.terimbere.csams.modules.contribution.ShareAmountCalculator;
 import rw.terimbere.csams.modules.contribution.entity.Contribution;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionDueDates;
+import rw.terimbere.csams.modules.contribution.obligation.ContributionObligationService;
 import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.contribution.entity.ContributionStatus;
@@ -69,6 +75,8 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
 @RequiredArgsConstructor
 public class FineService {
 
+    private static final Logger log = LoggerFactory.getLogger(FineService.class);
+
     private final FineRepository fineRepository;
     private final FinePaymentRepository finePaymentRepository;
     private final FineSettingsService fineSettingsService;
@@ -82,6 +90,9 @@ public class FineService {
     private final FileManagementService fileManagementService;
     private final AuditService auditService;
     private final NotificationFacade notificationFacade;
+    private final ContributionObligationService obligationService;
+    private final Clock clock;
+    private final TransactionTemplate transactionTemplate;
 
     @Transactional
     public PageResponse<FineResponse> list(
@@ -231,15 +242,23 @@ public class FineService {
         return generateAutomaticInternal(cooperativeId, year, month, principal.getId(), httpRequest);
     }
 
-    @Transactional
+    /**
+     * The scheduled job. Each Saving Scheme runs in its own transaction, so a failure in one cannot block or roll back
+     * the others, and running it again is safe: a contribution is fined at most once (unique source and automatic key).
+     */
     public void generateAutomaticForEnabledCooperatives() {
         for (Cooperative cooperative :
                 cooperativeRepository.findAllByDeletedFalseAndStatus(CooperativeStatus.ACTIVE)) {
-            FineSettings settings = fineSettingsService.requireSettings(cooperative.getId());
-            if (!settings.isAutoFinesEnabled()) {
-                continue;
+            try {
+                transactionTemplate.executeWithoutResult(status -> {
+                    FineSettings settings = fineSettingsService.requireSettings(cooperative.getId());
+                    if (settings.isAutoFinesEnabled()) {
+                        generateAutomaticInternal(cooperative.getId(), null, null, null, null);
+                    }
+                });
+            } catch (RuntimeException e) {
+                log.warn("Automatic late fines failed for one Saving Scheme; the others continue: {}", e.getClass().getSimpleName());
             }
-            generateAutomaticInternal(cooperative.getId(), null, null, null, null);
         }
     }
 
@@ -262,7 +281,7 @@ public class FineService {
         if (year != null) {
             ensureUnpaidPeriodRows(cooperative, year, month);
         } else {
-            YearMonth current = YearMonth.from(LocalDate.now());
+            YearMonth current = ContributionDueDates.currentMonth(clock);
             ensureUnpaidPeriodRowsIfOverdue(cooperative, settings, current);
             ensureUnpaidPeriodRowsIfOverdue(cooperative, settings, current.minusMonths(1));
         }
@@ -279,7 +298,7 @@ public class FineService {
                     cooperativeId, EnumSet.of(ContributionStatus.PENDING, ContributionStatus.PARTIALLY_PAID));
         }
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = ContributionDueDates.today(clock);
         int createdCount = 0;
         int skippedDuplicates = 0;
         int skippedNotOverdue = 0;
@@ -293,8 +312,7 @@ public class FineService {
                 continue;
             }
 
-            LocalDate dueDate = fineCalculationService.contributionDueDate(
-                    contribution.getYear(), contribution.getMonth(), cooperative.getContributionDueDay());
+            LocalDate dueDate = dueDateOf(cooperative, contribution);
             int overdueDays = fineCalculationService.computeOverdueDays(
                     dueDate, settings.getGraceDays(), today);
             LocalDate graceEnd = dueDate.plusDays(Math.max(0, settings.getGraceDays()));
@@ -786,13 +804,31 @@ public class FineService {
 
     private void ensureUnpaidPeriodRowsIfOverdue(
             Cooperative cooperative, FineSettings settings, YearMonth period) {
-        LocalDate dueDate = fineCalculationService.contributionDueDate(
-                period.getYear(), period.getMonthValue(), cooperative.getContributionDueDay());
+        LocalDate dueDate = dueDateOfPeriod(cooperative, period.getYear(), period.getMonthValue());
         LocalDate graceEnd = dueDate.plusDays(Math.max(0, settings.getGraceDays()));
-        if (!LocalDate.now().isAfter(graceEnd)) {
+        if (!ContributionDueDates.today(clock).isAfter(graceEnd)) {
             return;
         }
         ensureUnpaidPeriodRows(cooperative, period.getYear(), period.getMonthValue());
+    }
+
+    /**
+     * The due date an obligation is judged against. A snapshotted obligation keeps the due date it was created with, so a
+     * later due-day change never moves it; an older row uses the due day in force for its own period (effective-dated),
+     * and only a period no setting covers falls back to the scheme's configured day. Short months clamp to their last day.
+     */
+    private LocalDate dueDateOf(Cooperative cooperative, Contribution contribution) {
+        if (contribution.getObligationSnapshotAt() != null && contribution.getDueDate() != null) {
+            return contribution.getDueDate();
+        }
+        return dueDateOfPeriod(cooperative, contribution.getYear(), contribution.getMonth());
+    }
+
+    private LocalDate dueDateOfPeriod(Cooperative cooperative, int year, int month) {
+        LocalDate effective = obligationService.dueDateFor(cooperative.getId(), year, month);
+        return effective != null
+                ? effective
+                : fineCalculationService.contributionDueDate(year, month, cooperative.getContributionDueDay());
     }
 
     private void ensureUnpaidPeriodRows(Cooperative cooperative, int year, int month) {
@@ -805,7 +841,7 @@ public class FineService {
                     .orElseGet(() -> {
                         BigDecimal expected = ShareAmountCalculator.expectedMonthly(
                                 cooperative.getMonthlyContributionAmount(), membership.getShareCount());
-                        return contributionRepository.save(Contribution.builder()
+                        Contribution row = Contribution.builder()
                                 .cooperativeId(cooperative.getId())
                                 .memberUserId(membership.getUserId())
                                 .year(year)
@@ -816,7 +852,11 @@ public class FineService {
                                 .outstandingAmount(expected)
                                 .status(ContributionStatus.PENDING)
                                 .ledgerRevision(0)
-                                .build());
+                                .build();
+                        // a row for the current or a future month gets the same obligation snapshot as any other new
+                        // row; a past month stays as it always was (no invented snapshot for history)
+                        obligationService.applyToNewRow(row, cooperative, membership);
+                        return contributionRepository.save(row);
                     });
         }
     }

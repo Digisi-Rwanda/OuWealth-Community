@@ -1,4 +1,6 @@
 import * as yup from 'yup'
+import type { SchemeOperatingModel } from '@/shared/types/cooperative'
+import { isOperatingModel, OPERATING_MODEL_REQUIRED_MESSAGE } from '@/features/cooperatives/operatingModel'
 import {
   isValidCooperativeEmail,
   isValidRegistrationDate,
@@ -20,6 +22,8 @@ export type OnboardingFormValues = {
   monthlyContributionAmount: string
   contributionDueDay: number
   registrationDate: string
+  /** '' = nothing selected yet; there is no default model. */
+  operatingModel: SchemeOperatingModel | ''
   firstName: string
   lastName: string
   username: string
@@ -38,6 +42,7 @@ export const onboardingDefaults: OnboardingFormValues = {
   monthlyContributionAmount: '0',
   contributionDueDay: 1,
   registrationDate: '',
+  operatingModel: '',
   firstName: '',
   lastName: '',
   username: '',
@@ -56,6 +61,7 @@ export const ONBOARDING_STEP1_FIELDS: (keyof OnboardingFormValues)[] = [
   'monthlyContributionAmount',
   'contributionDueDay',
   'registrationDate',
+  'operatingModel',
 ]
 
 export const ONBOARDING_STEP2_FIELDS: (keyof OnboardingFormValues)[] = [
@@ -105,6 +111,10 @@ export const onboardingSchema: yup.ObjectSchema<OnboardingFormValues> = yup.obje
       `Date must be between ${MIN_REGISTRATION_DATE} and today`,
       (v) => Boolean(v && isValidRegistrationDate(v)),
     ),
+  operatingModel: yup
+    .mixed<SchemeOperatingModel | ''>()
+    .test('operating-model-required', OPERATING_MODEL_REQUIRED_MESSAGE, (v) => isOperatingModel(v))
+    .default(''),
   firstName: yup.string().trim().required('First name is required').max(128),
   lastName: yup.string().trim().required('Last name is required').max(128),
   username: yup.string().trim().min(3, 'At least 3 characters').max(64).required('Username is required'),
@@ -139,6 +149,7 @@ export interface PublicOnboardingPayload {
     monthlyContributionAmount: string
     contributionDueDay: number
     registrationDate: string
+    operatingModel: SchemeOperatingModel
   }
   creator: {
     firstName: string
@@ -162,6 +173,7 @@ export function toOnboardingPayload(values: OnboardingFormValues): PublicOnboard
       monthlyContributionAmount: values.monthlyContributionAmount.trim(),
       contributionDueDay: Number(values.contributionDueDay),
       registrationDate: values.registrationDate.trim(),
+      operatingModel: values.operatingModel as SchemeOperatingModel,
     },
     creator: {
       firstName: values.firstName.trim(),

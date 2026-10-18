@@ -30,6 +30,15 @@ import rw.terimbere.csams.shared.financial.LedgerTransactionType;
 public class LedgerController {
 
     private final LedgerQueryService ledgerQueryService;
+    private final rw.terimbere.csams.modules.ledger.service.LedgerSplitReconciliationService splitReconciliationService;
+
+    @GetMapping("/split-reconciliation")
+    @PreAuthorize("hasAuthority('LEDGER_READ')")
+    @Operation(summary = "Reconcile the rotating and retained parts of the contribution cash in the ledger")
+    public ResponseEntity<ApiResponse<rw.terimbere.csams.modules.ledger.service.LedgerSplitReconciliationService.Reconciliation>>
+            splitReconciliation(@PathVariable UUID cooperativeId) {
+        return ResponseEntity.ok(ApiResponse.ok(splitReconciliationService.reconcile(cooperativeId)));
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('LEDGER_READ')")

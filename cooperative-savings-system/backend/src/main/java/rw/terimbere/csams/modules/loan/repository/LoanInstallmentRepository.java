@@ -41,7 +41,7 @@ public interface LoanInstallmentRepository extends JpaRepository<LoanInstallment
             FROM LoanInstallment i
             JOIN Loan l ON l.id = i.loanId
             LEFT JOIN LoanRepaymentAllocation a ON a.installmentId = i.id
-            LEFT JOIN LoanRepayment r ON r.id = a.repaymentId
+            LEFT JOIN LoanRepayment r ON r.id = a.repaymentId AND r.reversedAt IS NULL
             WHERE i.cooperativeId = :cooperativeId
             GROUP BY l.memberUserId,
                      i.id,

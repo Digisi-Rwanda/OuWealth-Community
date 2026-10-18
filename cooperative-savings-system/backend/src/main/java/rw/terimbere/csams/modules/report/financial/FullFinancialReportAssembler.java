@@ -109,6 +109,7 @@ public class FullFinancialReportAssembler {
                         "Social Fund is maintained separately from the main Saving Scheme fund.",
                         "Formal liabilities are not currently modeled as a complete payable ledger in OuWealth.",
                         "Opening and Closing Ledger Balance = approved main-fund ledger credits minus debits (excludes Social Fund). This differs from Available Funds, which adjusts for outstanding loans and lending capacity.",
+                        "A reversed receipt stays in the period it was received; its reversal appears as an offsetting line in the period the reversal was made.",
                         "Zero-activity statement lines are omitted; section totals are always shown."))
                 .build();
     }
@@ -156,12 +157,17 @@ public class FullFinancialReportAssembler {
             addLineIfShown(inflows, FullFinancialLedgerClassifications.label(type), amount);
         }
 
-        // Adjustments / reversals that credit cash
-        BigDecimal adjCredit = MoneyUtils.add(
-                ledger.credit(LedgerTransactionType.ADJUSTMENT), ledger.credit(LedgerTransactionType.REVERSAL));
+        // Adjustments that credit cash
+        BigDecimal adjCredit = ledger.credit(LedgerTransactionType.ADJUSTMENT);
         if (adjCredit.compareTo(BigDecimal.ZERO) > 0) {
             totalIn = MoneyUtils.add(totalIn, adjCredit);
-            addLineIfShown(inflows, "Adjustments & Reversals (credits)", adjCredit);
+            addLineIfShown(inflows, "Adjustments (credits)", adjCredit);
+        }
+        // Reversals appear on their own line, in the period they were made: never as an expense or an adjustment.
+        BigDecimal reversalCredit = ledger.credit(LedgerTransactionType.REVERSAL);
+        if (reversalCredit.compareTo(BigDecimal.ZERO) > 0) {
+            totalIn = MoneyUtils.add(totalIn, reversalCredit);
+            addLineIfShown(inflows, "Reversals (credits)", reversalCredit);
         }
 
         List<FullFinancialReportModel.StatementLine> outflows = new ArrayList<>();
@@ -171,11 +177,15 @@ public class FullFinancialReportAssembler {
             totalOut = MoneyUtils.add(totalOut, amount);
             addLineIfShown(outflows, FullFinancialLedgerClassifications.label(type), amount);
         }
-        BigDecimal adjDebit = MoneyUtils.add(
-                ledger.debit(LedgerTransactionType.ADJUSTMENT), ledger.debit(LedgerTransactionType.REVERSAL));
+        BigDecimal adjDebit = ledger.debit(LedgerTransactionType.ADJUSTMENT);
         if (adjDebit.compareTo(BigDecimal.ZERO) > 0) {
             totalOut = MoneyUtils.add(totalOut, adjDebit);
-            addLineIfShown(outflows, "Adjustments & Reversals (debits)", adjDebit);
+            addLineIfShown(outflows, "Adjustments (debits)", adjDebit);
+        }
+        BigDecimal reversalDebit = ledger.debit(LedgerTransactionType.REVERSAL);
+        if (reversalDebit.compareTo(BigDecimal.ZERO) > 0) {
+            totalOut = MoneyUtils.add(totalOut, reversalDebit);
+            addLineIfShown(outflows, "Reversals of receipts (debits)", reversalDebit);
         }
 
         BigDecimal opening = ledger.getOpeningLedgerBalance();

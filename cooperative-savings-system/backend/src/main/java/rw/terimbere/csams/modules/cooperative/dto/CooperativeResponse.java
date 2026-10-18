@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeOnboardingState;
 import rw.terimbere.csams.modules.cooperative.entity.CooperativeStatus;
+import rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel;
 
 @Data
 @Builder
@@ -32,6 +33,8 @@ public class CooperativeResponse {
     private String logoUrl;
     private CooperativeStatus status;
     private CooperativeOnboardingState onboardingState;
+    /** Null only for a legacy scheme that has not been classified yet. */
+    private SchemeOperatingModel operatingModel;
     private LocalDate registrationDate;
     private UUID createdBy;
     private Instant createdAt;

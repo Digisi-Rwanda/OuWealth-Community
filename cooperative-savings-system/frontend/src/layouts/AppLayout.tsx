@@ -1,6 +1,6 @@
 import { Box, Divider, Drawer, useMediaQuery, useTheme } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation } from 'react-router-dom'
 import { selectIsCooperativeAdmin, selectIsSuperAdmin } from '@/app/store/authSlice'
@@ -18,6 +18,8 @@ import { SubscriptionBanner } from '@/features/subscription/SubscriptionBanner'
 import { ROUTES } from '@/shared/constants/routes'
 import { AppSidebar, APP_SIDEBAR_WIDTH } from './AppSidebar'
 import { AppTopBar } from './AppTopBar'
+import { getAppSidebarSections } from './navItems'
+import { SidebarAccount } from './SidebarAccount'
 
 export function AppLayout() {
   const { t } = useTranslation()
@@ -59,6 +61,7 @@ export function AppLayout() {
   }, [showPermanentSidebar])
 
   const dark = theme.palette.mode === 'dark'
+  const sidebarSections = useMemo(() => getAppSidebarSections(userRoles), [userRoles])
 
   const closeDrawer = () => setDrawerOpen(false)
 
@@ -90,6 +93,8 @@ export function AppLayout() {
             userRoles={userRoles}
             unreadCount={unreadCount}
             onDarkBrand={dark}
+            sections={sidebarSections}
+            footer={<SidebarAccount />}
             pinControl={{ pinned: true, onToggle: () => dispatch(setSidebarPinned(false)) }}
           />
         </Box>
@@ -117,6 +122,16 @@ export function AppLayout() {
             unreadCount={unreadCount}
             onDarkBrand={dark}
             onNavigate={closeDrawer}
+            sections={sidebarSections}
+            footer={<SidebarAccount onNavigate={closeDrawer} />}
+            navExtras={
+              !isMdUp ? (
+                <>
+                  <Divider sx={{ my: 1 }} />
+                  {mobileDrawerExtras}
+                </>
+              ) : undefined
+            }
             pinControl={
               isMdUp
                 ? {
@@ -129,12 +144,6 @@ export function AppLayout() {
                 : undefined
             }
           />
-          {!isMdUp ? (
-            <>
-              <Divider />
-              {mobileDrawerExtras}
-            </>
-          ) : null}
         </Drawer>
       ) : null}
 
@@ -151,6 +160,7 @@ export function AppLayout() {
           showCooperativeSelector={showCooperativeSelector}
           sidebarHidden={sidebarHidden}
           onOpenNav={() => setDrawerOpen(true)}
+          hideUserMenu
           showBackToDashboard={isMember && location.pathname !== ROUTES.dashboard}
         />
         <OfflineBanner />

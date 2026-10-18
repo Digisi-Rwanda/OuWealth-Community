@@ -1,7 +1,10 @@
 import AddIcon from '@mui/icons-material/Add'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import {
   Box,
   Chip,
+  IconButton,
+  Menu,
   MenuItem,
   Stack,
   TablePagination,
@@ -13,7 +16,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MemberFormDialog } from '@/features/members/MemberFormDialog'
+import { MemberRemovalDialog } from '@/features/members/MemberRemovalDialog'
 import { useAppSelector } from '@/app/store/hooks'
+import { selectIsLeadership } from '@/app/store/authSlice'
 import { createMember, fetchMembers } from '@/shared/api/members'
 import { getErrorMessage } from '@/shared/api/client'
 import { EmptyState } from '@/shared/components/EmptyState'
@@ -49,6 +54,10 @@ export function MembersPage() {
   const queryClient = useQueryClient()
   const { enqueueSnackbar } = useSnackbar()
   const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
+  const currentUserId = useAppSelector((s) => s.auth.user?.id)
+  const isLeadership = useAppSelector(selectIsLeadership)
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; member: Member } | null>(null)
+  const [removalTarget, setRemovalTarget] = useState<Member | null>(null)
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -133,8 +142,30 @@ export function MembersPage() {
           }),
         hideOnMobile: true,
       },
+      ...(isLeadership
+        ? [
+            {
+              id: 'actions',
+              label: '',
+              render: (row: Member) =>
+                row.userId === currentUserId ? null : (
+                  <IconButton
+                    size="small"
+                    aria-label={t('members.actions.open', { name: memberDisplayName(row) })}
+                    aria-haspopup="menu"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setMenu({ anchor: event.currentTarget, member: row })
+                    }}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                ),
+            },
+          ]
+        : []),
     ],
-    [t],
+    [t, isLeadership, currentUserId],
   )
 
   if (!cooperativeId) {
@@ -236,6 +267,35 @@ export function MembersPage() {
             rowsPerPageOptions={[5, 10, 25]}
           />
         </>
+      ) : null}
+
+      <Menu anchorEl={menu?.anchor ?? null} open={Boolean(menu)} onClose={() => setMenu(null)}>
+        <MenuItem
+          onClick={() => {
+            if (menu) navigate(ROUTES.memberDetail(menu.member.userId))
+            setMenu(null)
+          }}
+        >
+          {t('members.actions.view')}
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (menu) setRemovalTarget(menu.member)
+            setMenu(null)
+          }}
+        >
+          {t('members.removal.action')}
+        </MenuItem>
+      </Menu>
+
+      {removalTarget && cooperativeId ? (
+        <MemberRemovalDialog
+          cooperativeId={cooperativeId}
+          userId={removalTarget.userId}
+          memberName={memberDisplayName(removalTarget)}
+          open
+          onClose={() => setRemovalTarget(null)}
+        />
       ) : null}
 
       <MemberFormDialog

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { cooperativeFormDefaults, cooperativeFormSchema, toCooperativePayload } from './cooperativeFormSchema'
+import {
+  cooperativeCreateSchema,
+  cooperativeFormDefaults,
+  cooperativeFormSchema,
+  toCooperativePayload,
+} from './cooperativeFormSchema'
 
 describe('toCooperativePayload', () => {
   it('normalizes Rwanda fields and locks currency to RWF', () => {
@@ -15,6 +20,7 @@ describe('toCooperativePayload', () => {
       contactEmail: 'Admin@Example.COM',
       contactPhone: '+250 781 234 567',
       registrationDate: '2024-06-01',
+      operatingModel: 'HYBRID',
     })
 
     expect(payload).toEqual({
@@ -29,8 +35,14 @@ describe('toCooperativePayload', () => {
       monthlyContributionAmount: '5000',
       contributionDueDay: 10,
       registrationDate: '2024-06-01',
+      operatingModel: 'HYBRID',
       subscriptionInitialization: 'START_TRIAL',
     })
+  })
+
+  it('never sends the operating model when editing', () => {
+    const payload = toCooperativePayload({ ...cooperativeFormDefaults, operatingModel: 'ROTATING' }, 'edit')
+    expect(payload).not.toHaveProperty('operatingModel')
   })
 
   it('maps an unchecked trial to NONE and omits president when assigning later', () => {
@@ -159,5 +171,29 @@ describe('cooperativeFormSchema', () => {
         presidentMode: 'new',
       }),
     ).rejects.toThrow(/required/i)
+  })
+})
+
+describe('operating model in the create form', () => {
+  const filled = {
+    ...cooperativeFormDefaults,
+    name: 'Demo',
+    registrationNumber: 'RCA/2024/0123',
+    contactEmail: 'admin@example.com',
+    contactPhone: '0781234567',
+    registrationDate: '2024-06-01',
+  }
+
+  it('has no default selection', () => {
+    expect(cooperativeFormDefaults.operatingModel).toBe('')
+  })
+
+  it('requires a model when creating, with a clear message', async () => {
+    await expect(cooperativeCreateSchema.validate(filled)).rejects.toThrow(/operating model/i)
+    await expect(cooperativeCreateSchema.validate({ ...filled, operatingModel: 'ROTATING' })).resolves.toBeDefined()
+  })
+
+  it('does not require one when editing (a legacy scheme has none)', async () => {
+    await expect(cooperativeFormSchema.validate(filled)).resolves.toBeDefined()
   })
 })

@@ -32,9 +32,9 @@ import rw.terimbere.csams.shared.utilities.MoneyUtils;
  *     availableFunds          // LedgerFinancialCalculationService.calculateAvailableGroupFund
  *   + outstandingLoans        // ACTIVE/OVERDUE loan.outstandingPrincipal
  *   + unpaidInterest          // ACTIVE/OVERDUE loan.outstandingInterest
- *   + unpaidPenalties         // UNPAID/PARTIALLY_PAID fine.outstandingAmount
+ *   + unpaidPenalties         // UNPAID/PARTIALLY_PAID fine.outstandingAmount, except fines of WRITTEN_OFF loans
  *   + otherAssets             // remaining capital on ACTIVE/PARTIALLY_RETURNED investments
- *   − liabilities             // not modeled; always 0
+ *   − liabilities             // rotating funds collected and not yet paid to their recipient (0 for an accumulating scheme)
  *
  * currentShareValue = totalIkiminaValue / totalExistingShares
  * </pre>
@@ -61,6 +61,7 @@ public class ShareValuationService {
     private final LoanRepository loanRepository;
     private final FineRepository fineRepository;
     private final ShareValuationSnapshotRepository snapshotRepository;
+    private final rw.terimbere.csams.modules.rotation.payout.RotationEntitlementService rotationEntitlementService;
 
     @Transactional(readOnly = true)
     public ShareValuationResponse calculate(UUID cooperativeId) {
@@ -79,10 +80,25 @@ public class ShareValuationService {
                 cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE)));
         BigDecimal unpaidInterest = scaleOrZero(loanRepository.sumOutstandingInterestByStatuses(
                 cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE)));
-        BigDecimal unpaidPenalties = scaleOrZero(fineRepository.sumOutstandingByStatuses(
+        BigDecimal unpaidPenalties = scaleOrZero(fineRepository.sumOutstandingForValuationExcludingWrittenOffLoans(
                 cooperativeId, EnumSet.of(FineStatus.UNPAID, FineStatus.PARTIALLY_PAID)));
         BigDecimal otherAssets = ledgerFinancialCalculationService.sumActiveInvestmentCapital(cooperativeId);
-        BigDecimal liabilities = MoneyUtils.scale(BigDecimal.ZERO);
+        // Rotating money that was collected but not yet paid out belongs to its recipient, not to the members' share
+        // capital. It is inside available funds (it is cash), so it is subtracted here as a liability, in two disjoint
+        // parts: what recipients are owed out of VERIFIED money, and rotating money not yet reconciled (identified as
+        // rotating, so never retained capital merely because its verification is pending, and payout-ineligible until
+        // reconciled). Each rupee is in at most one part. An accumulating scheme has no rotating collections, so both
+        // are zero and its valuation is exactly what it was.
+        BigDecimal verifiedRotatingLiabilities =
+                MoneyUtils.scale(rotationEntitlementService.totalOutstandingEntitlement(cooperativeId));
+        BigDecimal unreconciledRotatingFunds =
+                MoneyUtils.scale(rotationEntitlementService.totalUnreconciledRotating(cooperativeId));
+        var unresolved = rotationEntitlementService.unresolvedHistory(cooperativeId, cooperative.getOperatingModel());
+        BigDecimal unresolvedRotatingFunds = MoneyUtils.scale(unresolved.knownRotating());
+        BigDecimal unclassifiedFunds = MoneyUtils.scale(unresolved.unknown());
+        // known-rotating money whose period is unresolved is held for recipients as well: never member-owned capital
+        BigDecimal liabilities = MoneyUtils.add(
+                MoneyUtils.add(verifiedRotatingLiabilities, unreconciledRotatingFunds), unresolvedRotatingFunds);
 
         BigDecimal totalIkiminaValue = MoneyUtils.subtract(
                 MoneyUtils.add(
@@ -128,6 +144,10 @@ public class ShareValuationService {
                 .unpaidPenalties(unpaidPenalties)
                 .otherAssets(otherAssets)
                 .liabilities(liabilities)
+                .verifiedRotatingLiabilities(verifiedRotatingLiabilities)
+                .unreconciledRotatingFunds(unreconciledRotatingFunds)
+                .unresolvedRotatingFunds(unresolvedRotatingFunds)
+                .unclassifiedFunds(unclassifiedFunds)
                 .totalIkiminaValue(totalIkiminaValue)
                 .totalExistingShares(totalExistingShares)
                 .currentShareValue(currentShareValue)

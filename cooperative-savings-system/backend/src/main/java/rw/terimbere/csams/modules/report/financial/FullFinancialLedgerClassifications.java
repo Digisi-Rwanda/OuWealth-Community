@@ -8,7 +8,9 @@ import rw.terimbere.csams.shared.financial.LedgerTransactionType;
  * Classification of ledger types for Full Financial statements.
  *
  * <p>Social fund types are excluded from main-fund cash flow and opening/closing ledger balances.
- * Contributions / share purchases are capital inflows, never operating income.
+ * Contributions / share purchases are capital inflows, never operating income. Member credit (money a member paid
+ * that is held for them) is in neither the inflow nor the outflow set: it is not group money until it is applied to a
+ * contribution or a loan, and then the contribution or repayment entry is the inflow.
  */
 public final class FullFinancialLedgerClassifications {
 
@@ -71,6 +73,9 @@ public final class FullFinancialLedgerClassifications {
             case SHARE_PURCHASE -> "Additional Share Purchases";
             case ADJUSTMENT -> "Adjustments";
             case REVERSAL -> "Reversals";
+            case MEMBER_CREDIT_RECEIVED -> "Member Credit Held (not group funds)";
+            case MEMBER_CREDIT_APPLIED -> "Member Credit Applied";
+            case MEMBER_CREDIT_REVERSED -> "Member Credit Reversed";
         };
     }
 }

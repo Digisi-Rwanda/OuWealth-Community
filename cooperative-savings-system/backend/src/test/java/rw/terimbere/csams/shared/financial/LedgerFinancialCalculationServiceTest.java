@@ -82,7 +82,8 @@ class LedgerFinancialCalculationServiceTest {
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.INTEREST_EXPENSE))))
                 .thenReturn(new BigDecimal("20.0000"));
         when(loanRepository.sumOutstandingPrincipalExcludingImported(
-                        eq(cooperativeId), eq(EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE))))
+                        eq(cooperativeId),
+                        eq(EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE, LoanStatus.WRITTEN_OFF))))
                 .thenReturn(new BigDecimal("2000.0000"));
         when(ledgerEntryRepository.sumApprovedDebits(
                         eq(cooperativeId), eq(EnumSet.of(LedgerTransactionType.INVESTMENT_OUTFLOW))))

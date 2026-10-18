@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +21,12 @@ import rw.terimbere.csams.modules.loan.support.LoanOverdueRules;
 public interface LoanRepository extends JpaRepository<Loan, UUID> {
 
     Optional<Loan> findByIdAndCooperativeId(UUID id, UUID cooperativeId);
+
+    /** Row-locking lookup for every path that applies a repayment, so two repayments cannot overpay one loan. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select l from Loan l where l.id = :id and l.cooperativeId = :cooperativeId")
+    Optional<Loan> findByIdAndCooperativeIdForUpdate(
+            @Param("id") UUID id, @Param("cooperativeId") UUID cooperativeId);
 
     Page<Loan> findByCooperativeId(UUID cooperativeId, Pageable pageable);
 

@@ -39,6 +39,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
+import { MemberRemovalDialog } from '@/features/members/MemberRemovalDialog'
 import { PageHeader } from '@/shared/components/PageHeader'
 import { RoleDutiesNote } from '@/shared/components/RoleDutiesNote'
 import { ResponsiveTable, type TableColumn } from '@/shared/components/ResponsiveTable'
@@ -645,6 +646,7 @@ export function MemberDetailPage() {
   const canChangeStatus = useAppSelector(selectIsLeadership)
   const canRecord = useAppSelector(selectCanRecordContributions)
   const [editOpen, setEditOpen] = useState(false)
+  const [removalOpen, setRemovalOpen] = useState(false)
   const [buySharesOpen, setBuySharesOpen] = useState(false)
   const [statusTarget, setStatusTarget] = useState<MembershipStatus | null>(null)
   const locationPassword = (location.state as { temporaryPassword?: string } | null)
@@ -736,6 +738,11 @@ export function MemberDetailPage() {
               <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditOpen(true)}>
                 {t('common.edit')}
               </Button>
+              {canChangeStatus && currentUser?.id !== member.userId ? (
+                <Button variant="outlined" color="error" onClick={() => setRemovalOpen(true)}>
+                  {t('members.removal.action')}
+                </Button>
+              ) : null}
             </Stack>
           ) : null
         }
@@ -847,7 +854,7 @@ export function MemberDetailPage() {
               {t('members.statusActions')}
             </Typography>
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              {MEMBERSHIP_STATUSES.filter((s) => s !== member.membershipStatus).map((next) => (
+              {MEMBERSHIP_STATUSES.filter((s) => s !== member.membershipStatus && s !== 'INACTIVE').map((next) => (
                 <Button
                   key={next}
                   variant="outlined"
@@ -908,6 +915,17 @@ export function MemberDetailPage() {
         onClose={() => setEditOpen(false)}
         onUpdate={(payload) => updateMutation.mutate(payload)}
       />
+
+      {member && cooperativeId ? (
+        <MemberRemovalDialog
+          cooperativeId={cooperativeId}
+          userId={member.userId}
+          memberName={memberDisplayName(member)}
+          open={removalOpen}
+          onClose={() => setRemovalOpen(false)}
+          leaveAfterDelete
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(statusTarget)}

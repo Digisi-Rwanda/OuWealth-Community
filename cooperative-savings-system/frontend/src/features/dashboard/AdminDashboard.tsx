@@ -20,13 +20,9 @@ import {
   selectIsSuperAdmin,
 } from '@/app/store/authSlice'
 import { getErrorMessage } from '@/shared/api/client'
-import { fetchMyCooperatives } from '@/shared/api/cooperatives'
 import { fetchDashboardSummary } from '@/shared/api/dashboard'
-import { CooperativeSelector } from '@/shared/components/CooperativeSelector'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { MetricCard } from '@/shared/components/MetricCard'
-import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu'
-import { ReportsMenu } from '@/shared/components/ReportsMenu'
 import { DashboardSubscriptionCard } from '@/features/subscription/DashboardSubscriptionCard'
 import { useCooperativeSubscription } from '@/features/subscription/useCooperativeSubscription'
 import { ROUTES, SUPER_ADMIN_ROUTES } from '@/shared/constants/routes'
@@ -43,6 +39,7 @@ import {
   type AppRole,
 } from '@/shared/types/auth'
 import { formatMoney } from '@/shared/utils/formatMoney'
+import { CurrentSchemeName } from './CurrentSchemeName'
 import { MemberFinancialSummarySection } from './MemberFinancialSummarySection'
 import { MemberInsightsSection } from './MemberInsightsSection'
 import { MemberQuickActionsSection } from './MemberQuickActionsSection'
@@ -183,7 +180,6 @@ interface AdminDashboardProps {
 export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const authStatus = useAppSelector((s) => s.auth.status)
   const userRoles = useAppSelector((s) => s.auth.user?.roles ?? [])
   const isSuperAdmin = useAppSelector(selectIsSuperAdmin)
   const canManageMembers = useAppSelector(selectCanManageMembers)
@@ -201,13 +197,6 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
     [officeRole],
   )
 
-  const cooperativesQuery = useQuery({
-    queryKey: ['cooperatives', 'mine'],
-    queryFn: fetchMyCooperatives,
-    enabled: authStatus === 'authenticated',
-    staleTime: 60_000,
-  })
-
   const summaryQuery = useQuery({
     queryKey: ['dashboard', 'summary', cooperativeId],
     queryFn: () => fetchDashboardSummary(cooperativeId),
@@ -217,7 +206,6 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
   const summary = summaryQuery.data
   const currency = summary?.currency || 'RWF'
   const loading = summaryQuery.isLoading
-  const cooperativeName = cooperativesQuery.data?.find((c) => c.id === cooperativeId)?.name
 
   const money = (value: string | number | null | undefined) =>
     formatMoney(value ?? 0, { currency })
@@ -438,9 +426,7 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
           <Typography variant="h4" component="h1" sx={dashboardPageTitleSx}>
             {t('dashboard.title')}
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
-            {cooperativeName || t('dashboard.description')}
-          </Typography>
+          <CurrentSchemeName cooperativeId={cooperativeId} />
           {isSuperAdmin ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 720 }}>
               {t('dashboard.super.operatingHint')}
@@ -448,9 +434,8 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
           ) : null}
         </Box>
 
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
-          <CooperativeSelector />
-          {isSuperAdmin ? (
+        {isSuperAdmin ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }} useFlexGap>
             <Button
               variant="outlined"
               onClick={() => {
@@ -459,10 +444,8 @@ export function AdminDashboard({ cooperativeId }: AdminDashboardProps) {
             >
               {t('dashboard.super.allCooperatives')}
             </Button>
-          ) : null}
-          <QuickActionsMenu />
-          <ReportsMenu />
-        </Stack>
+          </Stack>
+        ) : null}
       </Box>
 
       {subscriptionLoaded ? (

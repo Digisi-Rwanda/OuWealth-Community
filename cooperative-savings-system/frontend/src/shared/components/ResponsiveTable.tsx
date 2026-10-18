@@ -78,7 +78,7 @@ export function ResponsiveTable<T>({
                 <Typography variant="caption" color="text.secondary">
                   {column.label}
                 </Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                <Typography variant="body2" component="div" sx={{ wordBreak: 'break-word' }}>
                   {column.render(row)}
                 </Typography>
               </div>

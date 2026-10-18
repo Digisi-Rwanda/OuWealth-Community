@@ -101,11 +101,13 @@ class OpeningBalanceIntegrityIntegrationTest {
         JsonNode preview = preview(MigrationWorkbooks.create()
                 .member("Cash Member", member, "850000")
                 .shares(member, "8", "240000")
-                .loan(member, "MONTHLY", "400000", "2", "2026-06-05", "10", "0", "400000", "")
                 .file("cash.xlsx"), "800000.50");
         assertThat(preview.path("migration").path("openingAvailableFunds").decimalValue()).isEqualByComparingTo("800000.50");
         UUID importId = UUID.fromString(preview.path("importId").asText());
         confirm(importId);
+        confirmLoans(MigrationWorkbooks.create()
+                .loan(member, "MONTHLY", "400000", "2", "2026-06-05", "10", "0", "400000", "")
+                .file("cash-loans.xlsx"));
 
         assertThat(historicalImportRepository.findById(importId).orElseThrow().getOpeningAvailableFunds())
                 .isEqualByComparingTo("800000.50");
@@ -139,10 +141,12 @@ class OpeningBalanceIntegrityIntegrationTest {
         String member = "val_" + id8();
         confirm(preview(MigrationWorkbooks.create()
                         .member("Val Member", member, "1000000")
-                        .loan(member, "END_OF_TERM", "400000", "0", "2026-07-30", "6", "", "", "")
                         .file("val.xlsx"), "800000")
                 .path("importId")
                 .asText());
+        confirmLoans(MigrationWorkbooks.create()
+                .loan(member, "END_OF_TERM", "400000", "0", "2026-07-30", "6", "", "", "")
+                .file("val-loans.xlsx"));
 
         // available stays 800,000; the 400,000 receivable adds to total value exactly once
         mockMvc.perform(get("/api/v1/cooperatives/" + cooperativeId + "/shares/valuation")
@@ -306,10 +310,9 @@ class OpeningBalanceIntegrityIntegrationTest {
                 .outstandingPrincipal(new BigDecimal("60000.0000"))
                 .build());
 
-        JsonNode preview = preview(MigrationWorkbooks.create()
-                .member("Dup Member", member, member + "@test.local", "0781234567", "", "0")
+        JsonNode preview = previewLoans(MigrationWorkbooks.create()
                 .loan(member, "END_OF_TERM", "100000", "2", "2026-05-01", "6", "", "", "")
-                .file("dup-loan.xlsx"), "800000");
+                .file("dup-loan.xlsx"));
         assertThat(preview.path("status").asText()).isEqualTo("INVALID");
         assertThat(preview.path("errors").toString()).contains("LOAN_ALREADY_MIGRATED");
         assertThat(loanRepository.findByCooperativeId(cooperativeId, Pageable.unpaged()).getContent()).hasSize(1);
@@ -348,6 +351,23 @@ class OpeningBalanceIntegrityIntegrationTest {
     private JsonNode preview(MockMultipartFile file, String funds) throws Exception {
         MvcResult result = mockMvc.perform(previewRequest(file, funds)).andExpect(status().isOk()).andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+    }
+
+    /** The loan workbook is separate and carries no cash position. */
+    private JsonNode previewLoans(MockMultipartFile file) throws Exception {
+        MvcResult result = mockMvc.perform(multipart(base() + "/preview")
+                        .file(file)
+                        .param("cutoverDate", CUTOVER)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
+    }
+
+    private JsonNode confirmLoans(MockMultipartFile file) throws Exception {
+        JsonNode preview = previewLoans(file);
+        assertThat(preview.path("status").asText()).as(preview.path("errors").toString()).isEqualTo("READY");
+        return confirm(preview.path("importId").asText());
     }
 
     private JsonNode confirm(UUID importId) throws Exception {

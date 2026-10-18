@@ -503,6 +503,12 @@ public class MemberService {
             if (!MEMBERSHIP_STATUSES.contains(status)) {
                 throw new ValidationException("Invalid membership status");
             }
+            if ("INACTIVE".equals(status) && !"INACTIVE".equalsIgnoreCase(membership.getMembershipStatus())) {
+                // Removing a member from active membership has its own rules (a reason, no payout in flight, never
+                // oneself) and its own audit record; it must not be possible to bypass them through this endpoint.
+                throw rw.terimbere.csams.shared.exceptions.ValidationException.coded(
+                        "USE_MEMBER_DEACTIVATE", "Use the deactivate action to make a member inactive");
+            }
             membership.setMembershipStatus(status);
             membershipRepository.save(membership);
             syncGlobalOfficerRoles(user);
@@ -521,6 +527,48 @@ public class MemberService {
                         + "\",\"membershipStatus\":\""
                         + membership.getMembershipStatus()
                         + "\"}",
+                clientIp(httpRequest),
+                userAgent(httpRequest));
+        return toResponse(user, membership);
+    }
+
+    /**
+     * Moves one membership to ACTIVE or INACTIVE and records who did it and why. The member's account and every record
+     * stay as they are; only this scheme's membership changes (so the member's other schemes are unaffected).
+     * Callers have already decided that the change is allowed.
+     */
+    @Transactional
+    public MemberResponse changeMembershipStatus(
+            UUID cooperativeId,
+            UUID memberUserId,
+            String newStatus,
+            String reason,
+            rw.terimbere.csams.shared.auditing.AuditableAction action,
+            HttpServletRequest httpRequest) {
+        requireCooperativeExists(cooperativeId);
+        UserPrincipal principal = authorizationService.currentPrincipal();
+        requireLeadership(principal, cooperativeId);
+        CooperativeMembership membership = requireMembership(cooperativeId, memberUserId);
+        User user = requireUser(memberUserId);
+        requireNotSystemSuperAdmin(user);
+        if (principal.getId().equals(memberUserId)) {
+            throw new ForbiddenException("You cannot change your own membership status");
+        }
+        String previous = "{\"membershipStatus\":\"" + membership.getMembershipStatus() + "\"}";
+        membership.setMembershipStatus(newStatus);
+        membershipRepository.save(membership);
+        syncGlobalOfficerRoles(user);
+        userRepository.save(user);
+        auditService.record(
+                principal.getId(),
+                cooperativeId,
+                action,
+                "User",
+                user.getId(),
+                previous,
+                "{\"membershipStatus\":\"" + newStatus + "\""
+                        + (reason == null ? "" : ",\"reason\":\"" + escape(reason) + "\"")
+                        + "}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
         return toResponse(user, membership);

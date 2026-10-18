@@ -51,6 +51,9 @@ class ShareValuationServiceTest {
     @Mock
     private ShareValuationSnapshotRepository snapshotRepository;
 
+    @Mock
+    private rw.terimbere.csams.modules.rotation.payout.RotationEntitlementService rotationEntitlementService;
+
     @InjectMocks
     private ShareValuationService service;
 
@@ -62,6 +65,17 @@ class ShareValuationServiceTest {
         Cooperative cooperative = Cooperative.builder().currency("RWF").build();
         cooperative.setId(cooperativeId);
         when(cooperativeRepository.findByIdAndDeletedFalse(cooperativeId)).thenReturn(Optional.of(cooperative));
+        // an accumulating scheme owes recipients nothing, so the valuation formula is exactly the original one
+        org.mockito.Mockito.lenient()
+                .when(rotationEntitlementService.totalOutstandingEntitlement(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.math.BigDecimal.ZERO);
+        org.mockito.Mockito.lenient()
+                .when(rotationEntitlementService.unresolvedHistory(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(rw.terimbere.csams.modules.rotation.payout.RotationEntitlementService.UnresolvedHistory.none());
+        org.mockito.Mockito.lenient()
+                .when(rotationEntitlementService.totalUnreconciledRotating(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.math.BigDecimal.ZERO);
     }
 
     @Test
@@ -146,7 +160,7 @@ class ShareValuationServiceTest {
         when(loanRepository.sumOutstandingInterestByStatuses(
                         cooperativeId, EnumSet.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE)))
                 .thenReturn(new BigDecimal(interest));
-        when(fineRepository.sumOutstandingByStatuses(
+        when(fineRepository.sumOutstandingForValuationExcludingWrittenOffLoans(
                         cooperativeId, EnumSet.of(FineStatus.UNPAID, FineStatus.PARTIALLY_PAID)))
                 .thenReturn(new BigDecimal(penalties));
         when(ledgerFinancialCalculationService.sumActiveInvestmentCapital(cooperativeId))

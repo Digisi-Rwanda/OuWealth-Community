@@ -218,12 +218,18 @@ class CooperativeScopedAuthorizationIntegrationTest {
         String token = login(accountant);
         assertThat(contributionWrite(coopA, token, payer.userId())).isEqualTo(200);
 
-        MvcResult result = mockMvc.perform(patch("/api/v1/cooperatives/" + coopA + "/members/"
-                                + accountant.userId() + "/status")
-                        .header("Authorization", "Bearer " + superAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"membershipStatus\":\"" + membershipStatus + "\"}"))
-                .andReturn();
+        // INACTIVE has its own action (a reason, no payout in flight, audited); the other statuses use the status endpoint
+        MvcResult result = "INACTIVE".equals(membershipStatus)
+                ? mockMvc.perform(post("/api/v1/cooperatives/" + coopA + "/members/" + accountant.userId() + "/deactivate")
+                                .header("Authorization", "Bearer " + superAdminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"Left the committee\"}"))
+                        .andReturn()
+                : mockMvc.perform(patch("/api/v1/cooperatives/" + coopA + "/members/" + accountant.userId() + "/status")
+                                .header("Authorization", "Bearer " + superAdminToken)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"membershipStatus\":\"" + membershipStatus + "\"}"))
+                        .andReturn();
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
 
         assertThat(contributionWrite(coopA, token, payer.userId())).isEqualTo(403);

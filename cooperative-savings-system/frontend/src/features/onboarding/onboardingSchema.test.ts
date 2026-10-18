@@ -16,6 +16,7 @@ const valid: typeof onboardingDefaults = {
   monthlyContributionAmount: '5000',
   contributionDueDay: 10,
   registrationDate: '2024-01-15',
+  operatingModel: 'ACCUMULATING',
   firstName: 'Pat',
   lastName: 'President',
   username: 'pat.president',
@@ -24,6 +25,27 @@ const valid: typeof onboardingDefaults = {
   password: 'SignupPass1!',
   confirmPassword: 'SignupPass1!',
 }
+
+describe('onboardingSchema operating model', () => {
+  it('has no default model and asks for one in step 1', () => {
+    expect(onboardingDefaults.operatingModel).toBe('')
+    expect(ONBOARDING_STEP1_FIELDS).toContain('operatingModel')
+  })
+
+  it('rejects a missing or unsupported model and accepts each of the three', async () => {
+    await expect(onboardingSchema.validate({ ...valid, operatingModel: '' })).rejects.toThrow(/operating model/i)
+    await expect(
+      onboardingSchema.validate({ ...valid, operatingModel: 'WEEKLY' as never }),
+    ).rejects.toThrow(/operating model/i)
+    for (const model of ['ACCUMULATING', 'ROTATING', 'HYBRID'] as const) {
+      await expect(onboardingSchema.validate({ ...valid, operatingModel: model })).resolves.toBeDefined()
+    }
+  })
+
+  it('sends the selected model in the cooperative group', () => {
+    expect(toOnboardingPayload({ ...valid, operatingModel: 'HYBRID' }).cooperative.operatingModel).toBe('HYBRID')
+  })
+})
 
 describe('onboardingSchema', () => {
   it('accepts a valid public onboarding form', async () => {
@@ -83,6 +105,7 @@ describe('toOnboardingPayload', () => {
         monthlyContributionAmount: '5000',
         contributionDueDay: 10,
         registrationDate: '2024-01-15',
+        operatingModel: 'ACCUMULATING',
       },
       creator: {
         firstName: 'Pat',

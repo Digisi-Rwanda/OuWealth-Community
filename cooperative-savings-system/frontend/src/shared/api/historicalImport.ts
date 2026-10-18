@@ -32,6 +32,25 @@ export async function downloadHistoricalImportTemplate(
   return { filename }
 }
 
+/** The separate one-sheet template for loans still outstanding at the cutover. */
+export async function downloadHistoricalImportLoanTemplate(
+  cooperativeId: string,
+  fallbackFilename = 'ikimina-opening-loans-template.xlsx',
+): Promise<{ filename: string }> {
+  const response = await apiClient.get(
+    `/cooperatives/${cooperativeId}/historical-imports/loan-template`,
+    { responseType: 'blob', timeout: LONG_TIMEOUT_MS },
+  )
+  const blob = response.data as Blob
+  await throwIfBlobError(blob, 'Template download failed')
+  const filename = parseContentDispositionFilename(
+    response.headers['content-disposition'] as string | undefined,
+    fallbackFilename,
+  )
+  triggerBlobDownload(blob, filename)
+  return { filename }
+}
+
 export async function previewHistoricalImport(
   cooperativeId: string,
   file: File,
@@ -41,7 +60,8 @@ export async function previewHistoricalImport(
   const formData = new FormData()
   formData.append('file', file)
   formData.append('cutoverDate', cutoverDate)
-  formData.append('openingAvailableFunds', openingAvailableFunds)
+  // The loan workbook carries no cash position: send it only with the opening balances.
+  if (openingAvailableFunds) formData.append('openingAvailableFunds', openingAvailableFunds)
   const response = await apiClient.post<ApiResponse<HistoricalImportPreview>>(
     `/cooperatives/${cooperativeId}/historical-imports/preview`,
     formData,

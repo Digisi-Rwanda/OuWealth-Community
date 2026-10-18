@@ -76,6 +76,7 @@ class CooperativeCreateRollbackIntegrationTest {
                   "registrationNumber":"%s",
                   "contactEmail":"roll-%s@test.local",
                   "contactPhone":"0781234567",
+                  "operatingModel":"ACCUMULATING",
                   "registrationDate":"2024-01-15"
                 }
                 """

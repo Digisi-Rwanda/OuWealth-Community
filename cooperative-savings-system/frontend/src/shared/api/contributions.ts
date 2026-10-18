@@ -3,6 +3,8 @@ import { unwrapApiData } from './auth'
 import type { ApiResponse, PageResponse } from '@/shared/types/api'
 import type {
   Contribution,
+  ContributionDueDay,
+  ContributionDueDayRequest,
   ContributionListQuery,
   ContributionPeriodPreview,
   ContributionPeriodGrid,
@@ -220,6 +222,24 @@ export async function fetchContributionSummary(
   const response = await apiClient.get<ApiResponse<ContributionSummary>>(
     `/cooperatives/${cooperativeId}/contributions/summary`,
     { params },
+  )
+  return unwrapApiData(response.data)
+}
+
+export async function fetchContributionDueDay(cooperativeId: string): Promise<ContributionDueDay> {
+  const response = await apiClient.get<ApiResponse<ContributionDueDay>>(
+    `/cooperatives/${cooperativeId}/contribution-due-day`,
+  )
+  return unwrapApiData(response.data)
+}
+
+export async function setContributionDueDay(
+  cooperativeId: string,
+  payload: ContributionDueDayRequest,
+): Promise<ContributionDueDay> {
+  const response = await apiClient.post<ApiResponse<ContributionDueDay>>(
+    `/cooperatives/${cooperativeId}/contribution-due-day`,
+    payload,
   )
   return unwrapApiData(response.data)
 }

@@ -26,6 +26,8 @@ import rw.terimbere.csams.modules.notification.entity.NotificationType;
 import rw.terimbere.csams.modules.notification.service.NotificationFacade;
 import rw.terimbere.csams.modules.cooperative.entity.Cooperative;
 import rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository;
+import rw.terimbere.csams.modules.cooperative.service.SchemeOperatingModelGuard;
+import rw.terimbere.csams.modules.fundlock.SchemeFundLockService;
 import rw.terimbere.csams.modules.ledger.service.LedgerService;
 import rw.terimbere.csams.modules.payout.dto.PayoutLineResponse;
 import rw.terimbere.csams.modules.payout.dto.PayoutMarkPaidRequest;
@@ -68,6 +70,8 @@ public class PayoutService {
     private final CooperativeAuthorizationService authorizationService;
     private final AuditService auditService;
     private final NotificationFacade notificationFacade;
+    private final SchemeFundLockService schemeFundLockService;
+    private final SchemeOperatingModelGuard operatingModelGuard;
 
     @Transactional
     public PayoutRunResponse preview(
@@ -212,6 +216,10 @@ public class PayoutService {
         UserPrincipal principal = authorizationService.currentPrincipal();
         authorizationService.requireMembership(cooperativeId);
         CooperativeOfficerRoles.requireFundAuthorize(principal);
+        // Serialize with every other operation that spends this scheme's funds, before the run is read for its final
+        // decision and before available funds are checked (a preview is advisory and reserves nothing).
+        schemeFundLockService.lockSchemeFund(cooperativeId);
+        operatingModelGuard.requireAccumulatingWorkflows(cooperativeId, "Payout confirmation");
         PayoutRun run = requireRun(cooperativeId, runId);
 
         if (run.getStatus() != PayoutRunStatus.PREVIEWED) {

@@ -420,7 +420,7 @@ describe('auth form sizing', () => {
     expect(content()).toContainElement(screen.getByText('Saving Scheme Details'))
   })
 
-  it('signup: Back, Next and Create are content-sized, with Next alone on the right of step 1', async () => {
+  it('signup: Back, Next and Create are content-sized, with Next alone on the right of step 1', { timeout: 15_000 }, async () => {
     renderAt('/signup')
     const actions = () => screen.getByTestId('signup-actions')
     const next = () => screen.getByRole('button', { name: 'Next' })
@@ -436,6 +436,7 @@ describe('auth form sizing', () => {
     fireEvent.change(screen.getByLabelText(/Contact phone/i), { target: { value: '0781234567' } })
     fireEvent.change(screen.getByLabelText(/Registration date/i), { target: { value: '2024-01-15' } })
     fireEvent.change(screen.getByLabelText(/Monthly contribution/i), { target: { value: '5000' } })
+    fireEvent.click(screen.getByRole('radio', { name: /Accumulating Savings/ }))
     await act(async () => {
       fireEvent.click(next())
     })

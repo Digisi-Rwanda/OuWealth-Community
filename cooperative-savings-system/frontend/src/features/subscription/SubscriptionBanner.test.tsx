@@ -1,13 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import authReducer from '@/app/store/authSlice'
 import uiReducer from '@/app/store/uiSlice'
 import { fetchSubscription } from '@/shared/api/subscription'
 import { MemoryRouter } from 'react-router-dom'
-import { ROLE_MEMBER, ROLE_PRESIDENT, ROLE_SUPER_ADMIN } from '@/shared/types/auth'
+import {
+  ROLE_ACCOUNTANT,
+  ROLE_MEMBER,
+  ROLE_PRESIDENT,
+  ROLE_SECRETARY,
+  ROLE_SUPER_ADMIN,
+} from '@/shared/types/auth'
 import type { CooperativeSubscription } from '@/shared/types/cooperative'
 import { SubscriptionBanner } from './SubscriptionBanner'
 import { DashboardSubscriptionCard } from './DashboardSubscriptionCard'
@@ -78,12 +84,89 @@ function renderWithAuth(
 describe('SubscriptionBanner', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
   })
 
-  it('shows the trial banner for leadership', async () => {
-    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT] })
-    expect(await screen.findByText('OuWealth Free Trial')).toBeInTheDocument()
-    expect(screen.getByTestId('subscription-banner')).toBeInTheDocument()
+  const trialWith = (daysRemaining: number): CooperativeSubscription => ({ ...trial, daysRemaining })
+
+  it('stays quiet while the trial has more than 7 days left', async () => {
+    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(8) })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(screen.queryByTestId('subscription-banner')).not.toBeInTheDocument()
+  })
+
+  it('shows the expiry notice with the actual days remaining at exactly 7 days', async () => {
+    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(7) })
+    expect(await screen.findByText('Your free trial is ending soon')).toBeInTheDocument()
+    expect(screen.getByText(/7 days left in your free trial/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View plans' })).toHaveAttribute('href', '/billing')
+  })
+
+  it('shows fewer than 7 days, singular for the last day, and 0 on the final day', async () => {
+    const view = renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(3) })
+    expect(await screen.findByText(/3 days left in your free trial/i)).toBeInTheDocument()
+    view.unmount()
+    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(1) })
+    expect(await screen.findByText(/1 day left in your free trial/i)).toBeInTheDocument()
+  })
+
+  it('does not show the trial notice once the trial has expired (expired banner applies instead)', async () => {
+    renderWithAuth(<SubscriptionBanner />, {
+      roles: [ROLE_PRESIDENT],
+      subscription: { ...trialWith(0), effectiveStatus: 'EXPIRED', writeAllowed: false, usable: false },
+    })
+    expect(await screen.findByText('Your OuWealth subscription is inactive')).toBeInTheDocument()
+    expect(screen.queryByText('Your free trial is ending soon')).not.toBeInTheDocument()
+  })
+
+  it('shows nothing for an active paid subscription, even with few days left', async () => {
+    renderWithAuth(<SubscriptionBanner />, {
+      roles: [ROLE_PRESIDENT],
+      subscription: {
+        ...trial,
+        status: 'ACTIVE',
+        storedStatus: 'ACTIVE',
+        effectiveStatus: 'ACTIVE',
+        currentPeriodEndsAt: '2027-01-16T10:00:00Z',
+        daysRemaining: 3,
+      },
+    })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(screen.queryByTestId('subscription-banner')).not.toBeInTheDocument()
+  })
+
+  it.each([[ROLE_PRESIDENT], [ROLE_ACCOUNTANT]])('offers the plans link to billing manager %s', async (role) => {
+    renderWithAuth(<SubscriptionBanner />, { roles: [role], subscription: trialWith(5) })
+    expect(await screen.findByTestId('trial-notice-billing-cta')).toBeInTheDocument()
+  })
+
+  it.each([[ROLE_MEMBER], [ROLE_SECRETARY]])(
+    'gives %s the notice but no billing action, and points to leadership',
+    async (role) => {
+      renderWithAuth(<SubscriptionBanner />, { roles: [role], subscription: trialWith(5) })
+      expect(await screen.findByText('Your free trial is ending soon')).toBeInTheDocument()
+      expect(screen.queryByTestId('trial-notice-billing-cta')).not.toBeInTheDocument()
+      expect(screen.getByText(/Contact your President/i)).toBeInTheDocument()
+    },
+  )
+
+  it('can be dismissed and stays dismissed across remounts (page navigation) on the same day', async () => {
+    const view = renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(5) })
+    expect(await screen.findByTestId('subscription-banner')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss for today' }))
+    expect(screen.queryByTestId('subscription-banner')).not.toBeInTheDocument()
+    view.unmount()
+
+    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(5) })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    expect(screen.queryByTestId('subscription-banner')).not.toBeInTheDocument()
+  })
+
+  it('reappears the next day with the updated count after a dismissal', async () => {
+    const key = `ouwealth.trialExpiryNotice.coop-1.${trial.trialEndsAt}`
+    window.localStorage.setItem(key, '2000-01-01')
+    renderWithAuth(<SubscriptionBanner />, { roles: [ROLE_PRESIDENT], subscription: trialWith(4) })
+    expect(await screen.findByText(/4 days left in your free trial/i)).toBeInTheDocument()
   })
 
   it('shows a past-due warning for leadership', async () => {

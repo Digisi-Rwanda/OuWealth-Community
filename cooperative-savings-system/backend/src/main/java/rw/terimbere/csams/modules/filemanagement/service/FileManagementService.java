@@ -302,6 +302,39 @@ public class FileManagementService {
                             ? "Only JPEG, PNG, and WebP images are allowed"
                             : "Only PDF, JPEG, PNG, WebP, and XLSX files are allowed");
         }
+        requireContentMatchesType(file, contentType);
+    }
+
+    /**
+     * The first bytes must be those of the declared type. A client-declared content type alone proves nothing, so a file
+     * that claims to be an image or a document but is something else is refused, not stored under a trusted extension.
+     */
+    private static void requireContentMatchesType(MultipartFile file, String contentType) {
+        byte[] head = new byte[12];
+        int read;
+        try (java.io.InputStream in = file.getInputStream()) {
+            read = in.readNBytes(head, 0, head.length);
+        } catch (java.io.IOException e) {
+            throw new ValidationException("The file could not be read");
+        }
+        boolean matches =
+                switch (contentType) {
+                    case MediaType.IMAGE_PNG_VALUE -> read >= 4
+                            && (head[0] & 0xFF) == 0x89 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G';
+                    case MediaType.IMAGE_JPEG_VALUE -> read >= 3
+                            && (head[0] & 0xFF) == 0xFF && (head[1] & 0xFF) == 0xD8 && (head[2] & 0xFF) == 0xFF;
+                    case "image/webp" -> read >= 12
+                            && head[0] == 'R' && head[1] == 'I' && head[2] == 'F' && head[3] == 'F'
+                            && head[8] == 'W' && head[9] == 'E' && head[10] == 'B' && head[11] == 'P';
+                    case MediaType.APPLICATION_PDF_VALUE -> read >= 4
+                            && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F';
+                    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> read >= 4
+                            && head[0] == 'P' && head[1] == 'K' && head[2] == 3 && head[3] == 4;
+                    default -> false;
+                };
+        if (!matches) {
+            throw new ValidationException("The file content does not match its declared type");
+        }
     }
 
     private static String resolveSecureExtension(MultipartFile file) {

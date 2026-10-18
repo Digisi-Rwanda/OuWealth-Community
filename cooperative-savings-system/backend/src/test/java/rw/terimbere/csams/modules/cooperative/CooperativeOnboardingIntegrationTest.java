@@ -340,6 +340,7 @@ class CooperativeOnboardingIntegrationTest {
                   "registrationNumber":"%s",
                   "contactEmail":"fail-%s@test.local",
                   "contactPhone":"0781234567",
+                  "operatingModel":"ACCUMULATING",
                   "registrationDate":"2024-01-15",
                   "president":{"userId":"%s"}
                 }

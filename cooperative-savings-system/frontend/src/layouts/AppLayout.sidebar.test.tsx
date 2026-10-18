@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@mui/material'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { configureStore } from '@reduxjs/toolkit'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -44,7 +44,8 @@ vi.mock('@/shared/api/subscription', () => ({
     effectiveStatus: 'TRIAL',
     writeAllowed: true,
     usable: true,
-    daysRemaining: 10,
+    // Within the 7-day window so the trial-expiry notice is rendered.
+    daysRemaining: 5,
     trialEndsAt: '2099-12-31T00:00:00Z',
   }),
 }))
@@ -52,6 +53,14 @@ vi.mock('@/shared/api/subscription', () => ({
 vi.mock('@/shared/api/auth', () => ({
   logout: vi.fn().mockResolvedValue(undefined),
 }))
+
+/** Sidebar sections start collapsed; role/permission tests open them all to inspect the links. */
+function expandAll<T extends HTMLElement>(root: T): T {
+  root
+    .querySelectorAll('[data-testid^="sidebar-section-toggle-"][aria-expanded="false"]')
+    .forEach((toggle) => fireEvent.click(toggle))
+  return root
+}
 
 function stubMatchMedia(mdUp: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -145,9 +154,11 @@ function renderLayout({
 }
 
 function desktopNav() {
-  return within(screen.getByTestId('app-sidebar-desktop')).getByRole('navigation', {
-    name: /main navigation/i,
-  })
+  return expandAll(
+    within(screen.getByTestId('app-sidebar-desktop')).getByRole('navigation', {
+      name: /main navigation/i,
+    }),
+  )
 }
 
 describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
@@ -260,7 +271,7 @@ describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
     renderLayout({ roles: [ROLE_PRESIDENT], mdUp: false })
     expect(screen.queryByTestId('app-sidebar-desktop')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /open menu/i }))
-    const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement
+    const paper = expandAll(document.querySelector('.MuiDrawer-paper') as HTMLElement)
     expect(paper).toBeTruthy()
     expect(within(paper).getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
     expect(within(paper).getByRole('link', { name: /^Dashboard$/i })).toBeInTheDocument()
@@ -270,7 +281,7 @@ describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
     const user = userEvent.setup()
     renderLayout({ roles: [ROLE_PRESIDENT], mdUp: false, path: '/dashboard' })
     await user.click(screen.getByRole('button', { name: /open menu/i }))
-    const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement
+    const paper = expandAll(document.querySelector('.MuiDrawer-paper') as HTMLElement)
     await user.click(within(paper).getByRole('link', { name: /^Members$/i }))
     expect(screen.getByTestId('page-members')).toBeInTheDocument()
     await waitFor(
@@ -281,12 +292,12 @@ describe('AppLayout sidebar (Phase B)', { timeout: 20_000 }, () => {
     )
   }, 20_000)
 
-  it('keeps CooperativeSelector, notifications, user menu, language and theme controls', async () => {
+  it('keeps CooperativeSelector, notifications, language and theme controls (user menu moved to the sidebar)', async () => {
     renderLayout({ roles: [ROLE_PRESIDENT], mdUp: true })
     const top = screen.getByTestId('app-top-bar')
     expect(await within(top).findByLabelText(/Select Saving Scheme/i)).toBeInTheDocument()
     expect(within(top).getByRole('button', { name: /notifications/i })).toBeInTheDocument()
-    expect(within(top).getByRole('button', { name: /profile/i })).toBeInTheDocument()
+    expect(within(top).queryByRole('button', { name: /profile/i })).not.toBeInTheDocument()
     expect(within(top).getByLabelText(/language/i)).toBeInTheDocument()
     expect(within(top).getByLabelText(/theme/i)).toBeInTheDocument()
   })
@@ -323,7 +334,10 @@ describe('AppLayout desktop sidebar pin', { timeout: 20_000 }, () => {
     localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
   })
 
-  const drawerPaper = () => document.querySelector('.MuiDrawer-paper') as HTMLElement | null
+  const drawerPaper = () => {
+    const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement | null
+    return paper ? expandAll(paper) : null
+  }
   const drawerClosed = () => waitFor(() => expect(drawerPaper()).toBeNull(), { timeout: 10_000 })
 
   it('is pinned and visible by default, with an Unpin control and no navigation toggle', () => {
@@ -495,5 +509,152 @@ describe('AppLayout sidebar: Loans and Share Purchase Approvals', { timeout: 20_
     expect(within(nav).getByRole('link', { name: 'Regular Contribution Approvals' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: 'Share Purchase Approvals' })).not.toHaveAttribute('aria-current')
     expect(within(nav).getByRole('link', { name: /^Contributions$/ })).not.toHaveAttribute('aria-current')
+  })
+})
+
+
+describe('AppLayout sidebar: expandable sections and bottom account area', { timeout: 20_000 }, () => {
+  beforeEach(() => {
+    stubMatchMedia(true)
+    localStorage.removeItem(SIDEBAR_PINNED_STORAGE_KEY)
+  })
+
+  const rawNav = () =>
+    within(screen.getByTestId('app-sidebar-desktop')).getByRole('navigation', { name: /main navigation/i })
+  const toggle = (id: string) => screen.getByTestId(`sidebar-section-toggle-${id}`)
+
+  it('shows exactly the four section headers for a President, in order', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const toggles = rawNav().querySelectorAll('[data-testid^="sidebar-section-toggle-"]')
+    expect(Array.from(toggles).map((el) => el.textContent)).toEqual([
+      'Operations',
+      'Finance',
+      'Administration',
+      'Profile',
+    ])
+    // Dashboard remains a plain top-level link, not a section.
+    expect(within(rawNav()).getByRole('link', { name: /^Dashboard$/i })).toBeInTheDocument()
+  })
+
+  it('starts collapsed apart from the section holding the active page, and hides collapsed links', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/dashboard' })
+    for (const id of ['operations', 'finance', 'administration', 'profile']) {
+      expect(toggle(id)).toHaveAttribute('aria-expanded', 'false')
+    }
+    // Collapsed links are not exposed to assistive tech or the keyboard.
+    expect(within(rawNav()).queryByRole('link', { name: /^Members$/i })).not.toBeInTheDocument()
+  })
+
+  it('expands and collapses a section when its header is clicked', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/dashboard' })
+    await user.click(toggle('operations'))
+    expect(toggle('operations')).toHaveAttribute('aria-expanded', 'true')
+    expect(within(rawNav()).getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
+    await user.click(toggle('operations'))
+    expect(toggle('operations')).toHaveAttribute('aria-expanded', 'false')
+    await waitFor(() =>
+      expect(within(rawNav()).queryByRole('link', { name: /^Members$/i })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('auto-expands the section that contains the active route and highlights the item', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/loans/loan-9' })
+    expect(toggle('finance')).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle('operations')).toHaveAttribute('aria-expanded', 'false')
+    expect(within(rawNav()).getByRole('link', { name: /^Loans$/i })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('auto-expands a collapsed section when navigating into it', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT], path: '/dashboard' })
+    await user.click(toggle('administration'))
+    await user.click(within(rawNav()).getByRole('link', { name: /^Settings$/i }))
+    expect(toggle('administration')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('page-settings')).toBeInTheDocument()
+  })
+
+  it('maps pages to sections: Loans, Social Dashboard and share approvals are Finance; Members is Operations', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const section = (id: string) => within(screen.getByTestId(`sidebar-section-${id}`))
+    expandAll(rawNav())
+    expect(section('operations').getByRole('link', { name: /^Members$/i })).toBeInTheDocument()
+    expect(section('operations').getByRole('link', { name: /^Fines$/i })).toBeInTheDocument()
+    expect(section('finance').getByRole('link', { name: /^Loans$/i })).toBeInTheDocument()
+    expect(section('finance').getByRole('link', { name: /Share Purchase Approvals/i })).toBeInTheDocument()
+    expect(section('finance').getByRole('link', { name: /Social Dashboard/i })).toBeInTheDocument()
+    expect(section('finance').getByRole('link', { name: /^Reports$/i })).toBeInTheDocument()
+    expect(section('administration').getByRole('link', { name: /^Settings$/i })).toBeInTheDocument()
+    expect(section('administration').getByRole('link', { name: /^Billing$/i })).toBeInTheDocument()
+    expect(section('administration').getByRole('link', { name: /Audit logs/i })).toBeInTheDocument()
+    expect(section('profile').getByRole('link', { name: /^Profile$/i })).toBeInTheDocument()
+  })
+
+  it('omits sections a role has no pages in (no unauthorized links to expand)', () => {
+    renderLayout({ roles: [ROLE_MEMBER] })
+    const ids = Array.from(rawNav().querySelectorAll('[data-testid^="sidebar-section-toggle-"]')).map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    expect(ids).not.toContain('sidebar-section-toggle-administration')
+    expect(ids).toContain('sidebar-section-toggle-operations')
+  })
+
+  it('anchors the profile and sign-out controls at the bottom of the sidebar, outside the scroll area', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const sidebar = within(screen.getByTestId('app-sidebar-desktop'))
+    const account = sidebar.getByTestId('sidebar-account')
+    const scroll = sidebar.getByTestId('sidebar-scroll')
+    expect(scroll).not.toContainElement(account)
+    expect(sidebar.getByTestId('app-sidebar').lastElementChild).toBe(account)
+    expect(within(account).getByText('Test User')).toBeInTheDocument()
+    expect(within(account).getByText('PRESIDENT')).toBeInTheDocument()
+    expect(within(account).getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    // The navigation area scrolls on its own so the account area stays visible.
+    expect(getComputedStyle(scroll).overflowY).toBe('auto')
+  })
+
+  it('no longer renders the profile control in the top navbar', () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const top = screen.getByTestId('app-top-bar')
+    expect(within(top).queryByRole('button', { name: /profile/i })).not.toBeInTheDocument()
+    expect(within(top).queryByText('Test User')).not.toBeInTheDocument()
+  })
+
+  it('opens the account menu from the profile area', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    await user.click(screen.getByTestId('sidebar-account-button'))
+    expect(await screen.findByRole('menuitem', { name: /^Profile$/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /sign out/i })).toBeInTheDocument()
+  })
+
+  it('signs out through the existing logout flow: revokes the session and clears auth', async () => {
+    const user = userEvent.setup()
+    const { logout } = await import('@/shared/api/auth')
+    const { store } = renderLayout({ roles: [ROLE_PRESIDENT] })
+    await user.click(within(screen.getByTestId('sidebar-account')).getByRole('button', { name: /sign out/i }))
+    await waitFor(() => expect(logout).toHaveBeenCalled())
+    await waitFor(() => expect(store.getState().auth.user).toBeNull())
+    expect(store.getState().auth.accessToken).toBeNull()
+  })
+
+  it('stays usable on narrow screens: account area and sections live in the drawer', async () => {
+    const user = userEvent.setup()
+    renderLayout({ roles: [ROLE_PRESIDENT], mdUp: false })
+    const top = screen.getByTestId('app-top-bar')
+    expect(within(top).queryByRole('button', { name: /profile/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /open menu/i }))
+    const paper = document.querySelector('.MuiDrawer-paper') as HTMLElement
+    expect(within(paper).getByTestId('sidebar-account')).toBeInTheDocument()
+    expect(within(paper).getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    expect(within(paper).getByTestId('sidebar-section-toggle-operations')).toBeInTheDocument()
+    // Language/theme controls remain reachable inside the scrollable navigation area.
+    expect(within(within(paper).getByTestId('sidebar-scroll')).getByLabelText(/language/i)).toBeInTheDocument()
+  })
+
+  it('still renders the Task 1 trial-expiry notice above the content', async () => {
+    renderLayout({ roles: [ROLE_PRESIDENT] })
+    const banner = await screen.findByTestId('subscription-banner')
+    expect(within(banner).getByText('Your free trial is ending soon')).toBeInTheDocument()
   })
 })

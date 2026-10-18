@@ -26,4 +26,7 @@ public interface HistoricalImportRepository extends JpaRepository<HistoricalImpo
             @org.springframework.data.repository.query.Param("status") HistoricalImportStatus status);
 
     boolean existsByCooperativeIdAndStatusAndCutoverDateIsNotNull(UUID cooperativeId, HistoricalImportStatus status);
+
+    boolean existsByCooperativeIdAndImportKindAndStatus(
+            UUID cooperativeId, rw.terimbere.csams.modules.historicalimport.entity.HistoricalImportKind kind, HistoricalImportStatus status);
 }

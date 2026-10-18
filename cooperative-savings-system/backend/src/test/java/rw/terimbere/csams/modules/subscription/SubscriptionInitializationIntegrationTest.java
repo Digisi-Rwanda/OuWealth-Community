@@ -250,6 +250,7 @@ class SubscriptionInitializationIntegrationTest {
                 .registrationDate(LocalDate.of(2024, 1, 15))
                 .status(CooperativeStatus.ACTIVE)
                 .onboardingState(CooperativeOnboardingState.AWAITING_PRESIDENT)
+                .operatingModel(rw.terimbere.csams.modules.cooperative.entity.SchemeOperatingModel.ACCUMULATING)
                 .createdBy(actorId)
                 .build());
         return saved.getId();

@@ -53,9 +53,17 @@ final class MigrationWorkbooks {
     byte[] bytes() throws Exception {
         try (Workbook workbook = new XSSFWorkbook();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            write(workbook, HistoricalMigrationSheet.MEMBER_REGISTRATION, members);
-            write(workbook, HistoricalMigrationSheet.SHARE_CAPITAL_REGISTRATION, shares);
-            write(workbook, HistoricalMigrationSheet.LOAN_REGISTRATION, loans);
+            // The opening workbook is two sheets; loans travel in their own one-sheet workbook. A builder that holds
+            // members or shares writes the opening workbook (plus a loan sheet only if loans were added, so tests can
+            // check that it is refused); one that holds only loans writes the loan workbook.
+            boolean loansOnly = members.isEmpty() && shares.isEmpty() && !loans.isEmpty();
+            if (!loansOnly) {
+                write(workbook, HistoricalMigrationSheet.MEMBER_REGISTRATION, members);
+                write(workbook, HistoricalMigrationSheet.SHARE_CAPITAL_REGISTRATION, shares);
+            }
+            if (loansOnly || !loans.isEmpty()) {
+                write(workbook, HistoricalMigrationSheet.LOAN_REGISTRATION, loans);
+            }
             workbook.write(out);
             return out.toByteArray();
         }

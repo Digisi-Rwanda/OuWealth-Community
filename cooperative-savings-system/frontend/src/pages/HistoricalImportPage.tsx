@@ -5,7 +5,11 @@ import {
   Card,
   CardContent,
   Chip,
+  FormControlLabel,
   Stack,
+  Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -15,10 +19,12 @@ import { useSnackbar } from 'notistack'
 import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppSelector } from '@/app/store/hooks'
-import { getErrorMessage } from '@/shared/api/client'
+import { localizedApiError } from '@/shared/utils/localizedApiError'
+import { MigrationReviewNotice } from '@/features/historicalTransactions/MigrationReviewNotice'
 import {
   cancelHistoricalImport,
   confirmHistoricalImport,
+  downloadHistoricalImportLoanTemplate,
   downloadHistoricalImportTemplate,
   fetchHistoricalImportHistory,
   previewHistoricalImport,
@@ -28,6 +34,7 @@ import { EmptyState } from '@/shared/components/EmptyState'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { PageHeader } from '@/shared/components/PageHeader'
+import { HistoricalTransactionsPanel } from '@/features/historicalTransactions/HistoricalTransactionsPanel'
 import { ResponsiveTable, type TableColumn } from '@/shared/components/ResponsiveTable'
 import { importStatusColor } from '@/features/reports/reportHelpers'
 import {
@@ -43,7 +50,7 @@ import {
 import { formatMoney } from '@/shared/utils/formatMoney'
 import { todayInKigaliIso } from '@/shared/utils/rwandaCooperative'
 
-export function HistoricalImportPage() {
+function OpeningBalanceImport() {
   const { t } = useTranslation()
   const { enqueueSnackbar } = useSnackbar()
   const queryClient = useQueryClient()
@@ -52,6 +59,7 @@ export function HistoricalImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [cutoverDate, setCutoverDate] = useState('')
   const [openingFunds, setOpeningFunds] = useState('')
+  const [loansMode, setLoansMode] = useState(false)
   const [preview, setPreview] = useState<HistoricalImportPreview | null>(null)
   const [confirmResult, setConfirmResult] = useState<HistoricalImportConfirm | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -69,12 +77,23 @@ export function HistoricalImportPage() {
       enqueueSnackbar(t('historicalImport.templateSuccess', { filename }), { variant: 'success' })
     },
     onError: (error) => {
-      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+      enqueueSnackbar(localizedApiError(t, error, 'historicalImport.errorCodes'), { variant: 'error' })
+    },
+  })
+
+  const loanTemplateMutation = useMutation({
+    mutationFn: () => downloadHistoricalImportLoanTemplate(cooperativeId!),
+    onSuccess: ({ filename }) => {
+      enqueueSnackbar(t('historicalImport.templateSuccess', { filename }), { variant: 'success' })
+    },
+    onError: (error) => {
+      enqueueSnackbar(localizedApiError(t, error, 'historicalImport.errorCodes'), { variant: 'error' })
     },
   })
 
   const previewMutation = useMutation({
-    mutationFn: (selected: File) => previewHistoricalImport(cooperativeId!, selected, cutoverDate, openingFunds.trim()),
+    mutationFn: (selected: File) =>
+      previewHistoricalImport(cooperativeId!, selected, cutoverDate, loansMode ? '' : openingFunds.trim()),
     onSuccess: (data) => {
       setPreview(data)
       setConfirmResult(null)
@@ -82,7 +101,7 @@ export function HistoricalImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['historical-imports'] })
     },
     onError: (error) => {
-      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+      enqueueSnackbar(localizedApiError(t, error, 'historicalImport.errorCodes'), { variant: 'error' })
     },
   })
 
@@ -103,7 +122,7 @@ export function HistoricalImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['shares'] })
     },
     onError: (error) => {
-      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+      enqueueSnackbar(localizedApiError(t, error, 'historicalImport.errorCodes'), { variant: 'error' })
     },
   })
 
@@ -118,7 +137,7 @@ export function HistoricalImportPage() {
       void queryClient.invalidateQueries({ queryKey: ['historical-imports'] })
     },
     onError: (error) => {
-      enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' })
+      enqueueSnackbar(localizedApiError(t, error, 'historicalImport.errorCodes'), { variant: 'error' })
     },
   })
 
@@ -127,7 +146,12 @@ export function HistoricalImportPage() {
       { id: 'sheet', label: t('historicalImport.fields.sheet'), render: (row) => row.sheet || '—' },
       { id: 'row', label: t('historicalImport.fields.row'), render: (row) => row.rowNumber ?? '—' },
       { id: 'field', label: t('historicalImport.fields.field'), render: (row) => row.field || '—' },
-      { id: 'message', label: t('historicalImport.fields.error'), render: (row) => row.message || '—' },
+      {
+        id: 'message',
+        label: t('historicalImport.fields.error'),
+        render: (row) =>
+          row.code ? t(`historicalImport.rowErrors.${row.code}`, { defaultValue: row.message || row.code }) : row.message || '—',
+      },
     ],
     [t],
   )
@@ -224,7 +248,7 @@ export function HistoricalImportPage() {
   const migration = preview?.migration
   const previewCutover = preview?.cutoverDate ?? migration?.cutoverDate ?? cutoverDate
   const fundsValid = isValidOpeningFunds(openingFunds)
-  const canPreview = Boolean(file) && Boolean(cutoverDate) && fundsValid && !previewMutation.isPending
+  const canPreview = Boolean(file) && Boolean(cutoverDate) && (loansMode || fundsValid) && !previewMutation.isPending
 
   return (
     <Box>
@@ -232,6 +256,8 @@ export function HistoricalImportPage() {
         title={t('pages.historicalImport.title')}
         description={t('pages.historicalImport.description')}
       />
+
+      <MigrationReviewNotice cooperativeId={cooperativeId} />
 
       <Stack spacing={3}>
         <Card variant="outlined">
@@ -262,6 +288,7 @@ export function HistoricalImportPage() {
                   slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayInKigaliIso() } }}
                   sx={{ width: { xs: '100%', sm: 230 } }}
                 />
+                {loansMode ? null : (
                 <TextField
                   required
                   size="small"
@@ -281,7 +308,27 @@ export function HistoricalImportPage() {
                   slotProps={{ htmlInput: { inputMode: 'decimal' } }}
                   sx={{ width: { xs: '100%', sm: 250 } }}
                 />
+                )}
               </Stack>
+
+              <Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={loansMode}
+                      onChange={(event) => {
+                        setLoansMode(event.target.checked)
+                        setPreview(null)
+                        setConfirmResult(null)
+                      }}
+                    />
+                  }
+                  label={t('historicalImport.loansMode')}
+                />
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t('historicalImport.loansModeHelp')}
+                </Typography>
+              </Box>
 
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
@@ -294,6 +341,13 @@ export function HistoricalImportPage() {
                   disabled={templateMutation.isPending}
                 >
                   {t('historicalImport.downloadTemplate')}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => loanTemplateMutation.mutate()}
+                  disabled={loanTemplateMutation.isPending}
+                >
+                  {t('historicalImport.downloadLoanTemplate')}
                 </Button>
                 <Button variant="outlined" component="label">
                   {t('historicalImport.chooseFile')}
@@ -336,7 +390,7 @@ export function HistoricalImportPage() {
         {previewMutation.isError && (
           <ErrorState
             title={t('historicalImport.previewFailed')}
-            message={getErrorMessage(previewMutation.error, t('errors.generic'))}
+            message={localizedApiError(t, previewMutation.error, 'historicalImport.errorCodes')}
           />
         )}
 
@@ -433,6 +487,7 @@ export function HistoricalImportPage() {
               columns={errorColumns}
               rows={preview.errors ?? []}
               emptyTitle={t('historicalImport.noErrors')}
+              emptyDescription=""
               getRowId={(row) =>
                 `${row.sheet ?? 'sheet'}-${row.rowNumber ?? 'row'}-${row.field ?? 'field'}-${row.message ?? ''}`
               }
@@ -485,7 +540,7 @@ export function HistoricalImportPage() {
           {historyQuery.isError && (
             <ErrorState
               title={t('historicalImport.historyFailed')}
-              message={getErrorMessage(historyQuery.error, t('errors.generic'))}
+              message={localizedApiError(t, historyQuery.error, 'historicalImport.errorCodes')}
             />
           )}
           {historyQuery.data && (
@@ -493,6 +548,7 @@ export function HistoricalImportPage() {
               columns={historyColumns}
               rows={historyQuery.data}
               emptyTitle={t('historicalImport.noHistory')}
+              emptyDescription=""
               getRowId={(row) => row.id}
             />
           )}
@@ -558,5 +614,40 @@ function SectionCard({ title, lines }: { title: string; lines: Array<[string, st
         </Stack>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Two guided imports for an existing Saving Scheme: opening balances at a cutover date, and a multi-year history of
+ * dated transactions (validated first, approved by a different officer, then posted). Each is explained on its own tab.
+ */
+export function HistoricalImportPage() {
+  const { t } = useTranslation()
+  const cooperativeId = useAppSelector((s) => s.auth.selectedCooperativeId)
+  const [tab, setTab] = useState<'opening' | 'transactions'>('opening')
+  return (
+    <Box>
+      <Tabs
+        value={tab}
+        onChange={(_, value: 'opening' | 'transactions') => setTab(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        aria-label={t('historicalTransactions.tabsLabel')}
+        sx={{ mb: 2 }}
+      >
+        <Tab value="opening" label={t('historicalTransactions.tabs.opening')} />
+        <Tab value="transactions" label={t('historicalTransactions.tabs.transactions')} />
+      </Tabs>
+      {tab === 'opening' ? (
+        <OpeningBalanceImport />
+      ) : cooperativeId ? (
+        <Box>
+          <PageHeader title={t('historicalTransactions.title')} description={t('historicalTransactions.description')} />
+          <HistoricalTransactionsPanel cooperativeId={cooperativeId} />
+        </Box>
+      ) : (
+        <Alert severity="info">{t('payments.selectSchemeTitle')}</Alert>
+      )}
+    </Box>
   )
 }

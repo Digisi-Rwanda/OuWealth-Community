@@ -75,6 +75,7 @@ class PublicOnboardingMembershipRollbackIntegrationTest {
                     "financialYearStartMonth":1,
                     "monthlyContributionAmount":1000,
                     "contributionDueDay":1,
+                    "operatingModel":"ACCUMULATING",
                     "registrationDate":"2024-01-15"
                   },
                   "creator": {
