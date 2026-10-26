@@ -25,4 +25,10 @@ public class FineSettingsResponse {
     private String currency;
     private Instant createdAt;
     private Instant updatedAt;
+
+    private String penaltyBands;
+    private boolean perShare;
+    private Integer creditConversionDays;
+    private Integer creditConversionTermMonths;
+    private BigDecimal creditConversionRatePercent;
 }

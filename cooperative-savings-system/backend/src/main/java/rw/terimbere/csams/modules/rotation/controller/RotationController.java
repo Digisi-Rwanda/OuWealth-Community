@@ -45,6 +45,7 @@ public class RotationController {
 
     private final RotationConfigurationService configurationService;
     private final RotationCycleService cycleService;
+    private final rw.terimbere.csams.modules.rotation.service.RotationMigrationService migrationService;
 
     @PostMapping("/configurations")
     @PreAuthorize("hasAuthority('COOPERATIVE_WRITE')")
@@ -92,6 +93,42 @@ public class RotationController {
             @Valid @RequestBody CycleCreateRequest request,
             HttpServletRequest http) {
         return ResponseEntity.ok(ApiResponse.ok(cycleService.create(cooperativeId, request, idempotencyKey, http)));
+    }
+
+    @PostMapping("/share-cycles")
+    @PreAuthorize("hasAuthority('COOPERATIVE_WRITE')")
+    @Operation(
+            summary = "Create a draft share-based cycle: a fixed payout per share, one turn per share, several turns a month allowed",
+            description = "Optional Idempotency-Key header. The response carries a funding check (turns vs rotated contributions).")
+    public ResponseEntity<ApiResponse<CycleResponse>> createShareCycle(
+            @PathVariable UUID cooperativeId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody rw.terimbere.csams.modules.rotation.dto.RotationDtos.ShareCycleCreateRequest request,
+            HttpServletRequest http) {
+        return ResponseEntity.ok(ApiResponse.ok(cycleService.createShareCycle(cooperativeId, request, idempotencyKey, http)));
+    }
+
+    @PostMapping("/migration")
+    @PreAuthorize("hasAuthority('COOPERATIVE_WRITE')")
+    @Operation(
+            summary = "Migration: import the running rotation (split, cycle with turns already paid, members' rotated money and payouts before the cutover)",
+            description = "Run after the member opening balances were imported. Returns a reconciliation of the rotation cash.")
+    public ResponseEntity<ApiResponse<rw.terimbere.csams.modules.rotation.service.RotationMigrationService.RotationImportResponse>> importRotation(
+            @PathVariable UUID cooperativeId,
+            @Valid @RequestBody rw.terimbere.csams.modules.rotation.service.RotationMigrationService.RotationImportRequest request,
+            HttpServletRequest http) {
+        return ResponseEntity.ok(ApiResponse.ok(migrationService.importRotation(cooperativeId, request, http)));
+    }
+
+    @PutMapping("/turns/{turnId}/member")
+    @PreAuthorize("hasAuthority('COOPERATIVE_WRITE')")
+    @Operation(summary = "Give a turn to another member before its month begins (reason required, audited)")
+    public ResponseEntity<ApiResponse<CycleResponse>> reassignTurn(
+            @PathVariable UUID cooperativeId,
+            @PathVariable UUID turnId,
+            @Valid @RequestBody rw.terimbere.csams.modules.rotation.dto.RotationDtos.TurnReassignRequest request,
+            HttpServletRequest http) {
+        return ResponseEntity.ok(ApiResponse.ok(cycleService.reassignTurn(cooperativeId, turnId, request, http)));
     }
 
     @GetMapping("/cycles")

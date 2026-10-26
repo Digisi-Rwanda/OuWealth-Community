@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -123,7 +124,14 @@ public class ContributionObligationService {
             }
         }
         boolean closed = c.getStatus() == ContributionStatus.WAIVED || c.getStatus() == ContributionStatus.CANCELLED;
-        return build(snapshotted, due, model, rotating, retained, periodId, c.getExpectedAmount(), c.getPaidAmount(), closed);
+        ObligationView view = build(snapshotted, due, model, rotating, retained, periodId, c.getExpectedAmount(), c.getPaidAmount(), closed);
+        if (snapshotted && ContributionSplits.usesUnits(c) && c.getExpectedAmount() != null) {
+            Split exact = ContributionSplits.split(c, c.getExpectedAmount());
+            view = new ObligationView(view.snapshotted(), view.dueDate(), view.overdue(), view.overdueAmount(),
+                    view.operatingModel(), view.rotatingBps(), view.retainedBps(), exact.rotating(), exact.retained(),
+                    view.rotationPeriodId());
+        }
+        return view;
     }
 
     /** The projected obligation of a member who has no stored row yet. Reads only; nothing is created. */
@@ -197,7 +205,8 @@ public class ContributionObligationService {
             UUID configurationId,
             Integer rotatingBps,
             Integer retainedBps,
-            UUID rotationPeriodId) {
+            UUID rotationPeriodId,
+            BigDecimal rotatingUnit) {
 
         void writeTo(Contribution row, Instant at) {
             row.setObligationSnapshotAt(at);
@@ -208,6 +217,7 @@ public class ContributionObligationService {
             row.setRotatingBpsSnapshot(rotatingBps);
             row.setRetainedBpsSnapshot(retainedBps);
             row.setRotationPeriodId(rotationPeriodId);
+            row.setRotatingUnitSnapshot(rotatingUnit);
         }
     }
 
@@ -220,6 +230,7 @@ public class ContributionObligationService {
         Integer rotating = null;
         Integer retained = null;
         UUID periodId = null;
+        BigDecimal rotatingUnit = null;
         if (isRotationModel(ctx.model)) {
             Optional<RotationConfiguration> cfg = ctx.configFor(year, month);
             Optional<RotationPeriod> period = ctx.livePeriodFor(year, month);
@@ -239,13 +250,18 @@ public class ContributionObligationService {
                 configId = cfg.get().getId();
                 rotating = cfg.get().getRotatingBps();
                 retained = cfg.get().getRetainedBps();
+                BigDecimal unitAmount = cooperative.getMonthlyContributionAmount();
+                if (cfg.get().getRotatingUnitAmount() != null && unitAmount != null && unitAmount.signum() > 0
+                        && cfg.get().getRotatingUnitAmount().compareTo(unitAmount) <= 0) {
+                    rotatingUnit = cfg.get().getRotatingUnitAmount();
+                }
             }
             if (period.isPresent()) {
                 periodId = period.get().getId();
             }
         }
         return new Snapshot(
-                cooperative.getMonthlyContributionAmount(), due, ctx.model, configId, rotating, retained, periodId);
+                cooperative.getMonthlyContributionAmount(), due, ctx.model, configId, rotating, retained, periodId, rotatingUnit);
     }
 
     // ------------------------------------------------------------------ explicit materialization
@@ -321,6 +337,74 @@ public class ContributionObligationService {
         return new MaterializeResponse(year, month, created, members.size() - created, members.size());
     }
 
+    /**
+     * Creates the missing obligation rows of every active member for each of {@code months} (current month or later),
+     * inside the caller's transaction and under the caller's authorization. Used when a rotation cycle is activated so
+     * the whole cycle is owed from day one: a member paid early sees every month still to contribute. Existing rows are
+     * never touched. Returns how many rows were created.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public int materializeMonths(UUID cooperativeId, List<YearMonth> months, UUID actorId) {
+        Cooperative cooperative = cooperativeRepository
+                .findByIdAndDeletedFalse(cooperativeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cooperative", cooperativeId));
+        YearMonth current = ContributionDueDates.currentMonth(clock);
+        evict(cooperativeId);
+        List<CooperativeMembership> members =
+                membershipRepository.findByCooperativeIdAndMembershipStatus(cooperativeId, "ACTIVE");
+        int created = 0;
+        for (YearMonth ym : months) {
+            if (ym.isBefore(current)) {
+                continue;
+            }
+            Set<UUID> existing = contributionRepository
+                    .findByCooperativeIdAndYearAndMonth(cooperativeId, ym.getYear(), ym.getMonthValue())
+                    .stream()
+                    .map(Contribution::getMemberUserId)
+                    .collect(Collectors.toSet());
+            List<Contribution> toSave = new ArrayList<>();
+            for (CooperativeMembership membership : members) {
+                if (existing.contains(membership.getUserId())) {
+                    continue;
+                }
+                int shares = ShareAmountCalculator.normalizeShareCount(membership.getShareCount());
+                if (shares <= 0) {
+                    continue;
+                }
+                BigDecimal expected = ShareAmountCalculator.expectedMonthly(cooperative.getMonthlyContributionAmount(), shares);
+                Contribution row = Contribution.builder()
+                        .cooperativeId(cooperativeId)
+                        .memberUserId(membership.getUserId())
+                        .year(ym.getYear())
+                        .month(ym.getMonthValue())
+                        .shareCount(shares)
+                        .expectedAmount(expected)
+                        .paidAmount(BigDecimal.ZERO)
+                        .outstandingAmount(expected)
+                        .status(ContributionStatus.PENDING)
+                        .ledgerRevision(0)
+                        .build();
+                snapshotFor(cooperative, membership, ym.getYear(), ym.getMonthValue(), false).writeTo(row, Instant.now(clock));
+                toSave.add(row);
+            }
+            contributionRepository.saveAllAndFlush(toSave);
+            created += toSave.size();
+        }
+        if (created > 0) {
+            auditService.record(
+                    actorId,
+                    cooperativeId,
+                    AuditableAction.CONTRIBUTION_OBLIGATIONS_MATERIALIZE,
+                    "ContributionPeriod",
+                    null,
+                    null,
+                    "{\"months\":" + months.size() + ",\"created\":" + created + "}",
+                    null,
+                    null);
+        }
+        return created;
+    }
+
     // ------------------------------------------------------------------ late-payment attribution (read only)
 
     /**
@@ -360,7 +444,7 @@ public class ContributionObligationService {
         BigDecimal rotating = BigDecimal.ZERO;
         BigDecimal retained = amount;
         if (row.getRotatingBpsSnapshot() != null) {
-            Split delta = ContributionAllocationCalculator.delta(paid, amount, row.getRotatingBpsSnapshot());
+            Split delta = ContributionSplits.delta(row, paid, amount);
             rotating = delta.rotating();
             retained = delta.retained();
         }

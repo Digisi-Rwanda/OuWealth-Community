@@ -53,4 +53,19 @@ public class MemberOpeningBalance extends BaseEntity {
 
     @Column(name = "created_by")
     private UUID createdBy;
+
+    /** Rotated money the member had paid into the running cycle before the cutover (position only, not cash). */
+    @Builder.Default
+    @Column(name = "opening_rotation_paid", nullable = false, precision = 19, scale = 4)
+    private java.math.BigDecimal openingRotationPaid = java.math.BigDecimal.ZERO;
+
+    /** Rotation payouts the member had received in the running cycle before the cutover (position only). */
+    @Builder.Default
+    @Column(name = "opening_rotation_received", nullable = false, precision = 19, scale = 4)
+    private java.math.BigDecimal openingRotationReceived = java.math.BigDecimal.ZERO;
+
+    /** Money the scheme owed the member at the cutover (a liability to the member, not capital). */
+    @Builder.Default
+    @Column(name = "opening_owed_to_member", nullable = false, precision = 19, scale = 4)
+    private java.math.BigDecimal openingOwedToMember = java.math.BigDecimal.ZERO;
 }
