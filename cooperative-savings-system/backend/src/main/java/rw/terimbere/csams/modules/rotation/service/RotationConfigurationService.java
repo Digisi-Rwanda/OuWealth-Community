@@ -43,12 +43,48 @@ public class RotationConfigurationService {
     private final AuditService auditService;
     private final Clock clock;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final rw.terimbere.csams.modules.cooperative.repository.CooperativeRepository cooperativeRepository;
 
     @Transactional
     public ConfigurationResponse create(UUID cooperativeId, ConfigurationRequest request, HttpServletRequest http) {
         UserPrincipal principal = access.requireManage(cooperativeId);
         SchemeOperatingModel model = access.requireRotationModel(cooperativeId);
-        validateSplit(model, request.rotatingBps(), request.retainedBps());
+        java.math.BigDecimal unit = cooperativeRepository.findByIdAndDeletedFalse(cooperativeId)
+                .map(rw.terimbere.csams.modules.cooperative.entity.Cooperative::getMonthlyContributionAmount)
+                .orElse(null);
+        java.math.BigDecimal rotatingUnit = request.rotatingUnitAmount();
+        int rotatingBps;
+        int retainedBps;
+        if (rotatingUnit != null) {
+            if (unit == null || unit.signum() <= 0) {
+                throw new ValidationException(
+                        "Set the contribution per share before stating the split in money",
+                        Map.of("rotatingUnitAmount", "The scheme has no contribution amount per share"));
+            }
+            if (rotatingUnit.compareTo(unit) > 0) {
+                throw new ValidationException(
+                        "The rotated amount cannot exceed the contribution per share",
+                        Map.of("rotatingUnitAmount", "At most " + unit.stripTrailingZeros().toPlainString()));
+            }
+            rotatingBps = rotatingUnit.multiply(java.math.BigDecimal.valueOf(10000))
+                    .divide(unit, 0, java.math.RoundingMode.HALF_UP).intValue();
+            if (rotatingUnit.compareTo(unit) < 0) {
+                rotatingBps = Math.max(1, Math.min(9999, rotatingBps));
+            }
+            retainedBps = 10000 - rotatingBps;
+            if (rotatingUnit.compareTo(unit) == 0) {
+                rotatingUnit = null; // 100% rotating is exact in basis points
+            }
+        } else {
+            if (request.rotatingBps() == null || request.retainedBps() == null) {
+                throw new ValidationException(
+                        "State the split in money or in basis points",
+                        Map.of("rotatingUnitAmount", "Enter the rotated amount per share"));
+            }
+            rotatingBps = request.rotatingBps();
+            retainedBps = request.retainedBps();
+        }
+        validateSplit(model, rotatingBps, retainedBps);
 
         YearMonth effective = YearMonth.of(request.effectiveYear(), request.effectiveMonth());
         if (access.hasBegun(effective)) {
@@ -63,7 +99,10 @@ public class RotationConfigurationService {
                 cooperativeId, effective.getYear(), effective.getMonthValue());
         if (existing.isPresent()) {
             RotationConfiguration found = existing.get();
-            if (found.getRotatingBps() == request.rotatingBps() && found.getRetainedBps() == request.retainedBps()) {
+            if (found.getRotatingBps() == rotatingBps && found.getRetainedBps() == retainedBps
+                    && java.util.Objects.equals(
+                            found.getRotatingUnitAmount() == null ? null : found.getRotatingUnitAmount().stripTrailingZeros(),
+                            rotatingUnit == null ? null : rotatingUnit.stripTrailingZeros())) {
                 return toResponse(found); // an identical retry is a success, not a second row
             }
             throw new ConflictException(
@@ -75,8 +114,9 @@ public class RotationConfigurationService {
                 .cooperativeId(cooperativeId)
                 .effectiveYear(effective.getYear())
                 .effectiveMonth(effective.getMonthValue())
-                .rotatingBps(request.rotatingBps())
-                .retainedBps(request.retainedBps())
+                .rotatingBps(rotatingBps)
+                .retainedBps(retainedBps)
+                .rotatingUnitAmount(rotatingUnit)
                 .createdBy(principal.getId())
                 .createdAt(Instant.now(clock))
                 .build());
@@ -92,6 +132,55 @@ public class RotationConfigurationService {
                 RotationAccess.clientIp(http),
                 RotationAccess.userAgent(http));
         return toResponse(saved);
+    }
+
+    /**
+     * Migration only: records the split a running scheme already uses, effective from a month that may have begun (the
+     * cutover month), so the obligations created from the cutover carry it. Refused once any contribution of that month
+     * or later was split, so history is never re-described. Caller authorizes and holds the fund lock.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public RotationConfiguration createImported(
+            UUID cooperativeId, YearMonth effective, java.math.BigDecimal rotatingUnitAmount, UUID actorId) {
+        SchemeOperatingModel model = cooperativeRepository.findOperatingModelById(cooperativeId);
+        java.math.BigDecimal unit = cooperativeRepository.findByIdAndDeletedFalse(cooperativeId)
+                .map(rw.terimbere.csams.modules.cooperative.entity.Cooperative::getMonthlyContributionAmount)
+                .orElse(null);
+        if (unit == null || unit.signum() <= 0) {
+            throw new BusinessException("CONTRIBUTION_UNIT_MISSING", "Set the contribution per share first");
+        }
+        java.math.BigDecimal rotating = rotatingUnitAmount == null || model == SchemeOperatingModel.ROTATING ? unit : rotatingUnitAmount;
+        if (rotating.compareTo(unit) > 0 || rotating.signum() <= 0) {
+            throw new ValidationException("The rotated amount must be between 1 and the contribution per share",
+                    Map.of("rotatingUnitAmount", "At most " + unit.stripTrailingZeros().toPlainString()));
+        }
+        int bps = rotating.multiply(java.math.BigDecimal.valueOf(10000)).divide(unit, 0, java.math.RoundingMode.HALF_UP).intValue();
+        if (rotating.compareTo(unit) < 0) {
+            bps = Math.max(1, Math.min(9999, bps));
+        }
+        validateSplit(model, bps, 10000 - bps);
+        var existing = repository.findByCooperativeIdAndEffectiveYearAndEffectiveMonth(
+                cooperativeId, effective.getYear(), effective.getMonthValue());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        Long used = jdbc.queryForObject(
+                "select count(*) from contributions where cooperative_id = ? and rotating_bps_snapshot is not null"
+                        + " and (\"year\" * 100 + \"month\") >= ?",
+                Long.class, cooperativeId, effective.getYear() * 100 + effective.getMonthValue());
+        if (used != null && used > 0) {
+            throw new ConflictException("ROTATION_CONFIG_IN_USE", "Contributions of that month were already split");
+        }
+        return repository.saveAndFlush(RotationConfiguration.builder()
+                .cooperativeId(cooperativeId)
+                .effectiveYear(effective.getYear())
+                .effectiveMonth(effective.getMonthValue())
+                .rotatingBps(bps)
+                .retainedBps(10000 - bps)
+                .rotatingUnitAmount(rotating.compareTo(unit) == 0 ? null : rotating)
+                .createdBy(actorId)
+                .createdAt(Instant.now(clock))
+                .build());
     }
 
     @Transactional(readOnly = true)
@@ -192,6 +281,8 @@ public class RotationConfigurationService {
                 c.getEffectiveMonth(),
                 c.getRotatingBps(),
                 c.getRetainedBps(),
+                c.getRotatingUnitAmount(),
+                null,
                 c.getCreatedBy(),
                 c.getCreatedAt(),
                 deletionBlockedReason == null,
