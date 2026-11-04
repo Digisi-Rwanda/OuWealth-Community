@@ -47,7 +47,7 @@ public class ContactMessageService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(from);
+            helper.setFrom(rw.terimbere.csams.modules.notification.mail.NotificationEmailCopy.fromAddress(from, mailProperties.getFromName()));
             helper.setTo(supportProperties.getEmailTo().trim());
             // the visitor's address is validated and parsed as a single address, never concatenated into a header
             helper.setReplyTo(new InternetAddress(request.getEmail().trim(), true));

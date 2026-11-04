@@ -28,6 +28,11 @@ public final class NotificationEmailCopy {
         return new InternetAddress(from.trim(), BRAND, "UTF-8");
     }
 
+    /** The visible sender: the configured name (defaults to the brand), never the mailbox owner's name. */
+    public static InternetAddress fromAddress(String from, String name) throws UnsupportedEncodingException {
+        return new InternetAddress(from.trim(), StringUtils.hasText(name) ? name.trim() : BRAND, "UTF-8");
+    }
+
     public static String plainText(String title, String body) {
         String content = StringUtils.hasText(body) ? body.trim() : (StringUtils.hasText(title) ? title.trim() : "");
         StringBuilder text = new StringBuilder();

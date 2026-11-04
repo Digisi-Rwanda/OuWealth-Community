@@ -1,7 +1,9 @@
 import AddIcon from '@mui/icons-material/Add'
+import MailOutlineIcon from '@mui/icons-material/EmailOutlined'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import {
   Box,
+  Button,
   Chip,
   IconButton,
   Menu,
@@ -17,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MemberFormDialog } from '@/features/members/MemberFormDialog'
 import { MemberRemovalDialog } from '@/features/members/MemberRemovalDialog'
+import { SendLoginDetailsDialog } from '@/features/members/SendLoginDetailsDialog'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectIsLeadership } from '@/app/store/authSlice'
 import { createMember, fetchMembers } from '@/shared/api/members'
@@ -65,6 +68,7 @@ export function MembersPage() {
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(10)
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('action') === 'register')
+  const [loginDetailsOpen, setLoginDetailsOpen] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('action') === 'register') {
@@ -191,9 +195,16 @@ export function MembersPage() {
         title={t('pages.members.title')}
         description={t('pages.members.description')}
         actions={
-          <SubscriptionAwareButton variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            {t('members.register')}
-          </SubscriptionAwareButton>
+          <Stack direction="row" spacing={1}>
+            {isLeadership ? (
+              <Button variant="outlined" startIcon={<MailOutlineIcon />} onClick={() => setLoginDetailsOpen(true)}>
+                {t('members.loginDetails.button')}
+              </Button>
+            ) : null}
+            <SubscriptionAwareButton variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+              {t('members.register')}
+            </SubscriptionAwareButton>
+          </Stack>
         }
       />
 
@@ -296,6 +307,10 @@ export function MembersPage() {
           open
           onClose={() => setRemovalTarget(null)}
         />
+      ) : null}
+
+      {loginDetailsOpen && cooperativeId ? (
+        <SendLoginDetailsDialog cooperativeId={cooperativeId} onClose={() => setLoginDetailsOpen(false)} />
       ) : null}
 
       <MemberFormDialog

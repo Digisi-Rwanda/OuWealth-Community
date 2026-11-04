@@ -21,6 +21,12 @@ public class MailProperties {
     /** Envelope From address. Required together with host before any message is sent. */
     private String from = "";
 
+    /** The name people see as the sender. Always the platform's name, never the mailbox owner's. */
+    private String fromName = "OuWealth Community";
+
+    /** Where links in emails point (sign-in, password reset). */
+    private String appUrl = "https://wealthcommunity.ousuite.com";
+
     public boolean isConfigured() {
         return enabled && StringUtils.hasText(host) && StringUtils.hasText(from);
     }

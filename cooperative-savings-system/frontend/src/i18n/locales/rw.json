@@ -1410,6 +1410,21 @@
         "REASON_REQUIRED": "Sobanura impamvu umunyamuryango asibwa (nibura inyuguti 10).",
         "CONFIRM_USERNAME_MISMATCH": "Andika neza izina ry'ukoresha ry'umunyamuryango kugira ngo wemeze."
       }
+    },
+    "loginDetails": {
+      "button": "Ohereza amakuru yo kwinjira",
+      "title": "Oherereza abanyamuryango amakuru yo kwinjira",
+      "explain": "Buri munyamuryango ahabwa imeyili ivuye kuri OuWealth Community irimo izina rye ry'ukoresha, ijambo ry'ibanga ry'agateganyo n'aho yinjirira. Ashobora kurihindura nyuma muri porofayili ye.",
+      "counts": "Abanyamuryango {{never}} ntibarinjira, {{signed}} basanzwe binjira, {{noEmail}} nta imeyili bafite.",
+      "includeSignedIn": "Ohereza no ku basanzwe binjira",
+      "includeWarning": "Ijambo ry'ibanga ryabo risanzwe rizahagarara gukora; bazakoresha iry'agateganyo rishya.",
+      "send": "Ohereza ku banyamuryango {{count}}",
+      "sent": "Amakuru yo kwinjira yoherejwe ku banyamuryango {{count}}.",
+      "noEmail": "Abanyamuryango {{count}} nta imeyili bafite; uyongere kuri porofayili yabo.",
+      "notReady": "Imeyili ntiziraboneka kuri seriveri, nta cyoherezwa.",
+      "errors": {
+        "EMAIL_NOT_CONFIGURED": "Imeyili ntiziraboneka kuri seriveri."
+      }
     }
   },
   "contributions": {

@@ -69,6 +69,7 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final rw.terimbere.csams.modules.notification.mail.AccountEmailService accountEmails;
     private final CooperativeMembershipRepository membershipRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -432,6 +433,7 @@ public class AuthService {
                     .used(false)
                     .build();
             passwordResetTokenRepository.save(resetToken);
+            accountEmails.sendPasswordReset(user.getEmail(), user.getFirstName(), rawToken);
             auditService.record(
                     user.getId(),
                     null,

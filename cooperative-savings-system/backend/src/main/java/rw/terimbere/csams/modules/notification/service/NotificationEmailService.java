@@ -77,7 +77,7 @@ public class NotificationEmailService {
             }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(NotificationEmailCopy.fromAddress(mailProperties.getFrom()));
+            helper.setFrom(NotificationEmailCopy.fromAddress(mailProperties.getFrom(), mailProperties.getFromName()));
             helper.setTo(user.getEmail().trim());
             helper.setSubject(NotificationEmailCopy.subject(title));
             helper.setText(NotificationEmailCopy.plainText(title, body), NotificationEmailCopy.html(title, body));
