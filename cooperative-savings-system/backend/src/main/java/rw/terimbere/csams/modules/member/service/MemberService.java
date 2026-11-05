@@ -89,6 +89,7 @@ public class MemberService {
     private final CooperativeMembershipRepository membershipRepository;
     private final CooperativeAuthorizationService authorizationService;
     private final PasswordEncoder passwordEncoder;
+    private final rw.terimbere.csams.modules.notification.mail.AccountEmailService accountEmails;
     private final FileManagementService fileManagementService;
     private final AuditService auditService;
     private final ContributionService contributionService;
@@ -188,6 +189,9 @@ public class MemberService {
                 cooperativeId,
                 AccountNotificationCopy.WELCOME_TITLE,
                 AccountNotificationCopy.welcomeNewMemberBody(schemeName(cooperativeId), roleInCoop));
+
+        accountEmails.sendLoginDetails(user.getEmail(), user.getFirstName(), user.getUsername(), temporaryPassword,
+                schemeName(cooperativeId));
 
         MemberResponse response = toResponse(user, membership);
         response.setTemporaryPassword(temporaryPassword);
@@ -695,6 +699,7 @@ public class MemberService {
 
         MemberResponse response = toResponse(user, membership);
         if (temporaryPassword != null) {
+            accountEmails.sendLoginDetails(user.getEmail(), user.getFirstName(), user.getUsername(), temporaryPassword, schemeName);
             response.setTemporaryPassword(temporaryPassword);
         }
         return response;

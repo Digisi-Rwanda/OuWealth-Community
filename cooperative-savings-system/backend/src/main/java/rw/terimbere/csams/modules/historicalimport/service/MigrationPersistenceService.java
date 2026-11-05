@@ -65,6 +65,7 @@ class MigrationPersistenceService {
     private final LoanSettingsRepository loanSettingsRepository;
     private final rw.terimbere.csams.modules.share.repository.SharePurchaseRepository sharePurchaseRepository;
     private final PasswordEncoder passwordEncoder;
+    private final rw.terimbere.csams.modules.notification.mail.AccountEmailService accountEmails;
     private final SecureRandom secureRandom = new SecureRandom();
 
     record PersistResult(HistoricalImportConfirmResponse counts, Map<String, UUID> resultingEntityIds) {}
@@ -82,9 +83,15 @@ class MigrationPersistenceService {
                 continue;
             }
             ValidatedMigration.MemberDraft draft = row.draft();
-            User user = draft.createUser()
-                    ? userRepository.save(newUser(draft))
-                    : userRepository.findByIdAndDeletedFalse(draft.existingUserId()).orElseThrow();
+            User user;
+            if (draft.createUser()) {
+                // a temporary password the member receives by email; they may change it later
+                String temporary = rw.terimbere.csams.modules.notification.mail.AccountEmailService.temporaryPassword();
+                user = userRepository.save(newUser(draft, temporary));
+                accountEmails.sendLoginDetails(user.getEmail(), user.getFirstName(), user.getUsername(), temporary, cooperative.getName());
+            } else {
+                user = userRepository.findByIdAndDeletedFalse(draft.existingUserId()).orElseThrow();
+            }
             userIds.put(lower(draft.username()), user.getId());
             resultIds.put(key(row.sheet().getSheetName(), row.rowNumber()), user.getId());
             if (membershipRepository
@@ -229,7 +236,7 @@ class MigrationPersistenceService {
                 resultIds);
     }
 
-    private User newUser(ValidatedMigration.MemberDraft draft) {
+    private User newUser(ValidatedMigration.MemberDraft draft, String temporaryPassword) {
         Role memberRole = roleRepository
                 .findByCode(ROLE_MEMBER)
                 .orElseThrow(() -> new IllegalStateException("Missing role " + ROLE_MEMBER));
@@ -238,8 +245,7 @@ class MigrationPersistenceService {
         return User.builder()
                 .username(draft.username())
                 .email(draft.email())
-                // Unknown random password: the member signs in through "Forgot password".
-                .passwordHash(passwordEncoder.encode(randomPassword()))
+                .passwordHash(passwordEncoder.encode(temporaryPassword))
                 .firstName(draft.firstName())
                 .lastName(draft.lastName())
                 .phone(CooperativeFieldRules.normalizePhone(draft.phone()))

@@ -83,7 +83,7 @@ export function ReportsExportPanel({
 
   const membersQuery = useQuery({
     queryKey: ['members', cooperativeId, 'report-filter'],
-    queryFn: () => fetchMembers(cooperativeId, { status: 'ACTIVE', size: 200, sort: 'firstName,asc' }),
+    queryFn: () => fetchMembers(cooperativeId, { status: 'ACTIVE', size: 200 }),
     enabled: Boolean(cooperativeId),
   })
 

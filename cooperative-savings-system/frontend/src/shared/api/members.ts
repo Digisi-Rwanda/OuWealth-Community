@@ -185,3 +185,33 @@ export async function deleteMemberFully(
   )
   return unwrapApiData(response.data)
 }
+
+export interface LoginDetailsPreview {
+  emailReady: boolean
+  neverSignedIn: number
+  signedIn: number
+  withoutEmail: number
+}
+
+export interface LoginDetailsResult {
+  sent: number
+  skippedSignedIn: number
+  skippedNoEmail: number
+  sentTo: string[]
+}
+
+export async function fetchLoginDetailsPreview(cooperativeId: string): Promise<LoginDetailsPreview> {
+  return unwrapApiData(
+    (await apiClient.get<ApiResponse<LoginDetailsPreview>>(`/cooperatives/${cooperativeId}/members/login-details`)).data,
+  )
+}
+
+export async function sendLoginDetails(
+  cooperativeId: string,
+  payload: { memberUserIds?: string[]; includeSignedIn?: boolean },
+): Promise<LoginDetailsResult> {
+  return unwrapApiData(
+    (await apiClient.post<ApiResponse<LoginDetailsResult>>(`/cooperatives/${cooperativeId}/members/login-details`, payload))
+      .data,
+  )
+}

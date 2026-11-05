@@ -42,6 +42,24 @@ public class MemberController {
 
     private final MemberService memberService;
     private final rw.terimbere.csams.modules.member.service.MemberRemovalService memberRemovalService;
+    private final rw.terimbere.csams.modules.member.service.MemberLoginDetailsService loginDetails;
+
+    public record SendLoginDetailsRequest(java.util.List<UUID> memberUserIds, boolean includeSignedIn) {}
+
+    @GetMapping("/api/v1/cooperatives/{cooperativeId}/members/login-details")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    public ResponseEntity<ApiResponse<rw.terimbere.csams.modules.member.service.MemberLoginDetailsService.Preview>> loginDetailsPreview(
+            @PathVariable UUID cooperativeId) {
+        return ResponseEntity.ok(ApiResponse.ok(loginDetails.preview(cooperativeId)));
+    }
+
+    @PostMapping("/api/v1/cooperatives/{cooperativeId}/members/login-details")
+    @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")
+    public ResponseEntity<ApiResponse<rw.terimbere.csams.modules.member.service.MemberLoginDetailsService.Result>> sendLoginDetails(
+            @PathVariable UUID cooperativeId, @RequestBody(required = false) SendLoginDetailsRequest request, HttpServletRequest http) {
+        SendLoginDetailsRequest r = request == null ? new SendLoginDetailsRequest(null, false) : request;
+        return ResponseEntity.ok(ApiResponse.ok(loginDetails.send(cooperativeId, r.memberUserIds(), r.includeSignedIn(), http)));
+    }
 
     @PostMapping("/api/v1/cooperatives/{cooperativeId}/members")
     @PreAuthorize("hasAuthority('MEMBERSHIP_MANAGE') or hasAuthority('USER_WRITE')")

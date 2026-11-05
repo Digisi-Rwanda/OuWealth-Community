@@ -149,6 +149,10 @@ app:
     enabled: ${MAIL_ENABLED:true}
     host: ${MAIL_HOST:}
     from: ${MAIL_FROM:}
+    # what members see as the sender, whatever the mailbox is called
+    from-name: ${MAIL_FROM_NAME:OuWealth Community}
+    # where sign-in and password-reset links point
+    app-url: ${APP_PUBLIC_URL:https://wealthcommunity.ousuite.com}
   support:
     # Public contact form: always delivered here, never to an address supplied by the visitor.
     email-to: ${SUPPORT_EMAIL_TO:support@ozufy.com}

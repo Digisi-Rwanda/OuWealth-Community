@@ -1410,6 +1410,21 @@
         "REASON_REQUIRED": "Explain why the member is deleted (at least 10 characters).",
         "CONFIRM_USERNAME_MISMATCH": "Type the member's username exactly to confirm."
       }
+    },
+    "loginDetails": {
+      "button": "Send sign-in details",
+      "title": "Email members their sign-in details",
+      "explain": "Each member receives an email from OuWealth Community with their username, a temporary password and the sign-in link. They can change the password later from their profile.",
+      "counts": "{{never}} member(s) have never signed in, {{signed}} already sign in, {{noEmail}} have no email address.",
+      "includeSignedIn": "Also send to members who already sign in",
+      "includeWarning": "Their current password will stop working; they will use the new temporary password.",
+      "send": "Send to {{count}} member(s)",
+      "sent": "Sign-in details sent to {{count}} member(s).",
+      "noEmail": "{{count}} member(s) have no email address; add one on their profile.",
+      "notReady": "Outgoing email is not set up on the server yet, so nothing can be sent.",
+      "errors": {
+        "EMAIL_NOT_CONFIGURED": "Outgoing email is not set up on the server yet."
+      }
     }
   },
   "contributions": {
