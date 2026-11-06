@@ -433,6 +433,11 @@ public class AuthService {
                     .used(false)
                     .build();
             passwordResetTokenRepository.save(resetToken);
+            if (org.springframework.util.StringUtils.hasText(user.getEmail())) {
+                log.info("Password reset requested for user '{}'; emailing the reset link", user.getUsername());
+            } else {
+                log.warn("Password reset requested for user '{}', but the account has no email address; nothing sent", user.getUsername());
+            }
             accountEmails.sendPasswordReset(user.getEmail(), user.getFirstName(), rawToken);
             auditService.record(
                     user.getId(),
@@ -452,6 +457,7 @@ public class AuthService {
                         rawToken);
             }
         } else {
+            log.info("Password reset requested for '{}', but no account has that username or email", maskIdentifier(identifier));
             auditService.record(
                     null,
                     null,
@@ -672,5 +678,16 @@ public class AuthService {
             return null;
         }
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    private static String maskIdentifier(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            return "";
+        }
+        int at = identifier.indexOf('@');
+        if (at > 0) {
+            return identifier.charAt(0) + "***" + identifier.substring(at);
+        }
+        return identifier.length() <= 2 ? identifier : identifier.substring(0, 2) + "***";
     }
 }
