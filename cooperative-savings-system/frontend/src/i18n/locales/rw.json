@@ -1424,7 +1424,15 @@
       "notReady": "Imeyili ntiziraboneka kuri seriveri, nta cyoherezwa.",
       "errors": {
         "EMAIL_NOT_CONFIGURED": "Imeyili ntiziraboneka kuri seriveri."
-      }
+      },
+      "oneAction": "Ohereza amakuru yo kwinjira",
+      "oneTitle": "Oherereza {{name}} amakuru yo kwinjira",
+      "oneExplain": "OuWealth Community izohereza izina ry'ukoresha {{username}} n'ijambo ry'ibanga ry'agateganyo rishya kuri {{email}}.",
+      "oneWarning": "Ijambo ry'ibanga risanzwe rizahagarara gukora; azinjira akoresheje iry'agateganyo rishya, kandi ashobora kurihindura muri porofayili ye.",
+      "oneNoEmail": "Uyu munyamuryango nta imeyili afite. Banza uyongere kuri porofayili ye.",
+      "oneSend": "Ohereza",
+      "oneSent": "Amakuru yo kwinjira yoherejwe kuri {{email}}.",
+      "oneNotSent": "Nta cyoherejwe. Reba ko umunyamuryango akora kandi afite imeyili."
     }
   },
   "contributions": {
