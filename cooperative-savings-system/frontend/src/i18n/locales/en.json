@@ -1424,7 +1424,15 @@
       "notReady": "Outgoing email is not set up on the server yet, so nothing can be sent.",
       "errors": {
         "EMAIL_NOT_CONFIGURED": "Outgoing email is not set up on the server yet."
-      }
+      },
+      "oneAction": "Send sign-in details",
+      "oneTitle": "Send sign-in details to {{name}}",
+      "oneExplain": "OuWealth Community will email username {{username}} and a new temporary password to {{email}}.",
+      "oneWarning": "Their current password stops working; they sign in with the new temporary password and can change it from their profile.",
+      "oneNoEmail": "This member has no email address. Add one on their profile first.",
+      "oneSend": "Send",
+      "oneSent": "Sign-in details sent to {{email}}.",
+      "oneNotSent": "Nothing was sent. Check that the member is active and has an email address."
     }
   },
   "contributions": {

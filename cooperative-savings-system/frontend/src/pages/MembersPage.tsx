@@ -20,6 +20,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { MemberFormDialog } from '@/features/members/MemberFormDialog'
 import { MemberRemovalDialog } from '@/features/members/MemberRemovalDialog'
 import { SendLoginDetailsDialog } from '@/features/members/SendLoginDetailsDialog'
+import { SendMemberLoginDetailsDialog } from '@/features/members/SendMemberLoginDetailsDialog'
 import { useAppSelector } from '@/app/store/hooks'
 import { selectIsLeadership } from '@/app/store/authSlice'
 import { createMember, fetchMembers } from '@/shared/api/members'
@@ -61,6 +62,7 @@ export function MembersPage() {
   const isLeadership = useAppSelector(selectIsLeadership)
   const [menu, setMenu] = useState<{ anchor: HTMLElement; member: Member } | null>(null)
   const [removalTarget, setRemovalTarget] = useState<Member | null>(null)
+  const [loginTarget, setLoginTarget] = useState<Member | null>(null)
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -291,6 +293,14 @@ export function MembersPage() {
         </MenuItem>
         <MenuItem
           onClick={() => {
+            if (menu) setLoginTarget(menu.member)
+            setMenu(null)
+          }}
+        >
+          {t('members.loginDetails.oneAction')}
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
             if (menu) setRemovalTarget(menu.member)
             setMenu(null)
           }}
@@ -306,6 +316,17 @@ export function MembersPage() {
           memberName={memberDisplayName(removalTarget)}
           open
           onClose={() => setRemovalTarget(null)}
+        />
+      ) : null}
+
+      {loginTarget && cooperativeId ? (
+        <SendMemberLoginDetailsDialog
+          cooperativeId={cooperativeId}
+          userId={loginTarget.userId}
+          name={memberDisplayName(loginTarget)}
+          username={loginTarget.username}
+          email={loginTarget.email}
+          onClose={() => setLoginTarget(null)}
         />
       ) : null}
 
