@@ -42,6 +42,10 @@ public interface FineRepository extends JpaRepository<Fine, UUID> {
 
     List<Fine> findBySourceContributionId(UUID sourceContributionId);
 
+    /** Open automatic late-contribution fines of a scheme (re-priced when the per-share / per-member choice changes). */
+    List<Fine> findByCooperativeIdAndFineTypeAndStatusAndSourceContributionIdIsNotNull(
+            UUID cooperativeId, rw.terimbere.csams.modules.fine.entity.FineType fineType, FineStatus status);
+
     List<Fine> findBySourceLoanInstallmentIdAndStatusInOrderByIssuedDateAscCreatedAtAsc(
             UUID sourceLoanInstallmentId, Collection<FineStatus> statuses);
 

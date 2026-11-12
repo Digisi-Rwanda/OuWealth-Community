@@ -1,4 +1,18 @@
-import { Alert, Box, Button, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Button,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
+} from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useEffect, useState } from 'react'
@@ -10,7 +24,7 @@ import { fetchFineSettings, updateFineSettings } from '@/shared/api/fineSettings
 
 /**
  * Late-contribution policy beyond a flat fine: penalties by bands of days late (e.g. 1-5 days 2,000; 6-15 days 5,000),
- * charged per share, and conversion of a contribution left unpaid too long into a monthly charge (e.g. after 30 days,
+ * charged per member or per share, and conversion of a contribution left unpaid too long into a monthly charge (e.g. after 30 days,
  * 2% a month on what is still unpaid).
  */
 export function FinePolicyCard({ cooperativeId }: { cooperativeId: string }) {
@@ -56,6 +70,7 @@ export function FinePolicyCard({ cooperativeId }: { cooperativeId: string }) {
     onSuccess: () => {
       enqueueSnackbar(t('fines.policy.saved'), { variant: 'success' })
       void queryClient.invalidateQueries({ queryKey: ['fine-settings', cooperativeId] })
+      void queryClient.invalidateQueries({ queryKey: ['fines'] })
     },
     onError: (error) => enqueueSnackbar(getErrorMessage(error, t('errors.generic')), { variant: 'error' }),
   })
@@ -82,10 +97,21 @@ export function FinePolicyCard({ cooperativeId }: { cooperativeId: string }) {
           disabled={!canEdit || !banded}
           fullWidth
         />
-        <FormControlLabel
-          control={<Switch checked={perShare} onChange={(_, v) => setPerShare(v)} disabled={!canEdit} />}
-          label={t('fines.policy.perShare')}
-        />
+        <FormControl disabled={!canEdit}>
+          <FormLabel id="fine-basis-label">{t('fines.policy.basis')}</FormLabel>
+          <RadioGroup
+            row
+            aria-labelledby="fine-basis-label"
+            value={perShare ? 'share' : 'member'}
+            onChange={(_, v) => setPerShare(v === 'share')}
+          >
+            <FormControlLabel value="member" control={<Radio />} label={t('fines.policy.perMember')} />
+            <FormControlLabel value="share" control={<Radio />} label={t('fines.policy.perShare')} />
+          </RadioGroup>
+          {query.data && Boolean(query.data.perShare) !== perShare ? (
+            <FormHelperText>{t('fines.policy.basisChange')}</FormHelperText>
+          ) : null}
+        </FormControl>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <TextField
             label={t('fines.policy.conversionDays')}

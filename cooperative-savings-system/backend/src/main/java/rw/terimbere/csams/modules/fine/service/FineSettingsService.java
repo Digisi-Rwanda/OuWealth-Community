@@ -32,6 +32,8 @@ public class FineSettingsService {
     private final CooperativeRepository cooperativeRepository;
     private final CooperativeAuthorizationService authorizationService;
     private final AuditService auditService;
+    private final rw.terimbere.csams.modules.fine.repository.FineRepository fineRepository;
+    private final rw.terimbere.csams.modules.contribution.repository.ContributionRepository contributionRepository;
 
     @Transactional
     public FineSettingsResponse getOrCreate(UUID cooperativeId) {
@@ -87,8 +89,10 @@ public class FineSettingsService {
         if (settings.getFineMode() == FineCalculationMode.BANDED && settings.getPenaltyBands() == null) {
             throw new rw.terimbere.csams.shared.exceptions.ValidationException("Penalty bands are required for BANDED mode");
         }
-        if (request.getPerShare() != null) {
+        int repriced = 0;
+        if (request.getPerShare() != null && request.getPerShare() != settings.isPerShare()) {
             settings.setPerShare(request.getPerShare());
+            repriced = repriceOpenFines(cooperativeId, request.getPerShare());
         }
         if (request.getCreditConversionDays() != null || request.getCreditConversionRatePercent() != null) {
             boolean clear = (request.getCreditConversionDays() != null && request.getCreditConversionDays() <= 0)
@@ -116,10 +120,53 @@ public class FineSettingsService {
                 settings.getId(),
                 previous,
                 "{\"fineMode\":\"" + settings.getFineMode() + "\",\"baseFineAmount\":\""
-                        + settings.getBaseFineAmount() + "\"}",
+                        + settings.getBaseFineAmount() + "\",\"perShare\":" + settings.isPerShare()
+                        + ",\"openFinesRepriced\":" + repriced + "}",
                 clientIp(httpRequest),
                 userAgent(httpRequest));
         return toResponse(settings);
+    }
+
+    /**
+     * When the scheme switches between charging late fines per share and per member, the automatic late-contribution
+     * fines that are still open and untouched (unpaid, nothing paid yet) are re-priced the same way: divided by the
+     * member's shares for that month when switching to per member, multiplied when switching to per share. Fines
+     * already paid or partly paid stay as they are.
+     */
+    private int repriceOpenFines(UUID cooperativeId, boolean perShare) {
+        int count = 0;
+        for (rw.terimbere.csams.modules.fine.entity.Fine fine : fineRepository
+                .findByCooperativeIdAndFineTypeAndStatusAndSourceContributionIdIsNotNull(
+                        cooperativeId,
+                        rw.terimbere.csams.modules.fine.entity.FineType.AUTOMATIC,
+                        rw.terimbere.csams.modules.fine.entity.FineStatus.UNPAID)) {
+            if (fine.getPaidAmount() != null && fine.getPaidAmount().signum() != 0) {
+                continue;
+            }
+            Integer shareCount = contributionRepository.findById(fine.getSourceContributionId())
+                    .map(c -> c.getShareCount())
+                    .orElse(null);
+            int shares = shareCount == null ? 1 : Math.max(1, shareCount);
+            if (shares <= 1) {
+                continue;
+            }
+            BigDecimal factor = BigDecimal.valueOf(shares);
+            fine.setBaseAmount(reprice(fine.getBaseAmount(), factor, perShare));
+            fine.setTotalAmount(reprice(fine.getTotalAmount(), factor, perShare));
+            fine.setOutstandingAmount(reprice(fine.getOutstandingAmount(), factor, perShare));
+            fineRepository.save(fine);
+            count++;
+        }
+        return count;
+    }
+
+    private static BigDecimal reprice(BigDecimal amount, BigDecimal shares, boolean perShare) {
+        if (amount == null) {
+            return null;
+        }
+        return perShare
+                ? MoneyUtils.scaleForStorage(amount.multiply(shares))
+                : MoneyUtils.scaleForStorage(amount.divide(shares, MoneyUtils.STORAGE_SCALE, MoneyUtils.ROUNDING));
     }
 
     @Transactional

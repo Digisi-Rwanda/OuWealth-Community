@@ -41,12 +41,13 @@ class LateFineDueDayIntegrationTest {
 
     private Scheme scheme;
     private UUID member;
+    private SchemeFixtures fixtures;
 
     /** Setup runs on a frozen January 2026 so the scheme, its trial and its first due-day setting are consistent. */
     @BeforeEach
     void setUp() throws Exception {
         freeze("2026-01-15T10:00:00Z");
-        SchemeFixtures fixtures = new SchemeFixtures(mockMvc, objectMapper, jdbc);
+        fixtures = new SchemeFixtures(mockMvc, objectMapper, jdbc);
         // registration accepts 1 to 28; the due-day setting itself allows 29 to 31, which clamp to a short month's last day
         scheme = fixtures.scheme("ACCUMULATING", 28);
         jdbc.update("update contribution_due_day_settings set due_day = 31 where cooperative_id = ? and effective_year = 2026 and effective_month = 2",
@@ -141,7 +142,44 @@ class LateFineDueDayIntegrationTest {
         assertThat(fines(future)).isZero();
     }
 
+    @Test
+    void switchingFromPerShareToPerMemberRepricesOpenFinesButNotPaidOnes() throws Exception {
+        setPerShare(true);
+        UUID march = pending(2026, 3);
+        UUID april = pending(2026, 4);
+        jdbc.update("update contributions set share_count = 3 where id in (?, ?)", march, april);
+        freeze("2026-06-01T08:00:00Z");
+        fineService.generateAutomaticForEnabledCooperatives();
+        assertThat(total(march)).as("500 per share x 3 shares").isEqualByComparingTo("1500");
+        // the April fine is partly paid: it must stay as charged
+        jdbc.update("update fines set paid_amount = 100, outstanding_amount = total_amount - 100, status = 'UNPAID' where source_contribution_id = ?", april);
+
+        setPerShare(false);
+        assertThat(total(march)).as("now one fine per member").isEqualByComparingTo("500");
+        assertThat(jdbc.queryForObject("select outstanding_amount from fines where source_contribution_id = ?", java.math.BigDecimal.class, march))
+                .isEqualByComparingTo("500");
+        assertThat(total(april)).isEqualByComparingTo("1500");
+
+        // a new late month is fined per member as well
+        UUID may = pending(2026, 5);
+        jdbc.update("update contributions set share_count = 3 where id = ?", may);
+        fineService.generateAutomaticForEnabledCooperatives();
+        assertThat(total(may)).isEqualByComparingTo("500");
+    }
+
     // ------------------------------------------------------------------ helpers
+
+    private void setPerShare(boolean perShare) throws Exception {
+        mockMvc.perform(put("/api/v1/cooperatives/" + scheme.id() + "/fine-settings")
+                        .header("Authorization", "Bearer " + fixtures.superAdminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"autoFinesEnabled\":true,\"fineMode\":\"FIXED\",\"baseFineAmount\":500.0000,\"dailyIncrement\":0,\"graceDays\":0,\"perShare\":" + perShare + "}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+    }
+
+    private java.math.BigDecimal total(UUID contribution) {
+        return jdbc.queryForObject("select total_amount from fines where source_contribution_id = ?", java.math.BigDecimal.class, contribution);
+    }
 
     private UUID pending(int year, int month) {
         UUID id = UUID.randomUUID();

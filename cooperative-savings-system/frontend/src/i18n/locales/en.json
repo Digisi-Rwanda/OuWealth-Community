@@ -2016,19 +2016,22 @@
     "openQueue": "Fine Payment Queue",
     "policy": {
       "title": "Late payment policy",
-      "description": "Penalties by how many days late, charged per share, and conversion of a contribution left unpaid too long into a monthly charge.",
+      "description": "Penalties by how many days late, charged per member or per share, and conversion of a contribution left unpaid too long into a monthly charge.",
       "banded": "Charge by bands of days late",
       "bands": "Bands",
       "bandsHint": "Days late after grace : amount, e.g. 1-5:2000;6-15:5000;16-30:10000",
       "bandsRequired": "Enter at least one band",
-      "perShare": "Charge per share (a 2-share member pays twice)",
+      "perShare": "Per share (a 2-share member pays twice)",
       "conversionDays": "Convert to credit after (days)",
       "conversionDaysHint": "e.g. 30. Leave empty to switch off.",
       "conversionRate": "Monthly charge (%)",
       "conversionRateHint": "e.g. 2: the unpaid contribution becomes a loan at 2% a month.",
       "saved": "Late payment policy saved",
       "conversionTerm": "Repaid over (months)",
-      "conversionTermHint": "Term of the loan created from the unpaid contribution (default 3)."
+      "conversionTermHint": "Term of the loan created from the unpaid contribution (default 3).",
+      "basis": "Late fines are charged",
+      "perMember": "Per member (everyone pays the same fine)",
+      "basisChange": "On save, open late fines not yet paid are recalculated the new way. Fines already paid or partly paid stay as they are."
     }
   },
   "finePayments": {
