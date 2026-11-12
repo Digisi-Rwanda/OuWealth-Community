@@ -2016,19 +2016,22 @@
     "openQueue": "Urutonde rw'ubwishyu bw'amahane",
     "policy": {
       "title": "Amabwiriza yo kwishyura bitinze",
-      "description": "Ibihano hakurikijwe iminsi yarenze, bibarwa kuri buri mugabane, n'uguhindura umusanzu utishyuwe igihe kirekire mo inyungu ya buri kwezi.",
+      "description": "Ibihano hakurikijwe iminsi yarenze, bibarwa kuri buri munyamuryango cyangwa kuri buri mugabane, n'uguhindura umusanzu utishyuwe igihe kirekire mo inyungu ya buri kwezi.",
       "banded": "Hana hakurikijwe ibyiciro by'iminsi yarenze",
       "bands": "Ibyiciro",
       "bandsHint": "Iminsi yarenze nyuma y'imbabazi : ingano, urugero 1-5:2000;6-15:5000;16-30:10000",
       "bandsRequired": "Andika nibura icyiciro kimwe",
-      "perShare": "Hana kuri buri mugabane (ufite imigabane 2 yishyura kabiri)",
+      "perShare": "Kuri buri mugabane (ufite imigabane 2 yishyura kabiri)",
       "conversionDays": "Hindura inguzanyo nyuma y'iminsi",
       "conversionDaysHint": "urugero 30. Siga ubusa niba bidakoreshwa.",
       "conversionRate": "Inyungu ya buri kwezi (%)",
       "conversionRateHint": "urugero 2: umusanzu utishyuwe uhinduka inguzanyo ya 2% buri kwezi.",
       "saved": "Amabwiriza yo kwishyura bitinze yabitswe",
       "conversionTerm": "Yishyurwa mu mezi",
-      "conversionTermHint": "Igihe cy'inguzanyo ikomoka ku musanzu utishyuwe (ubusanzwe 3)."
+      "conversionTermHint": "Igihe cy'inguzanyo ikomoka ku musanzu utishyuwe (ubusanzwe 3).",
+      "basis": "Ibihano by'ubukererwe bibarwa",
+      "perMember": "Kuri buri munyamuryango (bose bishyura igihano kimwe)",
+      "basisChange": "Nubika, ibihano by'ubukererwe bitarishyurwa bizongera kubarwa mu buryo bushya. Ibyamaze kwishyurwa cyangwa byishyuwe igice ntibihinduka."
     }
   },
   "finePayments": {
